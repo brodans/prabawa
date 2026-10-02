@@ -1,0 +1,2074 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlertTriangle,
+  BadgeCheck,
+  CheckCircle2,
+  Clock,
+  Gift,
+  History,
+  KeyRound,
+  Landmark,
+  Pencil,
+  Plus,
+  QrCode,
+  Receipt,
+  RefreshCw,
+  Settings2,
+  ShieldCheck,
+  Smartphone,
+  Trash2,
+  TrendingUp,
+  Users,
+  XCircle,
+} from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
+import { useToast } from '../components/ui/Toast';
+import { StatusMidtrans } from '../components/StatusMidtrans';
+import {
+  ActionButton,
+  Alert,
+  Badge,
+  Card,
+  CardTitle,
+  Checkbox,
+  DataTable,
+  EmptyState,
+  Field,
+  Input,
+  LoadingBlock,
+  NumberField,
+  StatTile,
+  Textarea,
+  type Column,
+} from '../components/ui/Surface';
+import Dropdown from '../components/ui/Dropdown';
+import { AksiMenu } from '../components/ui/AksiMenu';
+import DatePicker from '../components/ui/DatePicker';
+import { ConfirmDialog, Modal } from '../components/ui/Modal';
+import KredensialServerModal from '../components/KredensialServerModal';
+import {
+  BILLING_DEFAULT,
+  STATUS_LABEL,
+  STATUS_TONE,
+  formatRuang,
+  formatRupiah,
+  paketById,
+  isiPesanWa,
+  DAFTAR_BANK,
+  deskripsiDurasi,
+  infoBank,
+  LABEL_SATUAN,
+  normalisasiNomorWa,
+  paketEfektif,
+  validasiKodeBank,
+  tautanWa,
+  TEMPLATE_WA_DEFAULT,
+  PLACEHOLDER_WA,
+  BATAS_PESAN_WA,
+  formatRuang as formatRuangWa,
+  ringkasanLangganan,
+  type DokumenLangganan,
+  type DokumenTagihan,
+  type MetodePembayaran,
+  type PaketLangganan,
+  type SatuanDurasi,
+  type PengaturanBilling,
+  type RekeningBank,
+  type RingkasanLangganan,
+} from '../lib/langganan';
+import {
+  loadPengaturanBilling,
+  loadSemuaTagihan,
+  loadTagihan,
+  mapLangganan,
+} from '../lib/langgananFirestore';
+/*
+ * ⚠️ Operasi tulis langganan datang dari `akunFirestore`, bukan
+ * `langgananFirestore`.
+ *
+ * Bukan soal penataan berkas: `langgananFirestore` sekarang **hanya membaca**,
+ * karena koleksi yang dibaca modul itu semuanya `write: if false` untuk klien.
+ * Penulisannya lewat server (`POST /api/panel-auth`), jadi pemanggilnya hidup
+ * di modul yang sama dengan operasi akun lainnya.
+ *
+ * Nama-namanya sama persis dengan yang lama, jadi baris pemanggil di bawah
+ * tidak ikut berubah — yang berubah adalah ke mana request-nya pergi.
+ */
+import {
+  hapusTagihan,
+  perpanjangManual,
+  savePengaturanBilling,
+  setGratis,
+  setMasaAkhir,
+  setStatusTagihan,
+} from '../lib/akunFirestore';
+import { ringkasQRIS, validateQRIS } from '../lib/qris';
+import {
+  type UserAccount,
+} from '../lib/userManager';
+import {
+  fetchAllUsers,
+  ringkasanKredensial,
+} from '../lib/akunFirestore';
+import { getTodayWIB, getTodayWIBWithDaysOffset } from '../lib/dateFormatter';
+import { formatTanggalLokal, formatTanggalWaktuLokal } from '../lib/tanggal';
+
+/**
+ * Tab halaman ini.
+ *
+ * Ditentukan **dari URL**, bukan dari `useState`. Alasannya: tab yang hanya
+ * hidup di state akan hilang saat halaman dimuat ulang, dan tidak bisa
+ * dibagikan. Untuk admin yang memeriksa tagihan dari HP lalu membuka ulang
+ * tautan yang sama, itu berarti selalu kembali ke tab pertama.
+ */
+type TabLangganan = 'akun' | 'pembayaran' | 'pengaturan';
+
+/**
+ * Path untuk tiap tab. Satu tab = satu URL.
+ *
+ * Root-nya `/langganan`, sejajar dengan `/manajemen-akun` — bukan
+ * `/manajemen-akun/langganan`. Alasannya ada di `AppContext`: kedua tab itu
+ * dua hal yang setara besar, dan URL yang jujur tidak seharusnya mengarang
+ * hubungan kepemilikan yang tidak ada.
+ */
+export const PATH_TAB_LANGGANAN: Record<TabLangganan, string> = {
+  akun: '/langganan/akun',
+  pembayaran: '/langganan/pembayaran',
+  pengaturan: '/langganan/metode',
+};
+
+const tabDariPath = (path: string): TabLangganan => {
+  if (path.endsWith('/pembayaran')) return 'pembayaran';
+  if (path.endsWith('/metode')) return 'pengaturan';
+  return 'akun';
+};
+
+/** Filter status di tab Akun. */
+type FilterStatus = 'semua' | 'aktif' | 'gratis' | 'kadaluarsa' | 'belum';
+
+const FILTER_STATUS: { value: FilterStatus; label: string }[] = [
+  { value: 'semua', label: 'Semua' },
+  { value: 'aktif', label: 'Aktif' },
+  { value: 'gratis', label: 'Gratis' },
+  { value: 'belum', label: 'Belum Bayar' },
+  { value: 'kadaluarsa', label: 'Kedaluwarsa' },
+];
+
+/** Label metode pembayaran untuk ditampilkan. */
+const METODE_LABEL: Record<MetodePembayaran, string> = {
+  qris: 'QRIS',
+  qris_midtrans: 'QRIS (Midtrans)',
+  transfer: 'Transfer Bank',
+};
+
+const METODE_ICON: Record<MetodePembayaran, typeof QrCode> = {
+  qris: QrCode,
+  qris_midtrans: Smartphone,
+  transfer: Landmark,
+};
+
+export default function Langganan() {
+  const { currentUser, cekingSesi } = useAppContext();
+  const toast = useToast();
+
+  /*
+   * Gerbang admin.
+   *
+   * Jalur lain sudah dikunci di `visiblePages` (App.tsx) dan `batasiIzin`
+   * (userManager). Pemeriksaan di sini menutup jalur ketiga: mengetik
+   * `/langganan` di address bar merender modul ini **sebelum**
+   * `visiblePages` dievaluasi.
+   *
+   * `cekingSesi` ikut diperiksa karena selama token belum diverifikasi
+   * `currentUser` bernilai `null` — dan `null?.role !== 'admin'` memang sudah
+   * menolak. Tidak eksplisitkan, tapi `cekingSesi` membuat maksudnya terbaca dan
+   * menutup jalan kalau nanti ada penyederhanaan kondisi di kemudian hari.
+   *
+   * `role` di sini berasal dari server (hasil verifikasi token), bukan dari
+   * dokumen Firestore yang bisa ditulis klien.
+   */
+  if (cekingSesi || currentUser?.role !== 'admin') {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="max-w-md text-center space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/40 flex items-center justify-center mx-auto">
+            <ShieldCheck className="w-7 h-7 text-rose-500" />
+          </div>
+          <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">Akses Ditolak</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Menu Manajemen Akun hanya bisa diakses oleh akun admin.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return <LanggananInner toast={toast} />;
+}
+
+/** Isi halaman — dipisah supaya aturan admin dievaluasi sekali di awal render. */
+function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
+  const { setSubPath, pathname } = useAppContext();
+  const tab = tabDariPath(pathname);
+  const [loading, setLoading] = useState(true);
+  /** Muat ulang diam-diam setelah data pertama sampai — lihat `muat()`. */
+  const [menyegarkan, setMenyegarkan] = useState(false);
+  const sudahPernahMuat = useRef(false);
+  const [akun, setAkun] = useState<UserAccount[]>([]);
+  const [langgananMap, setLanggananMap] = useState<Map<string, DokumenLangganan>>(new Map());
+  const [tagihan, setTagihan] = useState<DokumenTagihan[]>([]);
+  const [pengaturan, setPengaturan] = useState<PengaturanBilling>(BILLING_DEFAULT);
+  const [filter, setFilter] = useState<FilterStatus>('semua');
+  const [cari, setCari] = useState('');
+
+  // ── Dialog ────────────────────────────────────────────────────────
+  const [dialogGratis, setDialogGratis] = useState<{ ringkasan: RingkasanLangganan; nilai: boolean } | null>(
+    null
+  );
+  const [dialogPerpanjang, setDialogPerpanjang] = useState<RingkasanLangganan | null>(null);
+  const [dialogMasa, setDialogMasa] = useState<RingkasanLangganan | null>(null);
+  const [dialogRiwayat, setDialogRiwayat] = useState<RingkasanLangganan | null>(null);
+  const [dialogKredensial, setDialogKredensial] = useState<string | null>(null);
+  const [dialogPengaturan, setDialogPengaturan] = useState(false);
+  const [dialogRekening, setDialogRekening] = useState<RekeningBank | null>(null);
+  const [konfirmasiHapus, setKonfirmasiHapus] = useState<string | null>(null);
+
+  // ── Muat data ─────────────────────────────────────────────────────
+  /**
+   * Muat ulang data.
+   *
+   * ## Kenapa `loading` hanya untuk pemuatan pertama
+   *
+   * Versi lama selalu `setLoading(true)`, dan `loading`=swap seluruh
+   * tabel dengan `<LoadingBlock>`. Setiap aksi di tab "Semua Pembayaran" —
+   * tandai lunas, batalkan, hapus — memanggil fungsi ini, jadi setiap klik
+   * membuat tabel **dibongkar dan dirakit ulang**. Akibatnya yang dirasakan
+   * admin:
+   *
+   * - posisi scroll kembali ke atas, jadi baris yang tadi diklik tidak ada
+   *   lagi di layar;
+   * - dialog tempat tombol itu berada ikut tertutup;
+   * - di HP halaman terlihat "reload" setiap kali satu tagihan diubah.
+   *
+   * Perbaikan: blok "memuat" hanya untuk pemuatan pertama. Setelah itu, data
+   * diperbarui di tempat dan tabel tetap di DOM — tidak ada yang bergeser.
+   * `menyegarkan` tetap memberi tanda bahwa ada yang sedang jalan.
+   */
+  const muat = useCallback(async () => {
+    if (!sudahPernahMuat.current) setLoading(true);
+    else setMenyegarkan(true);
+    try {
+      const [daftar, peta, semuaTagihan,setting] = await Promise.all([
+        fetchAllUsers(),
+        mapLangganan(),
+        loadSemuaTagihan(),
+        loadPengaturanBilling(),
+      ]);
+      setAkun(daftar);
+      setLanggananMap(peta);
+      setTagihan(semuaTagihan);
+      setPengaturan(setting);
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Gagal memuat data langganan.');
+    } finally {
+      sudahPernahMuat.current = true;
+      setLoading(false);
+      setMenyegarkan(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    void muat();
+  }, [muat]);
+
+  const paket = useMemo(() => paketEfektif(pengaturan), [pengaturan]);
+
+  // ── Ringkasan per akun ────────────────────────────────────────────
+  const ringkasan = useMemo(
+    () =>
+      akun.map(item => {
+        const doc = langgananMap.get(item.username) ?? null;
+        return ringkasanLangganan(item.username, doc, paket, item.role);
+      }),
+    [akun, langgananMap, paket]
+  );
+
+  const terfilter = useMemo(() => {
+    const kunci = cari.trim().toLowerCase();
+    return ringkasan.filter(item => {
+      if (filter !== 'semua' && item.status !== filter) return false;
+      if (!kunci) return true;
+      return item.username.toLowerCase().includes(kunci);
+    });
+  }, [ringkasan, filter, cari]);
+
+  // ── Statistik ─────────────────────────────────────────────────────
+  const statistik = useMemo(() => {
+    const belum = ringkasan.filter(item => item.status === 'belum' || item.status === 'kadaluarsa');
+    const aktif = ringkasan.filter(item => item.status === 'aktif');
+    const gratis = ringkasan.filter(item => item.status === 'gratis');
+    // ⚠️ Admin dikeluarkan di sini, bukan hanya di tampilan. `ringkasanLangganan`
+    // memaksa status admin jadi 'aktif' supaya `bolehMasuk` mengizinkan,
+    // tapi `sisaHari`-nya tetap negatif. Kalau ikut diurutkan di sini,
+    // admin selalu jadi "terdekat" dan peringatan berbunyi untuk akun yang
+    // memang tidak pernah dikunci.
+    const terdekat = [...aktif]
+      .filter(item => item.role !== 'admin')
+      .sort((a, b) => a.sisaHari - b.sisaHari)[0];
+    const lunasBulanIni = tagihan.filter(
+      item => item.status === 'lunas' && item.waktuBayar?.slice(0, 7) === getTodayWIB().slice(0, 7)
+    );
+    return {
+      total: ringkasan.length,
+      aktif: aktif.length,
+      belumBayar: belum.length,
+      gratis: gratis.length,
+      totalBayar: tagihan
+        .filter(item => item.status === 'lunas')
+        .reduce((sum, item) => sum + (item.nominal || 0), 0),
+      lunasBulanIni: lunasBulanIni.length,
+      terdekat,
+    };
+  }, [ringkasan, tagihan]);
+
+  // ── Aksi ──────────────────────────────────────────────────────────
+  const aksiGratis = async (nilai: boolean) => {
+    if (!dialogGratis) return;
+    try {
+      await setGratis(dialogGratis.ringkasan.username, nilai, nilai ? 'Ditandai gratis oleh admin' : '');
+      toast.success(
+        nilai
+          ? `${dialogGratis.ringkasan.username} sekarang gratis — tidak perlu bayar.`
+          : `${dialogGratis.ringkasan.username} kembali wajib berlangganan.`
+      );
+      setDialogGratis(null);
+      await muat();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Gagal mengubah status gratis.');
+    }
+  };
+
+  const aksiPerpanjang = async (durasi: number, satuan: SatuanDurasi) => {
+    if (!dialogPerpanjang) return;
+    try {
+      const doc = await perpanjangManual({ username: dialogPerpanjang.username, durasi, satuan });
+      toast.success(
+        `Masa aktif ${dialogPerpanjang.username} diperpanjang ${deskripsiDurasi(durasi, satuan)} (sampai ${formatTanggalLokal(doc.masaAkhir)}).`
+      );
+      setDialogPerpanjang(null);
+      await muat();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Gagal memperpanjang masa aktif.');
+    }
+  };
+
+  const aksiSetMasa = async (iso: string) => {
+    if (!dialogMasa) return;
+    try {
+      await setMasaAkhir(dialogMasa.username, iso);
+      toast.success(`Masa aktif ${dialogMasa.username} disetel ke ${formatTanggalLokal(iso)}.`);
+      setDialogMasa(null);
+      await muat();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Gagal menyetel masa aktif.');
+    }
+  };
+
+  /*
+   * Aksi tagihan diperbarui **di tempat**, bukan dengan `muat()`.
+   *
+   * `muat()` membaca ulang seluruh koleksi tagihan untuk mengubah satu baris.
+   *  Itu mahal, dan — yang lebih penting — membuat tabel yang sedang dibaca
+   * admin ikut berubah isinya: baris yang tadi diklik tiba-tiba hilang atau
+   * berpindah tempat, jadi mata admin kehilangan targetnya di detik
+   * terakhir. Memperbarui satu baris di state menjaga tabel diam.
+   *
+   * `muat()` tetap dipanggil di latar (`void muat()`) supaya angka statistik
+   * dan total pendapatan ikut benar. Sifatnya "mengejar", bukan "menunggu".
+   */
+  const aksiHapusTagihan = async (orderId: string) => {
+    try {
+      await hapusTagihan(orderId);
+      setTagihan(prev => prev.filter(item => item.orderId !== orderId));
+      setKonfirmasiHapus(null);
+      toast.success('Tagihan dihapus.');
+      void muat();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Gagal menghapus tagihan.');
+    }
+  };
+
+  const aksiSetStatusTagihan = async (orderId: string, status: 'lunas' | 'batal') => {
+    try {
+      await setStatusTagihan(orderId, status);
+      setTagihan(prev =>
+        prev.map(item => (item.orderId === orderId ? { ...item, status } : item))
+      );
+      toast.success(status === 'lunas' ? 'Tagihan ditandai lunas.' : 'Tagihan dibatalkan.');
+      void muat();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Gagal mengubah status tagihan.');
+    }
+  };
+
+  // ── Kolom tabel akun ──────────────────────────────────────────────
+  const kolomAkun: Column<RingkasanLangganan>[] = [
+    {
+      key: 'akun',
+      header: 'Akun',
+      // `truncate` tanpa plafon `max-width` tidak memotong apa pun: di
+      // `table-layout: auto` min-content sel tetap sebesar teks penuhnya.
+      // Lihat catatan panjang di `DataTable`.
+      className: 'max-w-[220px]',
+      render: item => (
+        <div className="min-w-0">
+          <p className="font-semibold text-slate-700 dark:text-slate-200 truncate">{item.username}</p>
+          {item.paketLabel !== '—' && (
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{item.paketLabel}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      className: 'w-[132px]',
+      render: item => <Badge tone={STATUS_TONE[item.status]}>{STATUS_LABEL[item.status]}</Badge>,
+    },
+    {
+      key: 'masa',
+      header: 'Masa Aktif',
+      className: 'w-[190px]',
+      render: item =>
+        // Admin tidak berlangganan. Menampilkan tanggal berakhirnya —
+        // yang pasti sudah lewat — membuat tabel berbohong tentangnya.
+        item.role === 'admin' ? (
+          <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">Tidak berlaku</span>
+        ) : item.status === 'gratis' ? (
+          <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">Tidak terbatas</span>
+        ) : item.masaAkhir ? (
+          <div className="min-w-0 text-[11px] leading-tight">
+            <p className="font-semibold text-slate-700 dark:text-slate-200 font-mono">
+              {formatTanggalLokal(item.masaAkhir)}
+            </p>
+            <p
+              className={`font-mono ${
+                item.sisaHari <= 3 ? 'text-rose-500' : 'text-slate-400 dark:text-slate-500'
+              }`}
+            >
+              {item.sisaHari < 0 ? ' sudah lewat' : ` ${item.sisaHari} hari lagi`}
+            </p>
+          </div>
+        ) : (
+          <span className="text-[11px] text-amber-500">Belum pernah bayar</span>
+        ),
+    },
+    {
+      key: 'pembayaran',
+      header: 'Pembayaran',
+      className: 'w-[150px]',
+      render: item =>
+        item.langganan?.pembayaranTerakhir ? (
+          <div className="min-w-0 text-[11px] leading-tight">
+            <p className="font-mono text-slate-600 dark:text-slate-300">
+              {formatRupiah(item.langganan.pembayaranTerakhir.nominal)}
+            </p>
+            <p className="text-slate-400 dark:text-slate-500">
+              {METODE_LABEL[item.langganan.pembayaranTerakhir.metode]} ·{' '}
+              {formatTanggalWaktuLokal(item.langganan.pembayaranTerakhir.waktu)}
+            </p>
+          </div>
+        ) : (
+          <span className="text-[11px] text-slate-400 dark:text-slate-500">—</span>
+        ),
+    },
+    {
+      key: 'kredensial',
+      header: 'Auto-login',
+      className: 'w-[130px]',
+      render: item => <StatusKredensial username={item.username} onUbah={setDialogKredensial} />,
+    },
+    {
+      key: 'aksi',
+      header: '',
+      className: 'w-[56px]',
+      render: item => (
+        <AksiMenu
+          ariaLabel={`Aksi untuk ${item.username}`}
+          items={[
+            {
+              id: 'perpanjang',
+              label: 'Perpanjang masa aktif',
+              icon: Clock,
+              onClick: () => setDialogPerpanjang(item),
+            },
+            {
+              id: 'koreksi',
+              label: 'Koreksi tanggal',
+              icon: Pencil,
+              onClick: () => setDialogMasa(item),
+            },
+            ...(pengaturan.izinkanGratis
+              ? [
+                  {
+                    id: 'gratis',
+                    label: item.gratis ? 'Batalkan status gratis' : 'Tandai gratis',
+                    icon: Gift,
+                    onClick: () => setDialogGratis({ ringkasan: item, nilai: !item.gratis }),
+                  },
+                ]
+              : []),
+            {
+              id: 'riwayat',
+              label: 'Lihat riwayat',
+              icon: History,
+              onClick: () => setDialogRiwayat(item),
+              pemisah: true,
+            },
+          ]}
+        />
+      ),
+    },
+  ];
+
+  const kolomTagihan: Column<DokumenTagihan>[] = [
+    {
+      key: 'order',
+      header: 'Order',
+      // Sama seperti kolom "Akun" di atas: `orderId` + label pengguna perlu
+      // plafon, kalau tidak satu order yang panjang menentukan lebar tabel.
+      className: 'max-w-[240px]',
+      render: item => (
+        <div className="min-w-0">
+          <p className="font-mono text-[11px] text-slate-700 dark:text-slate-200 truncate">
+            {item.orderId}
+          </p>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">
+            {item.usernameLabel || item.username}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: 'paket',
+      header: 'Paket',
+      className: 'w-[130px]',
+      render: item => (
+        <span className="text-xs">
+          {paketById(paket, item.paketId)?.label ?? item.paketId}
+          <span className="text-[11px] text-slate-400 dark:text-slate-500">
+            {item.durasi && item.satuan
+              ? ` · ${deskripsiDurasi(item.durasi, item.satuan)}`
+              : item.durasiHari
+                ? ` · ${item.durasiHari} hari`
+                : ''}
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: 'metode',
+      header: 'Metode',
+      className: 'w-[150px]',
+      render: item => {
+        const Icon = METODE_ICON[item.metode] ?? QrCode;
+        return (
+          <span className="inline-flex items-center gap-1.5 text-xs">
+            <Icon className="w-3.5 h-3.5 text-slate-400" />
+            {METODE_LABEL[item.metode]}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'nominal',
+      header: 'Nominal',
+      className: 'w-[110px]',
+      render: item => <span className="text-xs font-mono">{formatRupiah(item.nominal)}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      className: 'w-[110px]',
+      render: item => (
+        <Badge tone={item.status === 'lunas' ? 'emerald' : item.status === 'batal' ? 'slate' : 'amber'}>
+          {item.status === 'lunas' ? 'Lunas' : item.status === 'batal' ? 'Batal' : 'Menunggu'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'waktu',
+      header: 'Waktu',
+      className: 'w-[150px]',
+      render: item => (
+        <span className="text-[11px] font-mono whitespace-nowrap text-slate-500 dark:text-slate-400">
+          {formatTanggalLokal(item.waktuBayar || item.createdAt)}
+        </span>
+      ),
+    },
+    {
+      key: 'aksi',
+      header: '',
+      className: 'w-[56px]',
+      render: item => (
+        <AksiMenu
+          ariaLabel={`Aksi tagihan ${item.orderId}`}
+          items={
+            item.status === 'menunggu'
+              ? [
+                  {
+                    id: 'lunas',
+                    label: 'Tandai lunas',
+                    icon: CheckCircle2,
+                    onClick: () => void aksiSetStatusTagihan(item.orderId, 'lunas'),
+                  },
+                  {
+                    id: 'batal',
+                    label: 'Batalkan tagihan',
+                    icon: XCircle,
+                    onClick: () => void aksiSetStatusTagihan(item.orderId, 'batal'),
+                    pemisah: true,
+                  },
+                ]
+              : [
+                  {
+                    id: 'hapus',
+                    label: 'Hapus tagihan',
+                    icon: Trash2,
+                    onClick: () => setKonfirmasiHapus(item.orderId),
+                    tone: 'danger' as const,
+                  },
+                ]
+          }
+        />
+      ),
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/*
+       * ⚠️ `PageHeader` **dihapus** dari halaman ini.
+       *
+       * Tiga alasan, dan ketiganya independen:
+       *
+       * 1. **Judulnya dobel.** `ManajemenAkun` sudah punya blok judul yang
+       *    permanen di paling atas — "Manajemen Akun / Kelola seluruh akun dan
+       *    kredensial server" — dan halaman ini adalah tab di dalamnya. Dua
+       *    judul bertumpuk hanya memberi jawaban "kamu sedang di mana" dua
+       *    kali, dengan kata yang berbeda.
+       *
+       * 2. **Subjudulnya dobel angka.** "Pantau 2 akun · 1 aktif · 1 belum
+       *    bayar" mengulang persis apa yang sudah ditulis di empat `StatTile`
+       *    tepat di bawahnya, lengkap dengan label yang lebih jelas. Angka
+       *    yang sama dalam dua bentuk berbeda hanya membingungkan saat salah
+       *    satu tidak ikut ter-update.
+       *
+       * 3. **Menu ini sudah punya namanya.** Tab "Langganan & Pembayaran" di
+       *    atas memberi tahu apa isinya; judul kedua di bawahnya mengulang hal
+       *    yang sama untuk ketiga kalinya.
+       *
+       * Yang tersisa dari `PageHeader` hanyalah `action`-nya, jadi blok itu
+       * diganti baris tombol biasa — bukan `PageHeader` kosong yang judulnya
+       * sudah dihapus, karena `title` itu wajib dan mengisinya dengan teks
+       * sementara hanya mengembalikan masalah yang sama.
+       */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {/*
+          Indikator penyegaran.
+
+          `loading` sengaja TIDAK dipakai di sini: setelah pemuatan pertama ia
+          selalu `false` (lihat `muat()`), jadi tombolnya akan terlihat tidak
+          pernah bekerja. `menyegarkan` yang menggantikannya — data sedang
+          mengambil diperbarui tanpa tabel dibongkar.
+        */}
+        <ActionButton
+          variant="ghost"
+          size="sm"
+          onClick={() => void muat()}
+          loading={menyegarkan || loading}
+          icon={<RefreshCw className="w-4 h-4" />}
+        >
+          Muat Ulang
+        </ActionButton>
+        <ActionButton size="sm" onClick={() => setDialogPengaturan(true)} icon={<Settings2 className="w-4 h-4" />}>
+          Pengaturan
+        </ActionButton>
+      </div>
+
+      {/* ── Statistik ───────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatTile
+          label="Total Akun"
+          value={statistik.total}
+          tone="blue"
+          icon={<Users className="w-4 h-4" />}
+          hint={`${statistik.gratis} akun gratis`}
+        />
+        <StatTile label="Aktif" value={statistik.aktif} tone="emerald" hint="Masa aktif & tidak kedaluwarsa" />
+        <StatTile
+          label="Belum Bayar"
+          value={statistik.belumBayar}
+          tone="rose"
+          hint="Tidak bisa masuk aplikasi"
+        />
+        <StatTile
+          label="Pendapatan"
+          value={formatRupiah(statistik.totalBayar)}
+          tone="violet"
+          icon={<TrendingUp className="w-4 h-4" />}
+          hint={`${statistik.lunasBulanIni} lunas bulan ini`}
+        />
+      </div>
+
+      {/*
+        Peringatan kedaluwarsa.
+
+        ⚠️ Hanya untuk akun **non-admin**. Akun admin punya `status: 'gratis'`
+        dan tidak masuk ke `aktif`, tapi `sisaHari` tetap dihitung dari
+        `masaAkhir` yang bisa saja sudah lewat. Kalau ikut dihitung, layar ini
+        menampilkan "Masa aktif admin tinggal -1 hari" — peringatan atas
+        sesuatu yang tidak akan pernah terjadi, karena admin memang tidak
+        pernah dikunci. Peringatan yang salah lebih merusak daripada tidak ada.
+      */}
+      {statistik.terdekat &&
+        statistik.terdekat.sisaHari >= 0 &&
+        statistik.terdekat.sisaHari <= 3 && (
+          <Alert tone="amber">
+            Masa aktif <strong>{statistik.terdekat.username}</strong> tinggal{' '}
+            <strong>{statistik.terdekat.sisaHari} hari</strong>. Akun akan terkunci otomatis setelah
+            tanggal tersebut.
+          </Alert>
+        )}
+
+      {/* ── Tab ────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-1.5 border-b border-slate-200 dark:border-slate-700/60 pb-2">
+        {([
+          { value: 'akun', label: 'Pantau Akun', icon: Users },
+          { value: 'pembayaran', label: 'Semua Pembayaran', icon: Receipt },
+          { value: 'pengaturan', label: 'Metode & Paket', icon: Settings2 },
+        ] as const).map(item => {
+          const Icon = item.icon;
+          const aktif = tab === item.value;
+          return (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => setSubPath(PATH_TAB_LANGGANAN[item.value])}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                aktif
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {loading ? (
+        <LoadingBlock label="Memuat data langganan..." />
+      ) : tab === 'akun' ? (
+        <Card padded={false} className="p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-4">
+            <div className="flex flex-wrap gap-1.5">
+              {FILTER_STATUS.map(item => {
+                const jumlah = ringkasan.filter(r =>
+                  item.value === 'semua' ? true : r.status === item.value
+                ).length;
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setFilter(item.value)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors border ${
+                      filter === item.value
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {item.label}
+                    <span
+                      className={`rounded-md px-1.5 py-px text-[10px] font-mono ${
+                        filter === item.value ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-700'
+                      }`}
+                    >
+                      {jumlah}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="sm:w-64">
+              <Input
+                value={cari}
+                onChange={event => setCari(event.target.value)}
+                placeholder="Cari username..."
+                className="text-sm"
+              />
+            </div>
+          </div>
+
+          <CardTitle action={<Badge tone="blue">{terfilter.length} akun</Badge>}>Monitoring Akun</CardTitle>
+          {terfilter.length === 0 ? (
+            <EmptyState message="Tidak ada akun pada filter ini." hint="Ubah filter atau kata kunci pencarian." />
+          ) : (
+            <DataTable
+              columns={kolomAkun}
+              rows={terfilter}
+              keyOf={item => item.username}
+            />
+          )}
+        </Card>
+      ) : tab === 'pembayaran' ? (
+        <Card padded={false} className="p-5 sm:p-6">
+          <CardTitle action={<Badge tone="blue">{tagihan.length} tagihan</Badge>}>Riwayat Pembayaran</CardTitle>
+          {tagihan.length === 0 ? (
+            <EmptyState message="Belum ada tagihan." hint="Tagihan dibuat otomatis saat pengguna memilih paket." />
+          ) : (
+            <DataTable columns={kolomTagihan} rows={tagihan} keyOf={item => item.orderId} />
+          )}
+        </Card>
+      ) : (
+        <PengaturanPaket
+          pengaturan={pengaturan}
+          onSimpan={async nilai => {
+            await savePengaturanBilling(nilai);
+            setPengaturan(nilai);
+            toast.success('Pengaturan langganan disimpan.');
+            await muat();
+          }}
+          onEditRekening={rek => setDialogRekening(rek)}
+        />
+      )}
+
+      {/* ── Dialog: toggle gratis ───────────────────────────────────── */}
+      <ConfirmDialog
+        open={Boolean(dialogGratis)}
+        title={dialogGratis?.nilai ? 'Tandai Akun Gratis?' : 'Batalkan Status Gratis?'}
+        message={
+          dialogGratis ? (
+            <>
+              {dialogGratis.nilai ? (
+                <>
+                  Akun <strong>{dialogGratis.ringkasan.username}</strong> akan tidak perlu membayar lagi. Masa
+                  aktifnya tidak diubah — status gratis yang berlaku selamanya sampai dibatalkan.
+                </>
+              ) : (
+                <>
+                  Akun <strong>{dialogGratis.ringkasan.username}</strong> akan kembali wajib berlangganan.
+                  Kalau masa aktifnya sudah lewat, akun akan terkunci sampai pembayaran masuk.
+                </>
+              )}
+            </>
+          ) : (
+            ''
+          )
+        }
+        confirmLabel={dialogGratis?.nilai ? 'Ya, Tandai Gratis' : 'Ya, Kembalikan ke Wajib Bayar'}
+        tone={dialogGratis?.nilai ? 'default' : 'warning'}
+        onConfirm={() => void aksiGratis(dialogGratis?.nilai ?? false)}
+        onCancel={() => setDialogGratis(null)}
+      />
+
+      {/* ── Dialog: perpanjang ──────────────────────────────────────── */}
+      <PerpanjangModal
+        ringkasan={dialogPerpanjang}
+        onClose={() => setDialogPerpanjang(null)}
+        onPilih={(durasi, satuan) => void aksiPerpanjang(durasi, satuan)}
+      />
+
+      {/* ── Dialog: setel masa aktif ────────────────────────────────── */}
+      <SetMasaModal
+        ringkasan={dialogMasa}
+        onClose={() => setDialogMasa(null)}
+        onSimpan={iso => void aksiSetMasa(iso)}
+      />
+
+      {/* ── Dialog: riwayat pembayaran satu akun ────────────────────── */}
+      <RiwayatModal ringkasan={dialogRiwayat} onClose={() => setDialogRiwayat(null)} />
+
+      {/* ── Dialog: pengaturan & rekening ───────────────────────────── */}
+      <Modal
+        open={dialogPengaturan}
+        onClose={() => setDialogPengaturan(false)}
+        title="Pengaturan Langganan"
+        icon={<Settings2 className="w-5 h-5 text-blue-500" />}
+        size="lg"
+        footer={
+          <button
+            type="button"
+            onClick={() => setDialogPengaturan(false)}
+            className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+          >
+            Tutup
+          </button>
+        }
+      >
+        <PengaturanBillingForm
+          nilai={pengaturan}
+          onSimpan={async nilai => {
+            await savePengaturanBilling(nilai);
+            setPengaturan(nilai);
+            setDialogPengaturan(false);
+            toast.success('Pengaturan disimpan.');
+          }}
+          onEditRekening={rek => {
+            setDialogRekening(rek);
+          }}
+        />
+      </Modal>
+
+      <RekeningModal
+        rekening={dialogRekening}
+        onClose={() => setDialogRekening(null)}
+        onSimpan={async nilai => {
+          const adaRekening = [...pengaturan.rekening];
+          const index = adaRekening.findIndex(item => item.id === nilai.id);
+          if (index >= 0) adaRekening[index] = nilai;
+          else adaRekening.push(nilai);
+          const baru = { ...pengaturan, rekening: adaRekening };
+          await savePengaturanBilling(baru);
+          setPengaturan(baru);
+          setDialogRekening(null);
+          toast.success('Rekening disimpan.');
+        }}
+      />
+
+      <KredensialServerModal
+        username={dialogKredensial}
+        onClose={() => setDialogKredensial(null)}
+        onTersimpan={muat}
+      />
+
+      <ConfirmDialog
+        open={Boolean(konfirmasiHapus)}
+        title="Hapus Tagihan?"
+        message={`Tagihan ${konfirmasiHapus} akan dihapus permanen. Riwayat pembayaran yang sudah tercatat di akun pengguna tidak ikut terhapus.`}
+        confirmLabel="Ya, Hapus"
+        tone="danger"
+        onConfirm={() => void aksiHapusTagihan(konfirmasiHapus ?? '')}
+        onCancel={() => setKonfirmasiHapus(null)}
+      />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Komponen kecil
+// ═══════════════════════════════════════════════════════════════════════
+
+/** Tombol ikon tabel — dipakai untuk setiap aksi baris. */
+function AksiIcon({
+  icon: Icon,
+  label,
+  onClick,
+  tone = 'slate',
+  className = '',
+}: {
+  icon: typeof QrCode;
+  label: string;
+  onClick: () => void;
+  tone?: 'emerald' | 'rose' | 'violet' | 'slate';
+  /**
+   * Kelas tambahan, khusus untuk penyesuaian tinggi.
+   *
+   * Ada karena `h-9 w-9` (36 px) tidak sama dengan tinggi `Input` (40 px).
+   * Di dalam tabel selisih 4 px tidak terasa, tapi di baris form yang
+   * disejajarkan dengan `items-end` justru terlihat meleset. Jadi pemanggil
+   * boleh menimpanya dengan `h-10 w-10` saat butuh sejajar dengan field.
+   */
+  className?: string;
+}) {
+  /*
+   * Warna dipisah jadi `teks` (warna ikon) dan `latar` (warna saat hover),
+   * karena sekarang tombolnya punya bidang sungguhan — bukan lagi area
+   * 28 px yang hanya kelihatan saat kursor menyentuhnya.
+   */
+  const warna = {
+    emerald: { teks: 'text-emerald-500', latar: 'hover:bg-emerald-50 dark:hover:bg-emerald-950/40' },
+    rose: { teks: 'text-rose-500', latar: 'hover:bg-rose-50 dark:hover:bg-rose-950/40' },
+    violet: { teks: 'text-violet-500', latar: 'hover:bg-violet-50 dark:hover:bg-violet-950/40' },
+    slate: { teks: 'text-slate-500', latar: 'hover:bg-slate-100 dark:hover:bg-slate-700' },
+  }[tone];
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      /*
+       * `h-9` + `w-9` memberi area sentuh 36 px, bukan 28 px seperti
+       * `p-1.5` di sekeliling ikon 14 px. Di layar sentuh perbedaan itu
+       * menentukan tombol dianggap atau tidak, dan `disabled:opacity-40`
+       * disimpan supaya state mati tetap terbaca.
+       */
+      className={`h-9 w-9 inline-flex items-center justify-center rounded-xl border border-transparent
+        transition-colors shrink-0 disabled:opacity-40 ${warna.teks} ${warna.latar} ${className}
+        hover:border-current/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1
+        focus-visible:ring-current dark:focus-visible:ring-offset-slate-900`}
+    >
+      <Icon className="w-4 h-4" />
+    </button>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Pengaturan paket (tab Metode & Paket)
+// ═══════════════════════════════════════════════════════════════════════
+
+function PengaturanPaket({
+  pengaturan,
+  onSimpan,
+  onEditRekening,
+}: {
+  pengaturan: PengaturanBilling;
+  onSimpan: (nilai: PengaturanBilling) => Promise<void>;
+  onEditRekening: (rek: RekeningBank) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <PengaturanBillingForm nilai={pengaturan} onSimpan={onSimpan} onEditRekening={onEditRekening} />
+    </div>
+  );
+}
+
+/**
+ * Form pengaturan pembayaran.
+ *
+ * Dipakai di dua tempat (tab "Metode & Paket" dan dialog Pengaturan), jadi
+ * komponennya stateless terhadap penyimpanan — hanya memanggil `onSimpan`.
+ */
+function PengaturanBillingForm({
+  nilai,
+  onSimpan,
+  onEditRekening,
+}: {
+  nilai: PengaturanBilling;
+  onSimpan: (nilai: PengaturanBilling) => Promise<void>;
+  onEditRekening: (rek: RekeningBank) => void;
+}) {
+  const [draft, setDraft] = useState<PengaturanBilling>(nilai);
+  const [menyimpan, setMenyimpan] = useState(false);
+  const [qrisError, setQrisError] = useState<string[]>([]);
+
+  // Sinkronkan kalau nilai dari luar berubah (mis. setelah muat ulang).
+  useEffect(() => {
+    setDraft(nilai);
+  }, [nilai]);
+
+  const cekQris = (teks: string) => {
+    setDraft(prev => ({ ...prev, qrisStatis: teks }));
+    setQrisError(teks.trim() ? validateQRIS(teks).errors : []);
+  };
+
+  // Nomor WA divalidasi langsung saat admin mengetik — bukan hanya saat
+  // disimpan — supaya kesalahan format kelihatan sebelum menekan Simpan.
+  const waHasil = useMemo(() => normalisasiNomorWa(draft.nomorWa), [draft.nomorWa]);
+  const waValid = waHasil.ok;
+  const waPesan = waHasil.pesan ?? '';
+
+  const ringkasanQris = useMemo(() => {
+    if (!draft.qrisStatis.trim()) return null;
+    const hasil = validateQRIS(draft.qrisStatis);
+    if (!hasil.valid) return null;
+    return ringkasQRIS(draft.qrisStatis);
+  }, [draft.qrisStatis]);
+
+  const ubahPaket = (id: string, patch: Partial<PaketLangganan>) => {
+    setDraft(prev => ({
+      ...prev,
+      paket: prev.paket.map(item => (item.id === id ? { ...item, ...patch } : item)),
+    }));
+  };
+
+  const tambahPaket = () => {
+    setDraft(prev => ({
+      ...prev,
+      paket: [
+        ...prev.paket,
+        {
+          id: `paket-${Date.now()}`,
+          label: 'Paket Baru',
+          harga: 25_000,
+          durasi: 1,
+          satuan: 'bulan' as const,
+          keterangan: '',
+        },
+      ],
+    }));
+  };
+
+  const hapusPaket = (id: string) => {
+    setDraft(prev => ({ ...prev, paket: prev.paket.filter(item => item.id !== id) }));
+  };
+
+  const simpan = async () => {
+    // QRIS hanya divalidasi kalau diisi — QRIS opsional.
+    if (draft.qrisStatis.trim()) {
+      const hasil = validateQRIS(draft.qrisStatis);
+      if (!hasil.valid) {
+        setQrisError(hasil.errors);
+        return;
+      }
+    }
+    setMenyimpan(true);
+    try {
+      await onSimpan({
+        ...draft,
+        // Nomor disimpan dalam bentuk ternormalkan (`62…`), bukan apa yang
+        // diketik — supaya semua bentuk yang sama berakhir di URL yang sama.
+        nomorWa: normalisasiNomorWa(draft.nomorWa).nomor,
+        // Rekening & paket dinormalkan: id kosong diganti, urutan dibersihkan.
+        rekening: draft.rekening.map((rek, index) => ({
+          ...rek,
+          id: rek.id || `rek-${index}-${Date.now()}`,
+          urutan: index,
+        })),
+      });
+    } finally {
+      setMenyimpan(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Metode yang diizinkan */}
+      <Card>
+        <CardTitle>Metode Pembayaran</CardTitle>
+        <div className="space-y-2.5">
+          {([
+            { value: 'qris', label: 'QRIS Manual', hint: 'QRIS statis dari bank, dibuat dinamis per tagihan' },
+            { value: 'qris_midtrans', label: 'QRIS via Midtrans', hint: 'QRIS dinamis dari payment gateway' },
+            { value: 'transfer', label: 'Transfer Bank', hint: 'Virtual account atau rekening manual' },
+          ] as const).map(item => {
+            const aktif = draft.metodeAktif.includes(item.value);
+            return (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() =>
+                  setDraft(prev => ({
+                    ...prev,
+                    metodeAktif: aktif
+                      ? prev.metodeAktif.filter(m => m !== item.value)
+                      : [...prev.metodeAktif, item.value],
+                  }))
+                }
+                className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-colors ${
+                  aktif
+                    ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/20'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                }`}
+              >
+                <span
+                  className={`mt-0.5 w-4 h-4 rounded-md border-2 flex items-center justify-center shrink-0 ${
+                    aktif ? 'border-blue-500 bg-blue-500' : 'border-slate-300 dark:border-slate-600'
+                  }`}
+                >
+                  {aktif && <CheckCircle2 className="w-3 h-3 text-white" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">
+                    {item.label}
+                  </span>
+                  <span className="block text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                    {item.hint}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 space-y-2.5 pt-4 border-t border-slate-100 dark:border-slate-700/60">
+          <Checkbox
+            checked={draft.midtransAktif}
+            onChange={midtransAktif => setDraft(prev => ({ ...prev, midtransAktif }))}
+            label="Aktifkan Midtrans (VA bank & e-wallet)"
+          />
+
+          {/*
+           * Status Midtrans yang SEBENARNYA.
+           *
+           * Toggle di atas hanya menulis `midtransAktif` ke Firestore.
+           * Itu **satu dari tiga** syarat; Midtrans tetap tidak muncul
+           * kalau dua sisanya belum terpenuhi. Sebelumnya layar ini hanya
+           * menulis "kalau key belum diisi, metode ini disembunyikan" —
+           * kalimat pasif yang membuat admin menebak-nebak, lalu toggle terlihat seperti tidak berfungsi saat sebenarnya memang
+           * tidak.
+           *
+           * Sekarang ketiga syaratnya dicek dan ditampilkan apa adanya:
+           * apa yang sudah siap, apa yang belum, dan harus diisi di mana.
+           */}
+          <StatusMidtrans
+            aktif={draft.midtransAktif}
+            className="ml-6.5 mt-2"
+          />
+
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 ml-6.5">
+            Midtrans membaca <code className="font-mono">MIDTRANS_SERVER_KEY</code> di server. Kalau key belum
+            diisi, metode ini otomatis disembunyikan dari pengguna.
+          </p>
+
+          <Checkbox
+            checked={draft.izinkanGratis}
+            onChange={izinkanGratis => setDraft(prev => ({ ...prev, izinkanGratis }))}
+            label="Izinkan admin menandai akun sebagai gratis (exempt)"
+          />
+        </div>
+      </Card>
+
+      {/* QRIS manual */}
+      {draft.metodeAktif.includes('qris') && (
+        <Card>
+          <CardTitle action={<Badge tone={qrisError.length ? 'rose' : ringkasanQris ? 'emerald' : 'slate'}>
+            {!draft.qrisStatis.trim() ? 'Belum diisi' : qrisError.length ? 'Tidak valid' : 'Valid'}
+          </Badge>}>
+            QRIS Manual
+          </CardTitle>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+            Tempel string QRIS statis dari aplikasi bank. Nominal akan ditambahkan otomatis per tagihan.
+          </p>
+          <Textarea
+            value={draft.qrisStatis}
+            onChange={event => cekQris(event.target.value)}
+            rows={3}
+            placeholder="Tempel string QRIS dari aplikasi bank"
+            className="font-mono text-xs"
+          />
+          {qrisError.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {qrisError.map((err, i) => (
+                <li key={i} className="text-[11px] text-rose-500 flex items-start gap-1.5">
+                  <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                  {err}
+                </li>
+              ))}
+            </ul>
+          )}
+          {ringkasanQris && (
+            <div className="mt-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-[11px] space-y-1">
+              <p className="font-bold text-slate-700 dark:text-slate-200">{ringkasanQris.namaMerchant || '—'}</p>
+              <p className="text-slate-500 dark:text-slate-400">
+                {ringkasanQris.namaPenerbit || 'Penerbit tidak terbaca'} · {ringkasanQris.kotaMerchant}
+              </p>
+              <p className="text-slate-400 dark:text-slate-500 font-mono">
+                {ringkasanQris.metode === 'dinamis' ? 'QRIS dinamis' : 'QRIS statis'} · nominal{' '}
+                {ringkasanQris.nominal || 'tidak ada (dinamis saat transaksi)'}
+              </p>
+            </div>
+          )}
+          <div className="mt-3">
+            <Field label="Nama Merchant">
+              <Input
+                value={draft.namaMerchant}
+                onChange={event => setDraft(prev => ({ ...prev, namaMerchant: event.target.value }))}
+                placeholder="PRABAWA"
+              />
+            </Field>
+          </div>
+        </Card>
+      )}
+
+      {/* Konfirmasi WhatsApp */}
+      <Card>
+        <CardTitle
+          action={
+            <Badge tone={waValid ? 'emerald' : draft.nomorWa.trim() ? 'rose' : 'slate'}>
+              {waValid ? 'Aktif' : draft.nomorWa.trim() ? 'Nomor tidak valid' : 'Belum diisi'}
+            </Badge>
+          }
+        >
+          Konfirmasi WhatsApp
+        </CardTitle>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+          Setelah membayar lewat QRIS atau transfer, pengguna bisa menekan tombol konfirmasi yang membuka
+          WhatsApp dengan pesan yang sudah terisi. Kosongkan nomornya untuk menyembunyikan tombol tersebut.
+        </p>
+
+        <div>
+          <Field
+            label="Nomor WhatsApp"
+            hint={
+              waValid
+                ? `Akan disimpan sebagai +${waHasil.nomor}`
+                : waPesan || 'Format bebas: 0812…, 812…, +62 812…'
+            }
+          >
+            <Input
+              value={draft.nomorWa}
+              onChange={event => setDraft(prev => ({ ...prev, nomorWa: event.target.value }))}
+              placeholder="0812-3456-7890"
+              className="font-mono"
+              inputMode="tel"
+            />
+          </Field>
+        </div>
+
+        <div className="mt-4">
+          <Field
+            label="Template Pesan"
+            hint={`Placeholder: ${PLACEHOLDER_WA.join(' ')} — maksimal ${formatRuangWa(BATAS_PESAN_WA)} karakter`}
+          >
+            <Textarea
+              value={draft.templateWa}
+              onChange={event => setDraft(prev => ({ ...prev, templateWa: event.target.value }))}
+              rows={9}
+              placeholder={TEMPLATE_WA_DEFAULT}
+              className="font-mono text-xs"
+            />
+          </Field>
+          {draft.templateWa.length > BATAS_PESAN_WA && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5">
+              Template lebih dari {formatRuangWa(BATAS_PESAN_WA)} karakter — sisanya akan dipotong saat
+              dikirim.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => setDraft(prev => ({ ...prev, templateWa: TEMPLATE_WA_DEFAULT }))}
+            className="mt-2 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Kembalikan ke template bawaan
+          </button>
+        </div>
+
+        {waValid && (
+          <p className="mt-3 text-[11px] text-slate-400 dark:text-slate-500 font-mono break-all">
+            {tautanWa(draft.nomorWa, isiPesanWa(draft.templateWa, { app: 'PRABAWA', username: 'contoh' }))}
+          </p>
+        )}
+      </Card>
+
+      {/* Rekening bank */}
+      {draft.metodeAktif.includes('transfer') && (
+        <Card>
+          <CardTitle
+            action={
+              <ActionButton
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  onEditRekening({
+                    id: `rek-${Date.now()}`,
+                    kodeBank: 'bri',
+                    nomorRekening: '',
+                    atasNama: '',
+                    catatan: '',
+                    urutan: draft.rekening.length,
+                    aktif: true,
+                  })
+                }
+                icon={<Plus className="w-3.5 h-3.5" />}
+              >
+                Tambah
+              </ActionButton>
+            }
+          >
+            Rekening Transfer
+          </CardTitle>
+          {draft.rekening.filter(r => r.aktif).length === 0 ? (
+            <EmptyState message="Belum ada rekening aktif." hint="Tambahkan minimal satu rekening supaya transfer bank bisa dipilih." />
+          ) : (
+            <div className="space-y-2">
+              {draft.rekening.map(rek => (
+                <div
+                  key={rek.id}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      {infoBank(rek.kodeBank) && (
+                        <span
+                          className="w-6 h-6 rounded-md flex items-center justify-center overflow-hidden shrink-0"
+                          style={{ backgroundColor: infoBank(rek.kodeBank)!.warna }}
+                        >
+                          <img
+                            src={infoBank(rek.kodeBank)!.ikon}
+                            alt=""
+                            className="w-full h-full object-contain p-0.5 bg-white"
+                          />
+                        </span>
+                      )}
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                        {infoBank(rek.kodeBank)?.nama ?? 'Bank tidak dikenal'}
+                      </p>
+                    </div>
+                    <p className="text-sm font-mono text-slate-600 dark:text-slate-300 mt-0.5">
+                      {rek.nomorRekening || '—'}
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">a.n. {rek.atasNama || '—'}</p>
+                  </div>
+                  <AksiIcon icon={Pencil} label="Ubah" onClick={() => onEditRekening(rek)} />
+                  <AksiIcon
+                    icon={Trash2}
+                    label="Hapus"
+                    tone="rose"
+                    onClick={() =>
+                      setDraft(prev => ({ ...prev, rekening: prev.rekening.filter(r => r.id !== rek.id) }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Paket langganan */}
+      <Card>
+        <CardTitle
+          action={
+            <ActionButton size="sm" variant="ghost" onClick={tambahPaket} icon={<Plus className="w-3.5 h-3.5" />}>
+              Tambah Paket
+            </ActionButton>
+          }
+        >
+          Paket Langganan
+        </CardTitle>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 leading-relaxed">
+          Durasi memakai <strong>kalender</strong>, bukan jumlah hari. Paket "1 Bulan" yang dibayar 31 Januari
+          berakhir 28 Februari — bukan 2 Maret seperti bila dijumlah 30 hari.
+        </p>
+        <div className="space-y-3">
+          {draft.paket.map(item => (
+            <div
+              key={item.id}
+              className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30"
+            >
+              {/*
+               * Tata letak tiga tahap, dan hanya yang terakhir yang 12 kolom.
+               *
+               * ⚠️ Versi sebelumnya `sm:grid-cols-12` — 12 kolom sejak 640 px.
+               * Setelah `gap-2.5` dan padding kartu, satu kolom hanya dapat
+               * ±34 px, jadi field Harga dapat ±70 px. Field itu punya prefix
+               * "Rp" dan format ribuan ("Rp 1.500.000"), jadi angkanya
+               * **terpotong** — persis yang dilaporkan: nominalnya tidak
+               * terlihat.
+               *
+               * "12 kolom" terdengar seperti presisi, padahal efeknya
+               * sebaliknya di lebar mana pun yang bukan monitor besar.
+               *
+               * Yang dipakai sekarang:
+               *
+               * | Lebar        | Kolom | Susunan                                    |
+               * |--------------|-------|--------------------------------------------|
+               * | < 640 px     |   1   | semua turun ke bawah, satu-satu            |
+               * | 640–1279 px  |   2   | Nama penuh, lalu Harga/Durasi/Satuan/Hapus  |
+               * | ≥ 1280 px    |  12   | 4 + 3 + 2 + 2 + 1                          |
+               *
+               * Porsi lebar di layar monitor diberikan ke **Harga**, bukan ke
+               * Nama atau Satuan. Alasannya isi kolom: `Nama Paket` berupa teks
+               * pendek yang bisa mentok, `Satuan` cuma "Bulan"/"Tahun", dan
+               * `Durasi` satu atau dua digit — tapi `Harga` harus memuat "Rp"
+               * plus angka beribu-ribu, dan itu satu-satunya field yang benar-
+               * benar tidak muat kalau dikecilkan.
+               *
+               * ## Kenapa TIDAK ADA `hint` di field mana pun
+               *
+               * `Field` merender `label → input → hint`. Jadi field ber-hint
+               * punya tinggi **lebih besar** daripada yang tidak punya — dan
+               * dengan `items-end`, yang sejajar adalah **bawah** wrapper, bukan
+               * input-nya.
+               *
+               * Akibatnya dua field yang punya hint ("Harga" dan "Satuan")
+               * terlihat melayang, dan tombol Hapus — yang tidak punya `Field`
+               * sama sekali — mendarat di garis paling bawah, yaitu sejajar
+               * dengan **teks hint**, bukan dengan input. Persis "kolomnya tidak
+               * lurus" yang dilaporkan.
+               *
+               * Kedua hint itu memang tidak menambah informasi:
+               *
+               * - "Ribuan terlihat jelas." — input sudah punya prefix "Rp" dan
+               *   angka beribu-ribu yang dititik. Petunjuknya sudah di tempatnya.
+               * - `deskripsiDurasi(...)` — mengulang baris ringkasan tepat di
+               *   bawah blok ini ("Dipakai pengguna sebagai Rp 100.000 per
+               *   1 bulan").
+               *
+               * Sekarang keempat field sama tinggi, jadi `items-end`
+               * menjajikannya benar-benar. Penjelasan dipindah ke satu tempat:
+               * baris ringkasan.
+               */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-2.5 items-end">
+                <div className="sm:col-span-2 xl:col-span-4">
+                  <Field label="Nama Paket">
+                    <Input
+                      value={item.label}
+                      onChange={event => ubahPaket(item.id, { label: event.target.value })}
+                    />
+                  </Field>
+                </div>
+                <div className="xl:col-span-3">
+                  <Field label="Harga">
+                    <NumberField
+                      min={1}
+                      step={5000}
+                      value={item.harga}
+                      onChange={harga => ubahPaket(item.id, { harga })}
+                      aria-label={`Harga paket ${item.label}`}
+                      prefix="Rp"
+                      format={formatRuang}
+                    />
+                  </Field>
+                </div>
+                <div className="xl:col-span-2">
+                  <Field label="Durasi">
+                    <NumberField
+                      min={1}
+                      max={120}
+                      value={item.durasi}
+                      onChange={durasi => ubahPaket(item.id, { durasi })}
+                      aria-label={`Durasi paket ${item.label}`}
+                    />
+                  </Field>
+                </div>
+                <div className="xl:col-span-2">
+                  <Field label="Satuan">
+                    <Dropdown
+                      value={item.satuan}
+                      onChange={(value: string) => ubahPaket(item.id, { satuan: value as SatuanDurasi })}
+                      opsi={(['bulan', 'tahun', 'hari'] as const).map(satuan => ({
+                        value: satuan,
+                        label: LABEL_SATUAN[satuan],
+                      }))}
+                      aria-label="Satuan durasi"
+                    />
+                  </Field>
+                </div>
+                {/*
+                 * `h-10 w-10` = 40 px, sama dengan tinggi `Input`
+                 * (`py-2.5` + `text-sm`). Default `AksiIcon` adalah `h-9` 36 px;
+                 * di dalam tabel selisih 4 px itu tidak terasa, tapi di baris
+                 * form yang disejajarkan dengan `items-end` justru terlihat
+                 * meleset dari kolom sebelahnya.
+                 *
+                 * Pembungkus `flex` menumpuk label di atas, jadi di `sm` (2
+                 * kolom) tombol ini tetap berada di barisnya sendiri dan tidak
+                 * ikut melebar.
+                 */}
+                <div className="flex sm:justify-end">
+                  <AksiIcon
+                    icon={Trash2}
+                    label={`Hapus paket ${item.label}`}
+                    tone="rose"
+                    className="h-10 w-10"
+                    onClick={() => hapusPaket(item.id)}
+                  />
+                </div>
+              </div>
+
+              {/* Ringkasan yang dibaca orang, bukan yang diketik. */}
+              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                Dipakai pengguna sebagai{' '}
+                <strong className="font-semibold text-slate-700 dark:text-slate-200">
+                  {formatRupiah(item.harga)}
+                </strong>{' '}
+                per {deskripsiDurasi(item.durasi, item.satuan)}
+              </p>
+            </div>
+          ))}
+        </div>
+        {paketEfektif(draft).length === 0 && (
+          <Alert tone="amber">
+            Tidak ada paket yang valid. Tambahkan minimal satu paket dengan harga dan durasi lebih dari nol —
+            tanpa itu pengguna tidak punya apa pun untuk dibeli.
+          </Alert>
+        )}
+      </Card>
+
+      <div className="flex justify-end">
+        <ActionButton onClick={() => void simpan()} loading={menyimpan} icon={<BadgeCheck className="w-4 h-4" />}>
+          Simpan Pengaturan
+        </ActionButton>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Dialog: rekening
+// ═══════════════════════════════════════════════════════════════════════
+
+function RekeningModal({
+  rekening,
+  onClose,
+  onSimpan,
+}: {
+  rekening: RekeningBank | null;
+  onClose: () => void;
+  onSimpan: (nilai: RekeningBank) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<RekeningBank | null>(rekening);
+  const [menyimpan, setMenyimpan] = useState(false);
+
+  useEffect(() => {
+    setDraft(rekening);
+  }, [rekening]);
+
+  if (!draft) return null;
+
+  const simpan = async () => {
+    if (!draft.nomorRekening.trim() || !draft.atasNama.trim()) return;
+    if (validasiKodeBank(draft.kodeBank)) return;
+    setMenyimpan(true);
+    try {
+      await onSimpan({ ...draft, aktif: true });
+    } finally {
+      setMenyimpan(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={Boolean(rekening)}
+      onClose={onClose}
+      title={rekening?.nomorRekening ? 'Ubah Rekening' : 'Tambah Rekening'}
+      icon={<Landmark className="w-5 h-5 text-blue-500" />}
+      size="sm"
+      footer={
+        <div className="flex flex-col-reverse sm:flex-row gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="sm:flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={() => void simpan()}
+            disabled={menyimpan}
+            className="sm:flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors disabled:opacity-50"
+          >
+            {menyimpan ? 'Menyimpan...' : 'Simpan'}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-3">
+        <div>
+          <p className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 ml-1">
+            Bank Tujuan
+          </p>
+          {/*
+           * ⚠️ Responsive, bukan `grid-cols-5` tetap.
+           *
+           * Setiap sel punya lebar minimum yang tidak bisa dikecilkan: ikon
+           * 32 px + `p-2` (16 px) + `border-2` (4 px) = 52 px, dan grid item
+           * punya `min-width: auto` sehingga menolak menyusut di bawah itu.
+           * Lima kolom berarti 5 × 52 + 4 × 8 = 292 px.
+           *
+           * Modal di HP 360 px lebarnya `min(100%, 100vw - 2rem)` = 328 px, dan
+           * dikurangi `px-5` isinya cuma 288 px — jadi grid meluber ±4 px, dan
+           * di HP 320 px jadi ±44 px. Tombol bank terakhir keluar dari modal.
+           *
+           * Dua kolom di layar sempit memberi tiap sel ~140 px, jauh di atas
+           * kebutuhannya. Di `sm` ke atas modal sudah 384 px, jadi lima kolom
+           * kembali muat dengan lega.
+           */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {DAFTAR_BANK.map(item => {
+              const dipilih = draft.kodeBank === item.kode;
+              return (
+                <button
+                  key={item.kode}
+                  type="button"
+                  onClick={() => setDraft({ ...draft, kodeBank: item.kode })}
+                  aria-pressed={dipilih}
+                  title={item.nama}
+                  className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-colors ${
+                    dipilih
+                      ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/30'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <span
+                    className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden"
+                    style={{ backgroundColor: item.warna }}
+                  >
+                    <img src={item.ikon} alt={item.nama} className="w-full h-full object-contain p-1 bg-white" />
+                  </span>
+                  <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 leading-none text-center break-words">
+                    {item.nama}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">
+            Hanya lima bank ini yang didukung — ikonnya dipakai di layar pembayaran pengguna.
+          </p>
+        </div>
+        <Field label="Nomor Rekening">
+          <Input
+            value={draft.nomorRekening}
+            onChange={event => setDraft({ ...draft, nomorRekening: event.target.value })}
+            placeholder="1234567890"
+            className="font-mono"
+          />
+        </Field>
+        <Field label="Atas Nama">
+          <Input
+            value={draft.atasNama}
+            onChange={event => setDraft({ ...draft, atasNama: event.target.value })}
+            placeholder="PT Contoh"
+          />
+        </Field>
+        <Field label="Catatan" hint="Contoh: Biaya admin Rp 2.500">
+          <Input
+            value={draft.catatan ?? ''}
+            onChange={event => setDraft({ ...draft, catatan: event.target.value })}
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Dialog: perpanjang manual
+// ═══════════════════════════════════════════════════════════════════════
+
+function PerpanjangModal({
+  ringkasan,
+  onClose,
+  onPilih,
+}: {
+  ringkasan: RingkasanLangganan | null;
+  onClose: () => void;
+  onPilih: (durasi: number, satuan: SatuanDurasi) => void;
+}) {
+  /*
+   * Opsi perpanjangan admin — **satuan bulan saja**.
+   *
+   * Dulu ada pilihan harian ("+3 hari") untuk penyesuaian kecil. Itu satuan
+   * yang salah tempat di sini: perpanjangan masa aktif selalu berupa periode
+   * (1 bulan, 3 bulan), dan angka hari membuat "+3 hari" terlihat seperti
+   * opsi setara dengan "+1 bulan" padahal jauh lebih kecil. Kalau memang
+   * perlu tanggal yang persis, tersedia dialog **Setel Tanggal** — yang
+   * memang satu-satunya tempat angka harian masih masuk akal.
+   *
+   * "1 Bulan" berarti satu bulan penuh, bukan 30 hari — bedanya nyata di
+   * tanggal 31: 31 Jan + 1 bulan = 28 Feb, bukan 2 Mar.
+   */
+  const opsi: { durasi: number; satuan: SatuanDurasi; label: string; hint: string }[] = [
+    { durasi: 1, satuan: 'bulan', label: '1 Bulan', hint: 'sampai tanggal yang sama bulan depan' },
+    { durasi: 3, satuan: 'bulan', label: '3 Bulan', hint: 'sampai tanggal yang sama 3 bulan depan' },
+    { durasi: 6, satuan: 'bulan', label: '6 Bulan', hint: 'sampai tanggal yang sama 6 bulan depan' },
+    { durasi: 12, satuan: 'bulan', label: '1 Tahun', hint: 'sampai tanggal yang sama tahun depan' },
+  ];
+
+  return (
+    <Modal
+      open={Boolean(ringkasan)}
+      onClose={onClose}
+      title="Perpanjang Masa Aktif"
+      icon={<Clock className="w-5 h-5 text-blue-500" />}
+      size="sm"
+    >
+      {ringkasan && (
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Perpanjangan untuk <strong className="text-slate-700 dark:text-slate-200">{ringkasan.username}</strong>.
+            {!ringkasan.masaAkhir || ringkasan.sisaHari <= 0 ? (
+              ' Masa aktif akan dihitung dari hari ini.'
+            ) : (
+              <>
+                {' '}
+                Sisa <strong className="text-slate-700 dark:text-slate-200">{ringkasan.sisaHari} hari</strong>{' '}
+                yang sudah ada tetap dipertahankan.
+              </>
+            )}
+          </p>
+          <div className="grid grid-cols-2 gap-2.5">
+            {opsi.map(item => (
+              <button
+                key={`${item.satuan}-${item.durasi}`}
+                type="button"
+                onClick={() => onPilih(item.durasi, item.satuan)}
+                className="px-3 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-left hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors"
+              >
+                <span className="block text-sm font-bold text-slate-700 dark:text-slate-200">
+                  {item.label}
+                </span>
+                <span className="block text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 leading-tight">
+                  {item.hint}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">
+            Ini perpanjangan, bukan pencatatan pembayaran — total bayar dan riwayat tagihan tidak
+            berubah. Kalau memang perlu tanggal yang tidak bulat, pakai &quot;Setel Tanggal&quot;.
+          </p>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Dialog: setel masa aktif
+// ═══════════════════════════════════════════════════════════════════════
+
+function SetMasaModal({
+  ringkasan,
+  onClose,
+  onSimpan,
+}: {
+  ringkasan: RingkasanLangganan | null;
+  onClose: () => void;
+  onSimpan: (iso: string) => void;
+}) {
+  const [tanggal, setTanggal] = useState('');
+
+  useEffect(() => {
+    if (ringkasan?.masaAkhir) setTanggal(ringkasan.masaAkhir.slice(0, 10));
+    else if (ringkasan) setTanggal(getTodayWIB());
+  }, [ringkasan]);
+
+  if (!ringkasan) return null;
+
+  return (
+    <Modal
+      open={Boolean(ringkasan)}
+      onClose={onClose}
+      title="Setel Tanggal Masa Aktif"
+      icon={<Clock className="w-5 h-5 text-blue-500" />}
+      size="sm"
+      footer={
+        <div className="flex flex-col-reverse sm:flex-row gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="sm:flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={() => onSimpan(new Date(`${tanggal}T23:59:59+07:00`).toISOString())}
+            disabled={!tanggal}
+            className="sm:flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors disabled:opacity-50"
+          >
+            Simpan
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-3">
+        {/*
+         * `DatePicker`, bukan `<input type="date">`.
+         *
+         * Kolom tanggal native punya dua masalah yang tidak bisa diabaikan di
+         * dialog ini. Pertama, format dan tombolnya beda per OS, jadi
+         * "tampilan" dialog admin tidak sama sekali antara Android dan iPhone.
+         * Kedua, dan lebih serius: nilainya dikembalikan sebagai
+         * `YYYY-MM-DD` dalam **lokalitas perangkat**, sementara semua batas
+         * langganan lain dihitung di WIB. Di perangkat yang jamnya tidak WIB,
+         * tanggal yang sama akan tampil berbeda sehari.
+         *
+         * `DatePicker` sudah menampilkan kalender dan mengembalikan
+         * `YYYY-MM-DD` lewat `getTodayWIB()`, jadi sumbernya satu: WIB.
+         */}
+        <Field
+          label="Tanggal Berakhir"
+          hint="Setel 23:59:59 WIB — akun baru terkunci setelah waktu ini lewat."
+        >
+          <DatePicker value={tanggal} onChange={setTanggal} aria-label="Tanggal berakhir" />
+        </Field>
+        {/*
+         * `getTodayWIBWithDaysOffset`, bukan `new Date()` + `toISOString()`.
+         *
+         * `toISOString()` menghasilkan waktu **UTC**. Di WIB, `new Date()`
+         * jam 07:00 atau lebih awal masih "hari kemarin" dalam UTC — jadi
+         * "+30 Hari" yang diklik pukul 08:00 bisa menghasilkan tanggal satu
+         * hari lebih cepat dari yang tertulis di tombolnya. Tombolnya sendiri
+         * sudah terlihat benar, jadi yang melesetnya tidak akan ketahuan.
+         */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setTanggal(getTodayWIBWithDaysOffset(30))}
+            className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+          >
+            +30 Hari
+          </button>
+          <button
+            type="button"
+            onClick={() => setTanggal(getTodayWIBWithDaysOffset(-1))}
+            className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+          >
+            Kemarin
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Dialog: riwayat pembayaran satu akun
+// ═══════════════════════════════════════════════════════════════════════
+
+function RiwayatModal({
+  ringkasan,
+  onClose,
+}: {
+  ringkasan: RingkasanLangganan | null;
+  onClose: () => void;
+}) {
+  const [tagihan, setTagihan] = useState<DokumenTagihan[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!ringkasan) {
+      setTagihan([]);
+      return;
+    }
+    let hidup = true;
+    setLoading(true);
+    void loadTagihan(ringkasan.username, 30)
+      .then(data => {
+        if (hidup) setTagihan(data);
+      })
+      .finally(() => {
+        if (hidup) setLoading(false);
+      });
+    return () => {
+      hidup = false;
+    };
+  }, [ringkasan]);
+
+  return (
+    <Modal
+      open={Boolean(ringkasan)}
+      onClose={onClose}
+      title={`Riwayat — ${ringkasan?.username ?? ''}`}
+      icon={<Receipt className="w-5 h-5 text-blue-500" />}
+      size="lg"
+    >
+      {loading ? (
+        <LoadingBlock label="Memuat riwayat..." />
+      ) : tagihan.length === 0 ? (
+        <EmptyState message="Belum ada pembayaran." hint="Riwayat akan muncul setelah ada pembayaran tercatat." />
+      ) : (
+        <div className="space-y-2">
+          {tagihan.map(item => (
+            <div
+              key={item.orderId}
+              className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30"
+            >
+              <div className="min-w-0">
+                <p className="font-mono text-[11px] text-slate-700 dark:text-slate-200 truncate">
+                  {item.orderId}
+                </p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                  {METODE_LABEL[item.metode]} · {formatTanggalLokal(item.waktuBayar || item.createdAt)}
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-sm font-mono font-bold text-slate-700 dark:text-slate-200">
+                  {formatRupiah(item.nominal)}
+                </p>
+                <Badge
+                  tone={item.status === 'lunas' ? 'emerald' : item.status === 'batal' ? 'slate' : 'amber'}
+                >
+                  {item.status === 'lunas' ? 'Lunas' : item.status === 'batal' ? 'Batal' : 'Menunggu'}
+                </Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/**
+ * Status kredensial server untuk satu akun — apakah auto-login akan jalan.
+ *
+ * Membaca dokumen kredensial sekali per akun. Ini satu request per baris,
+ * jadi hanya dilakukan untuk tab yang sedang terlihat; tab lain menunggu
+ * sampai dibuka.
+ */
+function StatusKredensial({
+  username,
+  onUbah,
+}: {
+  username: string;
+  onUbah: (username: string) => void;
+}) {
+  const [ada, setAda] = useState<boolean | null>(null);
+  const [imei, setImei] = useState('');
+
+  /*
+   * ⚠️ Hanya metadata yang dibaca — `terbaca`, bukan isi dokumennya.
+   *
+   * `loadServerCredential()` versi lama mengembalikan `passwordEncrypted` yang
+   * bisa didekripsi di peramban. Sekarang server yang mendekripsi, dan yang
+   * sampai ke sini cuma "¿password-nya masih bisa dipakai?".
+   *
+   * Badge "Perlu Perbarui" membedakan dua keadaan yang tadinya tercampur:
+   * kredensial belum diisi, dan kredensial diisi tapi format lamanya tidak
+   * bisa dibuka server. Keduanya butuh tindakan berbeda, jadi keduanya
+   * ditunjukkan berbeda.
+   */
+  const [perluPerbarui, setPerluPerbarui] = useState(false);
+
+  useEffect(() => {
+    let hidup = true;
+    void ringkasanKredensial(username)
+      .then(data => {
+        if (!hidup) return;
+        setAda(data ? data.terbaca : false);
+        setPerluPerbarui(Boolean(data && !data.terbaca));
+        setImei(data?.imei ?? '');
+      })
+      .catch(() => {
+        if (!hidup) return;
+        setAda(false);
+        setPerluPerbarui(false);
+      });
+    return () => {
+      hidup = false;
+    };
+  }, [username]);
+
+  if (ada === null) {
+    return <span className="text-[11px] text-slate-400 dark:text-slate-500">Memeriksa…</span>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onUbah(username)}
+      className="inline-flex items-center gap-1.5 text-[11px] font-bold hover:underline"
+      title={
+        perluPerbarui
+          ? 'Kredensial tersimpan dalam format lama. Simpan ulang password server pusat agar auto-login bisa jalan.'
+          : ada
+            ? imei
+              ? `Kredensial tersimpan (IMEI terkunci ke perangkat). Klik untuk mengubah.`
+              : 'Kredensial tersimpan. Klik untuk mengubah.'
+            : 'Belum ada kredensial — akun ini harus login manual sekali. Klik untuk mengisinya.'
+      }
+    >
+      {perluPerbarui ? (
+        <Badge tone="amber">
+          <KeyRound className="w-2.5 h-2.5" /> Perlu Perbarui
+        </Badge>
+      ) : ada ? (
+        <Badge tone="emerald">
+          <KeyRound className="w-2.5 h-2.5" /> Siap
+        </Badge>
+      ) : (
+        <Badge tone="amber">Belum diisi</Badge>
+      )}
+    </button>
+  );
+}

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="id" class="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>PRABAWA - Portal Presensi Jawa Timur</title>
+
+    <!-- ─── Favicon ──────────────────────────────────────────────
+         Hanya file yang benar-benar ada di public/assets/. Sebelumnya
+         menunjuk favicon-16x16.png / favicon-32x32.png yang tidak ada,
+         sehingga ikon tidak pernah termuat. -->
+    <link rel="shortcut icon" href="/assets/favicon.ico" type="image/x-icon" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/icon-16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+
+    <!-- ─── PWA Manifest ────────────────────────────────── -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- ─── Theme color (diupdate oleh JS saat toggle dark mode) ── -->
+    <meta name="theme-color" id="theme-color-meta" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#020617" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+
+    <!-- ─── iOS / Apple PWA ─────────────────────────────────── -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="PRABAWA" />
+
+    <!-- ─── Android / General PWA ───────────────────────────── -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="PRABAWA" />
+    <meta name="application-version" content="1.0.0" />
+
+    <!-- ─── SEO / Social ────────────────────────────────────── -->
+    <meta name="description" content="Portal Presensi Jawa Timur — panel web untuk absensi, perizinan, dan laporan." />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- ─── Google Fonts ────────────────────────────────── -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <!-- Prevent flash of white before React mounts -->
+    <script>
+      (function() {
+        try {
+          var theme = localStorage.getItem('theme');
+          var dark = theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+          document.body.style.background = dark ? '#020617' : '#f1f5f9';
+          // Sync theme-color meta dengan tema
+          var metaTheme = document.getElementById('theme-color-meta');
+          if (metaTheme) metaTheme.setAttribute('content', dark ? '#020617' : '#ffffff');
+        } catch(e) {}
+      })();
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
