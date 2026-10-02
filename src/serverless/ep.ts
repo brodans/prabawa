@@ -62,6 +62,8 @@ function rewriteLocation(loc: string): string {
   let baru = loc.replace(ASAL_UPSTREAM, '');
   if (!baru.startsWith('/')) baru = '/' + baru;
   if (!/^\/ep(\/|$)/.test(baru)) baru = '/ep' + baru;
+  // Ganti /index.php/ dengan /p/ agar tidak kena Vercel WAF
+  baru = baru.replace(/\/index\.php\//g, '/p/');
   return baru;
 }
 
@@ -86,13 +88,17 @@ export default async function handler(req: IncomingMessage & { url?: string; met
   console.log(`[ep] method=${req.method} url=${originalUrl}`);
 
   // Vercel bisa memberikan req.url dalam dua bentuk tergantung versi CLI:
-  // 1. Sudah di-strip: "/index.php/captcha?r=..." (tanpa /api/ep di depan)
-  // 2. Belum di-strip: "/api/ep/index.php/captcha?r=..." (URL rewrite penuh)
+  // 1. Sudah di-strip: "/p/captcha?r=..." (tanpa /api/ep di depan)
+  // 2. Belum di-strip: "/api/ep/p/captcha?r=..." (URL rewrite penuh)
   // Strip keduanya agar upstreamPath selalu berupa path murni.
   let upstreamPath = originalUrl
     .replace(/^\/api\/ep/, '')
     .replace(/^\/ep/, '');
   if (!upstreamPath.startsWith('/')) upstreamPath = '/' + upstreamPath;
+
+  // Vercel WAF memblokir path yang mengandung ".php" (x-vercel-mitigated: deny).
+  // Client menggunakan /ep/p/ sebagai alias untuk /index.php/ — terjemahkan di sini.
+  upstreamPath = upstreamPath.replace(/^\/p(\/|$)/, '/index.php$1');
 
   const upstreamUrl = `${TARGET}${upstreamPath}`;
 

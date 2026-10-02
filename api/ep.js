@@ -62,6 +62,7 @@ function rewriteLocation(loc) {
   let baru = loc.replace(ASAL_UPSTREAM, "");
   if (!baru.startsWith("/")) baru = "/" + baru;
   if (!/^\/ep(\/|$)/.test(baru)) baru = "/ep" + baru;
+  baru = baru.replace(/\/index\.php\//g, "/p/");
   return baru;
 }
 function rewriteSetCookie(cookies) {
@@ -75,6 +76,7 @@ async function handler(req, res) {
   console.log(`[ep] method=${req.method} url=${originalUrl}`);
   let upstreamPath = originalUrl.replace(/^\/api\/ep/, "").replace(/^\/ep/, "");
   if (!upstreamPath.startsWith("/")) upstreamPath = "/" + upstreamPath;
+  upstreamPath = upstreamPath.replace(/^\/p(\/|$)/, "/index.php$1");
   const upstreamUrl = `${TARGET}${upstreamPath}`;
   const headers = {};
   for (const [key, value] of Object.entries(req.headers)) {

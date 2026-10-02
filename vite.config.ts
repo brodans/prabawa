@@ -36,7 +36,7 @@ const epProxy = {
   target: EP_TARGET,
   changeOrigin: true,
   secure: true,
-  rewrite: (p: string) => p.replace(/^\/ep/, ''),
+  rewrite: (p: string) => p.replace(/^\/ep/, '').replace(/^\/p\//, '/index.php/'),
   headers: { Referer: EP_TARGET_ORIGIN + '/' },
   configure: (proxyServer: { on: (event: string, cb: (proxyRes: { headers: Record<string, string | string[] | undefined> }) => void) => void }) => {
     proxyServer.on('proxyRes', rewriteEpLocation);

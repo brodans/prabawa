@@ -118,8 +118,8 @@ export interface CaptchaResult {
  * Mengembalikan { url, blob }: url object-URL untuk <img>, blob untuk OCR.
  */
 export async function muatCaptcha(): Promise<CaptchaResult> {
-  await req(`${PROXY}/index.php/`);
-  const res = await req(`${PROXY}/index.php/captcha?r=${Math.random()}&reload=1`);
+  await req(`${PROXY}/p/`);
+  const res = await req(`${PROXY}/p/captcha?r=${Math.random()}&reload=1`);
   if (!res.ok) throw new Error(`Gagal memuat captcha (HTTP ${res.status})`);
   const blob = await res.blob();
   return { url: URL.createObjectURL(blob), blob };
@@ -156,7 +156,7 @@ export async function selesaikanCaptcha(blob: Blob): Promise<OcrResult> {
 }
 
 /**
- * POST /index.php/login.
+ * POST /p/login.
  */
 export async function login({ nip, password, captcha }: { nip: string; password: string; captcha: string }): Promise<boolean> {
   const body = new URLSearchParams({
@@ -164,7 +164,7 @@ export async function login({ nip, password, captcha }: { nip: string; password:
     'm_user[password]': password,
     'm_user[CAPTCHA]': captcha,
   });
-  const res = await req(`${PROXY}/index.php/login`, {
+  const res = await req(`${PROXY}/p/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
@@ -176,7 +176,7 @@ export async function login({ nip, password, captcha }: { nip: string; password:
   } catch {
     /* abaikan */
   }
-  if (pathname.endsWith('/index.php/login')) {
+  if (pathname.endsWith('/p/login')) {
     const m = html.match(/<div class="alert alert-danger">([\s\S]*?)<\/div>/i);
     const pesan = m
       ? m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -192,7 +192,7 @@ export async function login({ nip, password, captcha }: { nip: string; password:
 /** Logout untuk mengakhiri session. */
 export async function logout(): Promise<void> {
   try {
-    await fetch(`${PROXY}/index.php/default/logout`, { credentials: 'include' });
+    await fetch(`${PROXY}/p/default/logout`, { credentials: 'include' });
   } catch {
     /* biarkan: sesi akan hangat sendiri */
   }
@@ -311,7 +311,7 @@ export function parseKehadiran(html: string): BarisKehadiran[] {
 
 /** Ambil IMEI kehadiran dari HALAMAN PERTAMA saja. */
 export async function ambilImei(): Promise<HasilImei> {
-  const res = await req(`${PROXY}/index.php/checkinout`);
+  const res = await req(`${PROXY}/p/checkinout`);
   if (!res.ok) throw new Error(`Gagal memuat kehadiran (HTTP ${res.status})`);
   const html = await res.text();
   pastikanBukanLogin(html);
@@ -322,7 +322,7 @@ export async function ambilImei(): Promise<HasilImei> {
 
 /** Ambil satu halaman daftar kehadiran lengkap. */
 export async function ambilKehadiran({ halaman = 1 }: { halaman?: number } = {}): Promise<HasilKehadiran> {
-  const url = `${PROXY}/index.php/checkinout${halaman > 1 ? `?page=${halaman}` : ''}`;
+  const url = `${PROXY}/p/checkinout${halaman > 1 ? `?page=${halaman}` : ''}`;
   const res = await req(url);
   if (!res.ok) throw new Error(`Gagal memuat kehadiran (HTTP ${res.status})`);
   const html = await res.text();
@@ -352,7 +352,7 @@ export function parseLatlong(html: string): KoordinatPresisi {
 /** Ambil koordinat presisi untuk satu baris kehadiran. */
 export async function ambilLatlong(idMap: string): Promise<KoordinatPresisi> {
   const res = await req(
-    `${PROXY}/index.php/checkinout/load/action?latlong=${encodeURIComponent(idMap)}`,
+    `${PROXY}/p/checkinout/load/action?latlong=${encodeURIComponent(idMap)}`,
   );
   if (!res.ok) throw new Error(`Gagal memuat lokasi (HTTP ${res.status})`);
   return parseLatlong(await res.text());
@@ -403,7 +403,7 @@ export function parseDetailPegawai(html: string): DetailPegawai {
 
   const foto = (html.match(/<img[^>]*width="150px"[^>]*src="([^"]+)"/i) || [])[1] || null;
   const idPegawai = (html.match(/\/index\.php\/pegawai\/(\d+)\/ijins/i) || [])[1] || null;
-  const urlIjin = idPegawai ? `/index.php/pegawai/${idPegawai}/ijins` : null;
+  const urlIjin = idPegawai ? `/p/pegawai/${idPegawai}/ijins` : null;
 
   return {
     profil,
@@ -417,7 +417,7 @@ export function parseDetailPegawai(html: string): DetailPegawai {
 
 /** Ambil halaman "Detail Pegawai" milik akun yang login. */
 export async function ambilDetailPegawai(): Promise<DetailPegawai> {
-  const res = await req(`${PROXY}/index.php/pegawai/details/action`);
+  const res = await req(`${PROXY}/p/pegawai/details/action`);
   if (!res.ok) throw new Error(`Gagal memuat detail pegawai (HTTP ${res.status})`);
   const html = await res.text();
   pastikanBukanLogin(html);
@@ -512,7 +512,7 @@ export function parsePerizinan(html: string): BarisIjin[] {
 
 /** Ambil "Daftar Ijin" milik pegawai (dimuat via ajax oleh halaman detail). */
 export async function ambilIjinPegawai(idPegawai: string): Promise<{ baris: BarisIjin[]; html: string }> {
-  const res = await req(`${PROXY}/index.php/pegawai/${encodeURIComponent(idPegawai)}/ijins`);
+  const res = await req(`${PROXY}/p/pegawai/${encodeURIComponent(idPegawai)}/ijins`);
   if (!res.ok) throw new Error(`Gagal memuat daftar ijin (HTTP ${res.status})`);
   const html = await res.text();
   pastikanBukanLogin(html);
@@ -521,7 +521,7 @@ export async function ambilIjinPegawai(idPegawai: string): Promise<{ baris: Bari
 
 /** Ambil satu halaman daftar perizinan. */
 export async function ambilPerizinan({ halaman = 1 }: { halaman?: number } = {}): Promise<HasilPerizinan> {
-  const url = `${PROXY}/index.php/perizinan${halaman > 1 ? `?page=${halaman}` : ''}`;
+  const url = `${PROXY}/p/perizinan${halaman > 1 ? `?page=${halaman}` : ''}`;
   const res = await req(url);
   if (!res.ok) throw new Error(`Gagal memuat perizinan (HTTP ${res.status})`);
   const html = await res.text();
