@@ -8,7 +8,7 @@
     "api/upload.js":            { "maxDuration": 60 },
     "api/health.js":            { "maxDuration": 30 },
     "api/midtrans-charge.js":   { "maxDuration": 30 },
-    "api/ocr.js":               { "maxDuration": 30, "memory": 1024 },
+    "api/ocr.js":               { "maxDuration": 30, "memory": 1024, "includeFiles": "api/model/**" },
     "api/ep.js":                { "maxDuration": 30 }
   },
   "routes": [
