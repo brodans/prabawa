@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "dist",
   "trailingSlash": false,
+  "cleanUrls": false,
   "functions": {
     "api/billing-aktivasi.js": { "maxDuration": 60 },
     "api/panel-auth.js":       { "maxDuration": 60 },
@@ -11,21 +13,9 @@
     "api/ocr.js":               { "maxDuration": 30, "memory": 1024, "includeFiles": "api/model/**" },
     "api/ep.js":                { "maxDuration": 30 }
   },
-  "routes": [
-    {
-      "src": "/ep(.*)",
-      "dest": "/api/ep$1"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+  "rewrites": [
+    { "source": "/ep/:path*", "destination": "/api/ep/:path*" },
+    { "source": "/ep",        "destination": "/api/ep" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
