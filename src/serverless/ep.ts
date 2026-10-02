@@ -80,23 +80,10 @@ function rewriteSetCookie(cookies: string | string[]): string[] {
 }
 
 export default async function handler(req: IncomingMessage & { url?: string; method?: string; headers: Record<string, string | string[] | undefined> }, res: ServerResponse): Promise<void> {
-  /*
-   * Handler tidak boleh melempar keluar: di Vercel itu jadi
-   * `FUNCTION_INVOCATION_FAILED` — tanpa respons, tanpa penyebab yang bisa
-   * dibaca. Body diteruskan sebagai stream, jadi bentuk minimum yang dibutuhkan
-   * adalah `req.on`; kalau tidak ada, jawab 400 dengan pesan yang menyebut apa
-   * yang terjadi, bukan berhenti sebagai `TypeError` yang tidak terbaca.
-   */
-  if (typeof req?.on !== 'function') {
-    res.statusCode = 400;
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.end(JSON.stringify({
-      error: 'Permintaan harus berupa stream (req.on tidak tersedia).',
-    }));
-    return;
-  }
-
   const originalUrl = req.url || '/';
+
+  // Log untuk diagnosa routing di Vercel (muncul di Function Logs)
+  console.log(`[ep] method=${req.method} url=${originalUrl}`);
 
   // Vercel bisa memberikan req.url dalam dua bentuk tergantung versi CLI:
   // 1. Sudah di-strip: "/index.php/captcha?r=..." (tanpa /api/ep di depan)
@@ -122,22 +109,44 @@ export default async function handler(req: IncomingMessage & { url?: string; met
   headers['referer'] = TARGET_ORIGIN + '/';
   headers['origin'] = TARGET_ORIGIN;
 
-  // Baca body untuk method yang membawa payload
+  // Baca body untuk method yang membawa payload — dua mode:
+  // 1. Fluid Compute: body sudah di-parse di req.body
+  // 2. Classic stream: baca lewat req.on('data')
   let body: ArrayBuffer | undefined;
   const method = req.method || 'GET';
   if (['POST', 'PUT', 'PATCH'].includes(method)) {
-    const raw = await new Promise<Buffer>((resolve) => {
-      const chunks: Buffer[] = [];
-      req.on('data', (chunk: Buffer) => chunks.push(chunk));
-      req.on('end', () => resolve(Buffer.concat(chunks)));
-      req.on('error', () => resolve(Buffer.alloc(0)));
-    });
-    if (raw.length > 0) {
-      // Salin ke ArrayBuffer yang bukan Buffer Node.js
-      const ab = new ArrayBuffer(raw.length);
-      const view = new Uint8Array(ab);
-      for (let i = 0; i < raw.length; i++) view[i] = raw[i];
-      body = ab;
+    const bodyLangsung = (req as any).body;
+    if (bodyLangsung !== undefined && bodyLangsung !== null) {
+      // Fluid Compute: konversi ke ArrayBuffer
+      let raw: Buffer;
+      if (Buffer.isBuffer(bodyLangsung)) {
+        raw = bodyLangsung;
+      } else if (typeof bodyLangsung === 'string') {
+        raw = Buffer.from(bodyLangsung);
+      } else if (bodyLangsung instanceof Uint8Array) {
+        raw = Buffer.from(bodyLangsung);
+      } else {
+        raw = Buffer.from(JSON.stringify(bodyLangsung));
+      }
+      if (raw.length > 0) {
+        const ab = new ArrayBuffer(raw.length);
+        const view = new Uint8Array(ab);
+        for (let i = 0; i < raw.length; i++) view[i] = raw[i];
+        body = ab;
+      }
+    } else if (typeof (req as any).on === 'function') {
+      const raw = await new Promise<Buffer>((resolve) => {
+        const chunks: Buffer[] = [];
+        req.on('data', (chunk: Buffer) => chunks.push(chunk));
+        req.on('end', () => resolve(Buffer.concat(chunks)));
+        req.on('error', () => resolve(Buffer.alloc(0)));
+      });
+      if (raw.length > 0) {
+        const ab = new ArrayBuffer(raw.length);
+        const view = new Uint8Array(ab);
+        for (let i = 0; i < raw.length; i++) view[i] = raw[i];
+        body = ab;
+      }
     }
   }
 

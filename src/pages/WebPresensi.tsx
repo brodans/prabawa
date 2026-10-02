@@ -508,7 +508,9 @@ export default function WebPresensi() {
       blob = hasil.blob;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setCaptchaInfo(`Gagal memuat captcha: ${msg}`);
+      setCaptchaImg(null);
+      setOcrTersedia(false);
+      setCaptchaInfo(`⚠ Gagal memuat captcha — ${msg}. Klik ikon refresh untuk coba lagi.`);
       setLoadingCaptcha(false);
       return '';
     }
@@ -846,9 +848,17 @@ export default function WebPresensi() {
                 )}
               </button>
             ) : (
-              <div className="h-11 w-20 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                {loadingCaptcha ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" /> : <span className="text-xs text-slate-400">—</span>}
-              </div>
+              <button
+                type="button"
+                onClick={() => refreshCaptcha()}
+                disabled={loadingCaptcha}
+                title="Klik untuk muat captcha"
+                className="h-11 w-20 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-center hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition disabled:opacity-40"
+              >
+                {loadingCaptcha
+                  ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                  : <RefreshCw className="w-4 h-4 text-slate-400" />}
+              </button>
             )}
             <button type="button" onClick={() => refreshCaptcha()} disabled={loadingCaptcha}
               className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-40 dark:hover:text-indigo-400 transition"

@@ -71,15 +71,8 @@ function rewriteSetCookie(cookies) {
   );
 }
 async function handler(req, res) {
-  if (typeof req?.on !== "function") {
-    res.statusCode = 400;
-    res.setHeader("Content-Type", "application/json; charset=utf-8");
-    res.end(JSON.stringify({
-      error: "Permintaan harus berupa stream (req.on tidak tersedia)."
-    }));
-    return;
-  }
   const originalUrl = req.url || "/";
+  console.log(`[ep] method=${req.method} url=${originalUrl}`);
   let upstreamPath = originalUrl.replace(/^\/api\/ep/, "").replace(/^\/ep/, "");
   if (!upstreamPath.startsWith("/")) upstreamPath = "/" + upstreamPath;
   const upstreamUrl = `${TARGET}${upstreamPath}`;
@@ -95,17 +88,37 @@ async function handler(req, res) {
   let body;
   const method = req.method || "GET";
   if (["POST", "PUT", "PATCH"].includes(method)) {
-    const raw = await new Promise((resolve) => {
-      const chunks = [];
-      req.on("data", (chunk) => chunks.push(chunk));
-      req.on("end", () => resolve(Buffer.concat(chunks)));
-      req.on("error", () => resolve(Buffer.alloc(0)));
-    });
-    if (raw.length > 0) {
-      const ab = new ArrayBuffer(raw.length);
-      const view = new Uint8Array(ab);
-      for (let i = 0; i < raw.length; i++) view[i] = raw[i];
-      body = ab;
+    const bodyLangsung = req.body;
+    if (bodyLangsung !== void 0 && bodyLangsung !== null) {
+      let raw;
+      if (Buffer.isBuffer(bodyLangsung)) {
+        raw = bodyLangsung;
+      } else if (typeof bodyLangsung === "string") {
+        raw = Buffer.from(bodyLangsung);
+      } else if (bodyLangsung instanceof Uint8Array) {
+        raw = Buffer.from(bodyLangsung);
+      } else {
+        raw = Buffer.from(JSON.stringify(bodyLangsung));
+      }
+      if (raw.length > 0) {
+        const ab = new ArrayBuffer(raw.length);
+        const view = new Uint8Array(ab);
+        for (let i = 0; i < raw.length; i++) view[i] = raw[i];
+        body = ab;
+      }
+    } else if (typeof req.on === "function") {
+      const raw = await new Promise((resolve) => {
+        const chunks = [];
+        req.on("data", (chunk) => chunks.push(chunk));
+        req.on("end", () => resolve(Buffer.concat(chunks)));
+        req.on("error", () => resolve(Buffer.alloc(0)));
+      });
+      if (raw.length > 0) {
+        const ab = new ArrayBuffer(raw.length);
+        const view = new Uint8Array(ab);
+        for (let i = 0; i < raw.length; i++) view[i] = raw[i];
+        body = ab;
+      }
     }
   }
   let upstreamRes;

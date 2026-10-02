@@ -204,13 +204,6 @@ async function handler(req, res) {
   }
   res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (typeof req?.on !== "function") {
-    kirimJson(res, 400, {
-      ok: false,
-      error: "Body permintaan harus berupa stream (req.on tidak tersedia). Endpoint ini menerima byte gambar mentah, bukan JSON."
-    });
-    return;
-  }
   if (req.method === "OPTIONS") {
     res.statusCode = 204;
     res.end();
@@ -229,16 +222,33 @@ async function handler(req, res) {
     kirimJson(res, 405, { ok: false, error: "Method not allowed" });
     return;
   }
-  const gambar = await new Promise((resolve) => {
-    const chunks = [];
-    let total = 0;
-    req.on("data", (chunk) => {
-      total += chunk.length;
-      if (total <= MAX_BODY) chunks.push(chunk);
+  let gambar;
+  const bodyLangsung = req.body;
+  if (bodyLangsung !== void 0 && bodyLangsung !== null) {
+    if (Buffer.isBuffer(bodyLangsung)) {
+      gambar = bodyLangsung;
+    } else if (typeof bodyLangsung === "string") {
+      gambar = Buffer.from(bodyLangsung, "binary");
+    } else if (bodyLangsung instanceof Uint8Array) {
+      gambar = Buffer.from(bodyLangsung);
+    } else {
+      gambar = Buffer.alloc(0);
+    }
+  } else if (typeof req.on === "function") {
+    gambar = await new Promise((resolve) => {
+      const chunks = [];
+      let total = 0;
+      req.on("data", (chunk) => {
+        total += chunk.length;
+        if (total <= MAX_BODY) chunks.push(chunk);
+      });
+      req.on("end", () => resolve(Buffer.concat(chunks)));
+      req.on("error", () => resolve(Buffer.alloc(0)));
     });
-    req.on("end", () => resolve(Buffer.concat(chunks)));
-    req.on("error", () => resolve(Buffer.alloc(0)));
-  });
+  } else {
+    kirimJson(res, 400, { ok: false, error: "Tidak bisa membaca body: req.on dan req.body keduanya tidak tersedia." });
+    return;
+  }
   if (!gambar.length) {
     kirimJson(res, 400, { ok: false, error: "body gambar kosong" });
     return;

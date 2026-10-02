@@ -287,15 +287,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
    * `on`. Runtime yang tidak memberi stream (atau pemanggil yang mengoper objek
    * biasa) harus berakhir sebagai 400 dengan pesan jelas, bukan `TypeError`.
    */
-  if (typeof req?.on !== 'function') {
-    kirimJson(res, 400, {
-      ok: false,
-      error: 'Body permintaan harus berupa stream (req.on tidak tersedia). ' +
-        'Endpoint ini menerima byte gambar mentah, bukan JSON.',
-    });
-    return;
-  }
-
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
     res.end();
@@ -318,17 +309,40 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  // Baca body gambar
-  const gambar = await new Promise<Buffer>((resolve) => {
-    const chunks: Buffer[] = [];
-    let total = 0;
-    req.on('data', (chunk: Buffer) => {
-      total += chunk.length;
-      if (total <= MAX_BODY) chunks.push(chunk);
+  // Baca body gambar — dua mode:
+  // 1. Fluid Compute / Next.js: body sudah di-parse, tersedia di req.body
+  // 2. Classic Serverless: body datang sebagai stream lewat req.on('data')
+  let gambar: Buffer;
+
+  const bodyLangsung = (req as any).body;
+  if (bodyLangsung !== undefined && bodyLangsung !== null) {
+    // Fluid Compute: body sudah tersedia
+    if (Buffer.isBuffer(bodyLangsung)) {
+      gambar = bodyLangsung;
+    } else if (typeof bodyLangsung === 'string') {
+      gambar = Buffer.from(bodyLangsung, 'binary');
+    } else if (bodyLangsung instanceof Uint8Array) {
+      gambar = Buffer.from(bodyLangsung);
+    } else {
+      // Fallback: coba JSON / unknown
+      gambar = Buffer.alloc(0);
+    }
+  } else if (typeof (req as any).on === 'function') {
+    // Classic stream
+    gambar = await new Promise<Buffer>((resolve) => {
+      const chunks: Buffer[] = [];
+      let total = 0;
+      req.on('data', (chunk: Buffer) => {
+        total += chunk.length;
+        if (total <= MAX_BODY) chunks.push(chunk);
+      });
+      req.on('end', () => resolve(Buffer.concat(chunks)));
+      req.on('error', () => resolve(Buffer.alloc(0)));
     });
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', () => resolve(Buffer.alloc(0)));
-  });
+  } else {
+    kirimJson(res, 400, { ok: false, error: 'Tidak bisa membaca body: req.on dan req.body keduanya tidak tersedia.' });
+    return;
+  }
 
   if (!gambar.length) {
     kirimJson(res, 400, { ok: false, error: 'body gambar kosong' });
