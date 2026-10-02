@@ -70,6 +70,9 @@ function cariDirModel() {
   }
   if (typeof __dirname === "string") kandidat.push(__dirname);
   kandidat.push(join(process.cwd(), "api"));
+  kandidat.push(process.cwd());
+  kandidat.push("/var/task/api");
+  kandidat.push("/var/task");
   for (const dir of kandidat) {
     if (existsSync(join(dir, "model", "ocr.onnx"))) return dir;
   }
@@ -77,22 +80,29 @@ function cariDirModel() {
     "model/ocr.onnx tidak ditemukan. Dicoba di: " + [...new Set(kandidat)].join(", ") + ". Pastikan folder model ikut ter-deploy bersama api/ocr.js."
   );
 }
-var DIR = cariDirModel();
-var MODEL_PATH = join(DIR, "model", "ocr.onnx");
-var CHARSET_PATH = join(DIR, "model", "charset.json");
+var _modelPath = null;
+var _charsetPath = null;
+function getModelPaths() {
+  if (_modelPath && _charsetPath) return { modelPath: _modelPath, charsetPath: _charsetPath };
+  const dir = cariDirModel();
+  _modelPath = join(dir, "model", "ocr.onnx");
+  _charsetPath = join(dir, "model", "charset.json");
+  return { modelPath: _modelPath, charsetPath: _charsetPath };
+}
 var _session = null;
 var _charset = null;
 async function muatModel() {
   if (_session && _charset) return { session: _session, charset: _charset };
+  const { modelPath, charsetPath } = getModelPaths();
   const ort = await import("onnxruntime-node");
   if (!_session) {
     const InferenceSession = ort.InferenceSession ?? ort.default?.InferenceSession;
-    _session = await InferenceSession.create(MODEL_PATH, {
+    _session = await InferenceSession.create(modelPath, {
       executionProviders: ["cpu"]
     });
   }
   if (!_charset) {
-    _charset = JSON.parse(readFileSync(CHARSET_PATH, "utf-8"));
+    _charset = JSON.parse(readFileSync(charsetPath, "utf-8"));
   }
   return { session: _session, charset: _charset };
 }

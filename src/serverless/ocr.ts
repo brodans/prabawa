@@ -49,7 +49,13 @@ function cariDirModel(): string {
     }
   }
   if (typeof __dirname === 'string') kandidat.push(__dirname);
+  // Vercel: cwd biasanya /var/task, model ada di api/model/
   kandidat.push(join(process.cwd(), 'api'));
+  // Vercel dengan includeFiles: model bisa saja di-copy langsung ke cwd
+  kandidat.push(process.cwd());
+  // Fallback eksplisit untuk Vercel
+  kandidat.push('/var/task/api');
+  kandidat.push('/var/task');
 
   for (const dir of kandidat) {
     if (existsSync(join(dir, 'model', 'ocr.onnx'))) return dir;
@@ -61,9 +67,18 @@ function cariDirModel(): string {
   );
 }
 
-const DIR = cariDirModel();
-const MODEL_PATH = join(DIR, 'model', 'ocr.onnx');
-const CHARSET_PATH = join(DIR, 'model', 'charset.json');
+// Path model dicari saat pertama kali dibutuhkan (lazy), bukan saat module
+// di-load — agar cold start tidak crash sebelum handler sempat menjawab.
+let _modelPath: string | null = null;
+let _charsetPath: string | null = null;
+
+function getModelPaths(): { modelPath: string; charsetPath: string } {
+  if (_modelPath && _charsetPath) return { modelPath: _modelPath, charsetPath: _charsetPath };
+  const dir = cariDirModel();
+  _modelPath = join(dir, 'model', 'ocr.onnx');
+  _charsetPath = join(dir, 'model', 'charset.json');
+  return { modelPath: _modelPath, charsetPath: _charsetPath };
+}
 
 // ─── Lazy-load ONNX Runtime & charset ────────────────────────────────────────
 
@@ -74,6 +89,8 @@ let _charset: string[] | null = null;
 async function muatModel(): Promise<{ session: NonNullable<typeof _session>; charset: string[] }> {
   if (_session && _charset) return { session: _session, charset: _charset };
 
+  const { modelPath, charsetPath } = getModelPaths();
+
   // Gunakan require untuk menghindari masalah ESM interop di Node.js bundled
   // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
   const ort: any = await import('onnxruntime-node');
@@ -81,13 +98,13 @@ async function muatModel(): Promise<{ session: NonNullable<typeof _session>; cha
   if (!_session) {
     // InferenceSession.create bisa berada di ort langsung atau ort.default
     const InferenceSession = ort.InferenceSession ?? ort.default?.InferenceSession;
-    _session = await InferenceSession.create(MODEL_PATH, {
+    _session = await InferenceSession.create(modelPath, {
       executionProviders: ['cpu'],
     });
   }
 
   if (!_charset) {
-    _charset = JSON.parse(readFileSync(CHARSET_PATH, 'utf-8')) as string[];
+    _charset = JSON.parse(readFileSync(charsetPath, 'utf-8')) as string[];
   }
 
   return { session: _session, charset: _charset };
