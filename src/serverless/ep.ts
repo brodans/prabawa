@@ -59,11 +59,20 @@ const HOP_BY_HOP_RESPONSE = new Set([
  * di sini — kalau tidak, perubahan host hanya berlaku di satu dari dua tempat.
  */
 function rewriteLocation(loc: string): string {
-  let baru = loc.replace(ASAL_UPSTREAM, '');
+  // Buang semua prefix absolut (http://host atau https://host), apapun hostnya
+  // — upstream kadang redirect ke domain Vercel karena kita kirim Host: mereka
+  let baru = loc;
+  try {
+    const u = new URL(loc);
+    baru = u.pathname + u.search + u.hash;
+  } catch {
+    // bukan URL absolut — pakai apa adanya
+  }
   if (!baru.startsWith('/')) baru = '/' + baru;
+  // Pastikan diawali /ep
   if (!/^\/ep(\/|$)/.test(baru)) baru = '/ep' + baru;
-  // Ganti /index.php/ dengan /p/ agar tidak kena Vercel WAF
-  baru = baru.replace(/\/index\.php\//g, '/p/');
+  // Ganti /index.php/ → /p/ (bypass Vercel WAF)
+  baru = baru.replace(/\/index\.php(\/|$)/g, '/p$1');
   return baru;
 }
 
@@ -125,9 +134,15 @@ export default async function handler(req: IncomingMessage & { url?: string; met
   }
 
   // Override headers penting agar upstream menerimanya dengan benar
+  // ⚠️ host, referer, origin HARUS menunjuk ke upstream — jangan forward
+  // nilai dari browser. Kalau origin browser (prabawa.vercel.app) diteruskan,
+  // server upstream akan redirect ke domain Vercel dan mematikan proxy loop.
   headers['host'] = new URL(TARGET).host;
   headers['referer'] = TARGET_ORIGIN + '/';
   headers['origin'] = TARGET_ORIGIN;
+  // Hapus header yang bisa bocorkan domain Vercel ke upstream
+  delete headers['x-forwarded-host'];
+  delete headers['x-forwarded-for'];
 
   // Baca body untuk method yang membawa payload — dua mode:
   // 1. Fluid Compute: body sudah di-parse di req.body
