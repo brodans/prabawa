@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import ImageLightbox from '../components/ui/ImageLightbox';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -22,8 +23,6 @@ import {
   AlertCircle,
   Loader2,
   Shield,
-  ZoomIn,
-  ZoomOut,
 } from 'lucide-react';
 import {
   ambilBerkas,
@@ -275,97 +274,61 @@ type BerkasState = { nama: string; url: string | null; tipe: string; loading: bo
 function ViewerBerkas({ berkas, onTutup }: { berkas: BerkasState; onTutup: () => void }) {
   const isPdf   = /pdf/i.test(berkas.tipe);
   const isImage = /^image\//i.test(berkas.tipe);
-  const [zoom, setZoom] = useState(1);
 
-  return (
-    <Modal
-      judul={berkas.nama}
-      onTutup={onTutup}
-      lebar
-      mediaMod={!!(berkas.url && (isPdf || isImage))}
-    >
-      {berkas.loading && (
-        <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-          <span className="text-sm">Memuat berkas...</span>
-        </div>
-      )}
+  // Loading/error tetap pakai Modal biasa
+  if (berkas.loading || berkas.err || !berkas.url) {
+    return (
+      <Modal judul={berkas.nama} onTutup={onTutup} lebar>
+        {berkas.loading && (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+            <span className="text-sm">Memuat berkas...</span>
+          </div>
+        )}
+        {berkas.err && <div className="p-5"><Pesan tipe="error">{berkas.err}</Pesan></div>}
+      </Modal>
+    );
+  }
 
-      {berkas.err && (
-        <div className="p-5">
-          <Pesan tipe="error">{berkas.err}</Pesan>
-        </div>
-      )}
+  // Foto — pakai ImageLightbox fullscreen
+  if (isImage) {
+    return (
+      <ImageLightbox
+        src={berkas.url}
+        title={berkas.nama}
+        onClose={onTutup}
+      />
+    );
+  }
 
-      {berkas.url && isPdf && (
+  // PDF — iframe
+  if (isPdf) {
+    return (
+      <Modal judul={berkas.nama} onTutup={onTutup} lebar mediaMod>
         <iframe
           src={berkas.url}
           title={berkas.nama}
           className="w-full rounded-b-2xl"
           style={{ height: '78vh', border: 'none' }}
         />
-      )}
+      </Modal>
+    );
+  }
 
-      {berkas.url && isImage && (
-        <div className="flex flex-col">
-          {/* Toolbar zoom */}
-          <div className="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700/50">
-            <span className="text-xs text-slate-500 dark:text-slate-400">{Math.round(zoom * 100)}%</span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setZoom(z => Math.max(0.25, +(z - 0.25).toFixed(2)))}
-                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                title="Perkecil"
-              ><ZoomOut className="w-4 h-4" /></button>
-              <button
-                type="button"
-                onClick={() => setZoom(1)}
-                className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                title="Reset"
-              >Reset</button>
-              <button
-                type="button"
-                onClick={() => setZoom(z => Math.min(4, +(z + 0.25).toFixed(2)))}
-                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                title="Perbesar"
-              ><ZoomIn className="w-4 h-4" /></button>
-            </div>
-            <a
-              href={berkas.url}
-              download={berkas.nama}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/30 transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Unduh
-            </a>
-          </div>
-          {/* Area gambar — overflow scroll saat zoom */}
-          <div className="overflow-auto bg-slate-100 dark:bg-slate-950 rounded-b-2xl flex items-start justify-center" style={{ maxHeight: '72vh' }}>
-            <img
-              src={berkas.url}
-              alt={berkas.nama}
-              className="transition-transform duration-200 origin-top"
-              style={{ transform: `scale(${zoom})`, transformOrigin: 'top center', marginTop: zoom > 1 ? `${(zoom - 1) * 50}px` : 0 }}
-              draggable={false}
-            />
-          </div>
-        </div>
-      )}
-
-      {berkas.url && !isPdf && !isImage && (
-        <div className="p-5 space-y-3">
-          <Pesan tipe="info">Pratinjau tidak tersedia untuk tipe: {berkas.tipe || 'tidak diketahui'}.</Pesan>
-          <a
-            href={berkas.url}
-            download={berkas.nama}
-            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Unduh berkas
-          </a>
-        </div>
-      )}
+  // Tipe lain — unduh saja
+  return (
+    <Modal judul={berkas.nama} onTutup={onTutup} lebar>
+      <div className="p-5 space-y-3">
+        <Pesan tipe="info">Pratinjau tidak tersedia untuk tipe: {berkas.tipe || 'tidak diketahui'}.</Pesan>
+        <a
+          href={berkas.url}
+          download={berkas.nama}
+          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+        >
+          <Download className="w-4 h-4" />
+          Unduh berkas
+        </a>
+      </div>
     </Modal>
   );
 }
@@ -378,17 +341,33 @@ function Peta({ lat, lng, judul }: { lat: number; lng: number; judul?: string })
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!ref.current) return;
-    const map = L.map(ref.current, { zoomControl: true }).setView([lat, lng], 17);
+    const el = ref.current;
+    const map = L.map(el, { zoomControl: true }).setView([lat, lng], 17);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
     L.circleMarker([lat, lng], { radius: 9, color: '#4f46e5', weight: 3, fillColor: '#4f46e5', fillOpacity: 0.5 })
       .addTo(map)
       .bindPopup(judul || 'Lokasi presensi')
       .openPopup();
-    const t = setTimeout(() => map.invalidateSize(), 120);
-    return () => { clearTimeout(t); map.remove(); };
+
+    // ResizeObserver memastikan peta resize mengikuti container tanpa animasi glitch
+    let rafId: number;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => map.invalidateSize());
+    });
+    ro.observe(el);
+    // Paksa invalidate sekali setelah mount
+    const t = setTimeout(() => map.invalidateSize(), 50);
+
+    return () => {
+      clearTimeout(t);
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+      map.remove();
+    };
   }, [lat, lng, judul]);
   return <div ref={ref} className="h-72 w-full rounded-b-2xl overflow-hidden" />;
 }
@@ -1250,14 +1229,6 @@ export default function WebPresensi() {
               <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{peta.judul}</p>
                 {peta.alamat && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{peta.alamat}</p>}
-                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                  {peta.lat}, {peta.lng}{peta.sumber && ` (${peta.sumber})`}
-                  {' — '}
-                  <a href={`https://www.openstreetmap.org/?mlat=${peta.lat}&mlon=${peta.lng}#map=17/${peta.lat}/${peta.lng}`}
-                    target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline">
-                    OpenStreetMap ↗
-                  </a>
-                </p>
               </div>
               <Peta key={`${peta.lat},${peta.lng}`} lat={peta.lat} lng={peta.lng} judul={peta.judul} />
             </>
