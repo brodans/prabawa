@@ -3,18 +3,18 @@
   "trailingSlash": false,
   "cleanUrls": false,
   "functions": {
-    "api/billing-aktivasi.js": { "maxDuration": 60 },
-    "api/panel-auth.js":       { "maxDuration": 60 },
+    "api/billing-aktivasi.js":  { "maxDuration": 60 },
+    "api/panel-auth.js":        { "maxDuration": 60 },
     "api/rpc.js":               { "maxDuration": 60 },
     "api/upload.js":            { "maxDuration": 60 },
     "api/health.js":            { "maxDuration": 30 },
     "api/midtrans-charge.js":   { "maxDuration": 30 },
     "api/ocr.js":               { "maxDuration": 30, "memory": 1024, "includeFiles": "api/model/**" },
-    "api/ep.js":                { "maxDuration": 30 }
+    "api/ep/[...path].js":      { "maxDuration": 30 }
   },
   "rewrites": [
-    { "source": "/ep/:path*", "destination": "/api/ep/:path*" },
-    { "source": "/ep",        "destination": "/api/ep" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/ep/:path*",       "destination": "/api/ep/:path*" },
+    { "source": "/ep",              "destination": "/api/ep/" },
+    { "source": "/((?!api/).*)",    "destination": "/index.html" }
   ]
 }
