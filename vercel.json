@@ -12,8 +12,8 @@
     "api/ep.js":                { "maxDuration": 30 }
   },
   "routes": [
-    { "src": "^/ep(/.*)?$",     "dest": "/api/ep" },
-    { "handle": "filesystem"   },
-    { "src": "^/(.*)$",        "dest": "/index.html" }
+    { "src": "^/ep(/.*)?$", "dest": "/api/ep", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"] },
+    { "handle": "filesystem" },
+    { "src": "^/(.*)$", "dest": "/index.html" }
   ]
 }
