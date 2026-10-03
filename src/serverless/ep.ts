@@ -196,40 +196,12 @@ export default async function handler(req: IncomingMessage & { url?: string; met
 
   let upstreamRes!: Response;
   try {
-    // Ikuti redirect secara internal di proxy (maksimal 5 hop).
-    // Tidak expose 3xx ke browser karena fetch() dengan credentials:include
-    // menolak follow redirect cross-origin — padahal upstream e-presensi
-    // redirect melalui domain mereka sendiri sebelum kembali ke halaman tujuan.
-    let nextUrl = upstreamUrl;
-    let nextMethod = method;
-    let nextBody: BodyInit | undefined = body ? new Uint8Array(body) : undefined;
-    let hop = 0;
-    while (hop < 5) {
-      upstreamRes = await fetch(nextUrl, {
-        method: nextMethod,
-        headers,
-        body: nextBody,
-        redirect: 'manual',
-      });
-      const status = upstreamRes.status;
-      if (status < 300 || status >= 400) break;
-      const loc = upstreamRes.headers.get('location');
-      if (!loc) break;
-      // Resolve URL berikutnya (bisa relatif atau absolut)
-      try {
-        nextUrl = new URL(loc, nextUrl).href;
-      } catch {
-        break;
-      }
-      hop++;
-      // POST→GET setelah 302/303
-      if ((status === 302 || status === 303) && nextMethod === 'POST') {
-        nextMethod = 'GET';
-        nextBody = undefined;
-        delete headers['content-type'];
-        delete headers['content-length'];
-      }
-    }
+    upstreamRes = await fetch(upstreamUrl, {
+      method,
+      headers,
+      body,
+      redirect: 'manual',
+    });
   } catch (e) {
     res.statusCode = 502;
     res.setHeader('Content-Type', 'application/json');

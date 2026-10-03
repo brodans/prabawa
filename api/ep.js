@@ -147,34 +147,12 @@ async function handler(req, res) {
   }
   let upstreamRes;
   try {
-    let nextUrl = upstreamUrl;
-    let nextMethod = method;
-    let nextBody = body ? new Uint8Array(body) : void 0;
-    let hop = 0;
-    while (hop < 5) {
-      upstreamRes = await fetch(nextUrl, {
-        method: nextMethod,
-        headers,
-        body: nextBody,
-        redirect: "manual"
-      });
-      const status = upstreamRes.status;
-      if (status < 300 || status >= 400) break;
-      const loc = upstreamRes.headers.get("location");
-      if (!loc) break;
-      try {
-        nextUrl = new URL(loc, nextUrl).href;
-      } catch {
-        break;
-      }
-      hop++;
-      if ((status === 302 || status === 303) && nextMethod === "POST") {
-        nextMethod = "GET";
-        nextBody = void 0;
-        delete headers["content-type"];
-        delete headers["content-length"];
-      }
-    }
+    upstreamRes = await fetch(upstreamUrl, {
+      method,
+      headers,
+      body,
+      redirect: "manual"
+    });
   } catch (e) {
     res.statusCode = 502;
     res.setHeader("Content-Type", "application/json");

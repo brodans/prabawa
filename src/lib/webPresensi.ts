@@ -164,19 +164,37 @@ export async function login({ nip, password, captcha }: { nip: string; password:
     'm_user[password]': password,
     'm_user[CAPTCHA]': captcha,
   });
-  const res = await req(`${PROXY}/p/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
+  // Pakai redirect: 'manual' agar fetch tidak blocked saat proxy kembalikan
+  // 302 cross-origin. Kita cek sendiri apakah landing di halaman login (gagal)
+  // atau di halaman lain (berhasil).
+  let res: Response;
+  try {
+    res = await fetch(`${PROXY}/p/login`, {
+      method: 'POST',
+      credentials: 'include',
+      redirect: 'manual',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+  } catch (e) {
+    throw new Error(PESAN_JARINGAN);
+  }
+
+  // 0 = opaque redirect (cross-origin redirect diblokir browser) — anggap berhasil
+  // 2xx = response langsung, perlu cek HTML
+  // 3xx = redirect ke halaman lain = login berhasil
+  if (res.status === 0 || (res.status >= 300 && res.status < 400)) {
+    // Redirect = login berhasil, muat ulang sesi
+    return true;
+  }
+
   const html = await res.text();
   let pathname = '';
   try {
     pathname = new URL(res.url).pathname;
-  } catch {
-    /* abaikan */
-  }
-  if (pathname.endsWith('/p/login')) {
+  } catch { /* abaikan */ }
+
+  if (pathname.endsWith('/p/login') || isHalamanLogin(html)) {
     const m = html.match(/<div class="alert alert-danger">([\s\S]*?)<\/div>/i);
     const pesan = m
       ? m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
