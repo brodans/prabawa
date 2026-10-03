@@ -10,11 +10,12 @@
     "api/health.js":            { "maxDuration": 30 },
     "api/midtrans-charge.js":   { "maxDuration": 30 },
     "api/ocr.js":               { "maxDuration": 30, "memory": 1024, "includeFiles": "api/model/**" },
-    "api/ep/[...path].js":      { "maxDuration": 30 }
+    "api/ep.js":                { "maxDuration": 30 }
   },
   "rewrites": [
-    { "source": "/ep/:path*",       "destination": "/api/ep/:path*" },
-    { "source": "/ep",              "destination": "/api/ep/" },
-    { "source": "/((?!api/).*)",    "destination": "/index.html" }
+    { "source": "/ep/:path*",          "destination": "/api/ep" },
+    { "source": "/ep",                 "destination": "/api/ep" },
+    { "source": "/api/ep/:path*",      "destination": "/api/ep" },
+    { "source": "/((?!api/).*)",       "destination": "/index.html" }
   ]
 }
