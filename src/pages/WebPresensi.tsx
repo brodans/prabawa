@@ -36,6 +36,7 @@ import {
   logout,
   muatCaptcha,
   selesaikanCaptcha,
+  urlBerkas,
   type BarisIjin,
   type BarisKehadiran,
   type DetailPegawai,
@@ -48,7 +49,6 @@ import {
 //  Konstanta
 // ═══════════════════════════════════════════════════════════════════════
 
-const MAX_PERCOBAAN_LOGIN = 6;
 const MAX_PERCOBAAN_OCR = 3;
 
 const DAFTAR_TAB = [
@@ -460,7 +460,7 @@ export default function WebPresensi() {
   const [semuaPerizinan, setSemuaPerizinan] = useState<BarisIjin[] | null>(null);
   const [memuatSemua, setMemuatSemua]       = useState(false);
 
-  type PetaState = { judul: string; lat: number | null; lng: number | null; loading: boolean; err: string; sumber?: string; alamat?: string };
+  type PetaState = { judul: string; lat: number | null; lng: number | null; loading?: boolean; err: string; sumber?: string; alamat?: string };
   const [peta, setPeta]     = useState<PetaState | null>(null);
   const [berkas, setBerkas] = useState<BerkasState | null>(null);
 
@@ -643,23 +643,9 @@ export default function WebPresensi() {
     e.preventDefault();
     setError(''); setHasilImei(null); setLoadingProses(true);
     try {
-      type LoginError = Error & { perluCaptchaBaru?: boolean; jenis?: string };
-      for (let coba = 1; coba <= MAX_PERCOBAAN_LOGIN; coba++) {
-        const kode = captchaRef.current.trim();
-        if (!kode) { setError('Captcha belum terisi. Tunggu OCR selesai atau ketik manual.'); return; }
-        setStatus(`Login (percobaan ${coba}/${MAX_PERCOBAAN_LOGIN})...`);
-        try {
-          await login({ nip: nip.trim(), password, captcha: kode });
-          break;
-        } catch (err) {
-          const le = err as LoginError;
-          const layakUlang = le.perluCaptchaBaru && le.jenis === 'captcha' && coba < MAX_PERCOBAAN_LOGIN && ocrTersedia;
-          if (!layakUlang) throw err;
-          setStatus('Captcha salah baca, mengambil captcha baru...');
-          const kodeBaru = await refreshCaptcha();
-          if (!kodeBaru) throw err;
-        }
-      }
+      const kode = captchaRef.current.trim();
+      if (!kode) { setError('Captcha belum terisi. Tunggu OCR selesai atau ketik manual.'); return; }
+      await login({ nip: nip.trim(), password, captcha: kode });
       setStatus('Mengambil IMEI...');
       const data = await ambilImei();
       setHasilImei(data); setSudahLogin(true); setTab('imei');
@@ -703,19 +689,28 @@ export default function WebPresensi() {
     async (row: BarisKehadiran) => {
       const judul = [row.nama, row.created_at].filter(Boolean).join(' — ') || 'Lokasi presensi';
       if (row.lat == null || row.lng == null) {
-        setPeta({ judul, lat: null, lng: null, loading: false, err: 'Baris ini tidak punya koordinat.' });
+        setPeta({ judul, lat: null, lng: null, loading: false, err: 'Baris ini tidak punya koordinat.', alamat: '' });
         return;
       }
-      setPeta({ judul, lat: row.lat, lng: row.lng, loading: !!row.idMap, err: '', sumber: 'koordinat tabel', alamat: row.alamatPresensi || '' });
-      if (!row.idMap) return;
-      try {
-        const k = await ambilLatlong(row.idMap);
-        if (k.lat != null && k.lng != null) setPeta((p) => p ? { ...p, lat: k.lat!, lng: k.lng!, loading: false, sumber: 'koordinat presisi' } : p);
-        else setPeta((p) => p ? { ...p, loading: false, err: 'Koordinat presisi tidak ditemukan.' } : p);
-      } catch (e) {
-        const err = e as Error & { sesiHabis?: boolean };
-        if (err.sesiHabis) { await tanganiSesiHabis(err.message); return; }
-        setPeta((p) => p ? { ...p, loading: false, err: `Gagal koordinat presisi: ${err.message}` } : p);
+
+      // Kalau ada idMap, fetch koordinat presisi DULU sebelum buka modal
+      // agar modal tidak resize dari loading → peta.
+      if (row.idMap) {
+        // Buka modal langsung dengan koordinat tabel (sudah ada), tanpa loading
+        setPeta({ judul, lat: row.lat, lng: row.lng, loading: false, err: '', alamat: row.alamatPresensi || '' });
+        // Update koordinat presisi di background — kalau dapat, perbarui diam-diam
+        try {
+          const k = await ambilLatlong(row.idMap);
+          if (k.lat != null && k.lng != null) {
+            setPeta((p) => p ? { ...p, lat: k.lat!, lng: k.lng! } : p);
+          }
+        } catch (e) {
+          const err = e as Error & { sesiHabis?: boolean };
+          if (err.sesiHabis) { await tanganiSesiHabis(err.message); return; }
+          // Gagal dapat koordinat presisi — tidak apa-apa, koordinat tabel sudah tampil
+        }
+      } else {
+        setPeta({ judul, lat: row.lat, lng: row.lng, loading: false, err: '', alamat: row.alamatPresensi || '' });
       }
     },
     [tanganiSesiHabis]
@@ -725,6 +720,19 @@ export default function WebPresensi() {
   const lihatBerkas = useCallback(
     async (path: string) => {
       const nama = String(path).split('/').pop() || 'berkas';
+      const proxyUrl = urlBerkas(path);
+
+      // Deteksi tipe dari ekstensi untuk foto — buka lightbox langsung
+      // tanpa fetch blob dulu agar instan
+      const ext = nama.split('.').pop()?.toLowerCase() || '';
+      const isImageExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
+
+      if (isImageExt && proxyUrl) {
+        setBerkas({ nama, loading: false, err: '', url: proxyUrl, tipe: 'image/jpeg' });
+        return;
+      }
+
+      // PDF dan tipe lain — fetch blob (butuh untuk iframe PDF)
       setBerkas({ nama, loading: true, err: '', url: null, tipe: '' });
       try {
         const { url, tipe } = await ambilBerkas(path);
@@ -1216,13 +1224,7 @@ export default function WebPresensi() {
 
       {/* ─────── MODAL PETA ─────── */}
       {peta && (
-        <Modal judul="Lokasi Presensi" lebar onTutup={() => setPeta(null)} mediaMod={!!(peta.lat != null)}>
-          {peta.loading && (
-            <div className="flex flex-col items-center justify-center gap-3 py-10 text-slate-400">
-              <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
-              <span className="text-sm">Memuat koordinat presisi...</span>
-            </div>
-          )}
+        <Modal judul="Lokasi Presensi" lebar onTutup={() => setPeta(null)} mediaMod={peta.lat != null}>
           {peta.err && <div className="p-5"><Pesan tipe="error">{peta.err}</Pesan></div>}
           {peta.lat != null && peta.lng != null && (
             <>
@@ -1233,7 +1235,7 @@ export default function WebPresensi() {
               <Peta key={`${peta.lat},${peta.lng}`} lat={peta.lat} lng={peta.lng} judul={peta.judul} />
             </>
           )}
-          {!peta.loading && peta.lat == null && !peta.err && (
+          {peta.lat == null && !peta.err && (
             <div className="p-5"><Pesan tipe="info">Tidak ada koordinat untuk ditampilkan.</Pesan></div>
           )}
         </Modal>
