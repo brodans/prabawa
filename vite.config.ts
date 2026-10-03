@@ -204,6 +204,12 @@ export default defineConfig({
     hmr: false,
     proxy: {
       '/ep': epProxy,
+      // Semua /api/* di-proxy ke Express dev server (port 3000).
+      // Di Vercel, /api/* langsung ke serverless functions.
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: false,
+      },
     },
   },
   build: {

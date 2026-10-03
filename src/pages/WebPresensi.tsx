@@ -44,6 +44,7 @@ import {
   type HasilKehadiran,
   type HasilPerizinan,
 } from '../lib/webPresensi';
+import { useAppContext } from '../context/AppContext';
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Konstanta
@@ -58,7 +59,7 @@ const DAFTAR_TAB = [
   { id: 'perizinan', label: 'Perizinan',      icon: FileText },
 ] as const;
 
-type TabId = typeof DAFTAR_TAB[number]['id'];
+// TabId sekarang dari context (WebPresensiTab)
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Helper: pisah & format tanggal+jam dari string datetime server
@@ -421,6 +422,35 @@ function Tabel({ kolom, children, lebar }: { kolom: string[]; children: React.Re
 // ═══════════════════════════════════════════════════════════════════════
 
 export default function WebPresensi() {
+  // ── State yang di-persist ke AppContext (bertahan saat pindah menu) ──
+  const { webPresensiState, setWebPresensiState } = useAppContext();
+
+  const sudahLogin = webPresensiState.sudahLogin;
+  const hasilImei  = webPresensiState.hasilImei;
+  const tab        = webPresensiState.tab;
+  const kehadiran  = webPresensiState.kehadiran;
+  const detail     = webPresensiState.detail;
+  const ijinAjax   = webPresensiState.ijinAjax;
+  const perizinan  = webPresensiState.perizinan;
+  const semuaPerizinan = webPresensiState.semuaPerizinan;
+
+  /** Helper untuk update sebagian field WebPresensiState. */
+  const patch = useCallback(
+    (updates: Partial<typeof webPresensiState>) =>
+      setWebPresensiState((prev) => ({ ...prev, ...updates })),
+    [setWebPresensiState]
+  );
+
+  const setSudahLogin      = useCallback((v: boolean)                    => patch({ sudahLogin: v }), [patch]);
+  const setHasilImei       = useCallback((v: HasilImei | null)           => patch({ hasilImei: v }), [patch]);
+  const setTab             = useCallback((v: typeof tab)                 => patch({ tab: v }), [patch]);
+  const setKehadiran       = useCallback((v: HasilKehadiran | null)      => patch({ kehadiran: v }), [patch]);
+  const setDetail          = useCallback((v: DetailPegawai | null)       => patch({ detail: v }), [patch]);
+  const setIjinAjax        = useCallback((v: BarisIjin[] | null)         => patch({ ijinAjax: v }), [patch]);
+  const setPerizinan       = useCallback((v: HasilPerizinan | null)      => patch({ perizinan: v }), [patch]);
+  const setSemuaPerizinan  = useCallback((v: BarisIjin[] | null)         => patch({ semuaPerizinan: v }), [patch]);
+
+  // ── State UI ephemeral (lokal, boleh hilang saat unmount) ────────────
   // Form login
   const [nip, setNip]               = useState('');
   const [password, setPassword]     = useState('');
@@ -437,27 +467,19 @@ export default function WebPresensi() {
 
   const [error, setError]   = useState('');
   const [status, setStatus] = useState('');
-  const [sudahLogin, setSudahLogin]   = useState(false);
-  const [hasilImei, setHasilImei]     = useState<HasilImei | null>(null);
   const [copied, setCopied]           = useState('');
-  const [tab, setTab]                 = useState<TabId>('imei');
 
-  // Data per tab
-  const [kehadiran, setKehadiran]           = useState<HasilKehadiran | null>(null);
+  // Data per tab — loading & error tetap lokal
   const [kehadiranErr, setKehadiranErr]     = useState('');
   const [kehadiranLoading, setKehadiranLoading] = useState(false);
 
-  const [detail, setDetail]                 = useState<DetailPegawai | null>(null);
   const [detailErr, setDetailErr]           = useState('');
   const [detailLoading, setDetailLoading]   = useState(false);
-  const [ijinAjax, setIjinAjax]             = useState<BarisIjin[] | null>(null);
   const [ijinAjaxErr, setIjinAjaxErr]       = useState('');
   const [ijinAjaxLoading, setIjinAjaxLoading] = useState(false);
 
-  const [perizinan, setPerizinan]           = useState<HasilPerizinan | null>(null);
   const [perizinanErr, setPerizinanErr]     = useState('');
   const [perizinanLoading, setPerizinanLoading] = useState(false);
-  const [semuaPerizinan, setSemuaPerizinan] = useState<BarisIjin[] | null>(null);
   const [memuatSemua, setMemuatSemua]       = useState(false);
 
   type PetaState = { judul: string; lat: number | null; lng: number | null; loading?: boolean; err: string; sumber?: string; alamat?: string };
@@ -465,7 +487,17 @@ export default function WebPresensi() {
   const [berkas, setBerkas] = useState<BerkasState | null>(null);
 
   const captchaRef = useRef('');
-  const dimuatRef  = useRef({ kehadiran: false, detail: false, perizinan: false });
+  /**
+   * `dimuatRef` merefleksikan `webPresensiState.dimuat` agar callback
+   * yang ter-close tidak membaca nilai basi dari ref.
+   */
+  const dimuatRef  = useRef(webPresensiState.dimuat);
+
+  // Sinkronisasi dimuatRef dengan context state supaya callback async
+  // selalu melihat nilai terbaru tanpa membutuhkan re-render.
+  useEffect(() => {
+    dimuatRef.current = webPresensiState.dimuat;
+  }, [webPresensiState.dimuat]);
 
   function simpanCaptcha(nilai: string) {
     captchaRef.current = nilai;
