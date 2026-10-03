@@ -12,10 +12,11 @@
     "api/ocr.js":               { "maxDuration": 30, "memory": 1024, "includeFiles": "api/model/**" },
     "api/ep.js":                { "maxDuration": 30 }
   },
-  "rewrites": [
-    { "source": "/ep/:path*",          "destination": "/api/ep" },
-    { "source": "/ep",                 "destination": "/api/ep" },
-    { "source": "/api/ep/:path*",      "destination": "/api/ep" },
-    { "source": "/((?!api/).*)",       "destination": "/index.html" }
+  "routes": [
+    { "src": "^/ep(/.*)?$",     "dest": "/api/ep$1" },
+    { "src": "^/api/ep(/.*)?$", "dest": "/api/ep$1" },
+    { "handle": "filesystem"   },
+    { "src": "^/api/(.*)$",    "dest": "/api/$1"   },
+    { "src": "^/(.*)$",        "dest": "/index.html" }
   ]
 }
