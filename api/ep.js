@@ -51,7 +51,12 @@ var HOP_BY_HOP_RESPONSE = /* @__PURE__ */ new Set([
   "te",
   "trailers",
   "transfer-encoding",
-  "upgrade"
+  "upgrade",
+  // Node.js fetch sudah decompress body otomatis — kalau header ini ikut
+  // diteruskan, browser mencoba decompress lagi dan gagal (ERR_CONTENT_DECODING_FAILED)
+  "content-encoding",
+  "content-length"
+  // panjang berubah setelah decompress
 ]);
 function rewriteLocation(loc) {
   let baru = loc;

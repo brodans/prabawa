@@ -48,6 +48,10 @@ const HOP_BY_HOP_RESPONSE = new Set([
   'trailers',
   'transfer-encoding',
   'upgrade',
+  // Node.js fetch sudah decompress body otomatis — kalau header ini ikut
+  // diteruskan, browser mencoba decompress lagi dan gagal (ERR_CONTENT_DECODING_FAILED)
+  'content-encoding',
+  'content-length', // panjang berubah setelah decompress
 ]);
 
 /**
