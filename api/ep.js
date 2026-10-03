@@ -147,12 +147,42 @@ async function handler(req, res) {
   }
   let upstreamRes;
   try {
-    upstreamRes = await fetch(upstreamUrl, {
-      method,
-      headers,
-      body,
-      redirect: "manual"
-    });
+    if (method === "POST") {
+      let nextUrl = upstreamUrl;
+      let nextMethod = method;
+      let nextBody = body ? new Uint8Array(body) : void 0;
+      const hopHeaders = { ...headers };
+      for (let hop = 0; hop < 8; hop++) {
+        upstreamRes = await fetch(nextUrl, {
+          method: nextMethod,
+          headers: hopHeaders,
+          body: nextBody,
+          redirect: "manual"
+        });
+        const st = upstreamRes.status;
+        if (st < 300 || st >= 400) break;
+        const loc = upstreamRes.headers.get("location");
+        if (!loc) break;
+        try {
+          nextUrl = new URL(loc, nextUrl).href;
+        } catch {
+          break;
+        }
+        if ((st === 302 || st === 303) && nextMethod === "POST") {
+          nextMethod = "GET";
+          nextBody = void 0;
+          delete hopHeaders["content-type"];
+          delete hopHeaders["content-length"];
+        }
+      }
+    } else {
+      upstreamRes = await fetch(upstreamUrl, {
+        method,
+        headers,
+        body,
+        redirect: "manual"
+      });
+    }
   } catch (e) {
     res.statusCode = 502;
     res.setHeader("Content-Type", "application/json");
