@@ -136,8 +136,10 @@ export default async function handler(req: IncomingMessage & { url?: string; met
   const method = req.method || 'GET';
   if (['POST', 'PUT', 'PATCH'].includes(method)) {
     const bodyLangsung = (req as any).body;
+    const contentType = String(req.headers?.['content-type'] || '');
+
     if (bodyLangsung !== undefined && bodyLangsung !== null) {
-      // Fluid Compute: konversi ke ArrayBuffer
+      // Fluid Compute: konversi ke ArrayBuffer sesuai content-type
       let raw: Buffer;
       if (Buffer.isBuffer(bodyLangsung)) {
         raw = bodyLangsung;
@@ -145,6 +147,13 @@ export default async function handler(req: IncomingMessage & { url?: string; met
         raw = Buffer.from(bodyLangsung);
       } else if (bodyLangsung instanceof Uint8Array) {
         raw = Buffer.from(bodyLangsung);
+      } else if (typeof bodyLangsung === 'object' && contentType.includes('application/x-www-form-urlencoded')) {
+        // Fluid Compute mem-parse form-urlencoded menjadi object — serialize ulang
+        const params = new URLSearchParams();
+        for (const [k, v] of Object.entries(bodyLangsung as Record<string, unknown>)) {
+          params.append(k, String(v));
+        }
+        raw = Buffer.from(params.toString(), 'utf-8');
       } else {
         raw = Buffer.from(JSON.stringify(bodyLangsung));
       }
@@ -168,6 +177,7 @@ export default async function handler(req: IncomingMessage & { url?: string; met
         body = ab;
       }
     }
+    console.log(`[ep] body-type=${typeof bodyLangsung} content-type=${contentType.slice(0,60)} body-len=${body?.byteLength ?? 0}`);
   }
 
   let upstreamRes: Response;

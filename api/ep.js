@@ -103,6 +103,7 @@ async function handler(req, res) {
   const method = req.method || "GET";
   if (["POST", "PUT", "PATCH"].includes(method)) {
     const bodyLangsung = req.body;
+    const contentType = String(req.headers?.["content-type"] || "");
     if (bodyLangsung !== void 0 && bodyLangsung !== null) {
       let raw;
       if (Buffer.isBuffer(bodyLangsung)) {
@@ -111,6 +112,12 @@ async function handler(req, res) {
         raw = Buffer.from(bodyLangsung);
       } else if (bodyLangsung instanceof Uint8Array) {
         raw = Buffer.from(bodyLangsung);
+      } else if (typeof bodyLangsung === "object" && contentType.includes("application/x-www-form-urlencoded")) {
+        const params = new URLSearchParams();
+        for (const [k, v] of Object.entries(bodyLangsung)) {
+          params.append(k, String(v));
+        }
+        raw = Buffer.from(params.toString(), "utf-8");
       } else {
         raw = Buffer.from(JSON.stringify(bodyLangsung));
       }
@@ -134,6 +141,7 @@ async function handler(req, res) {
         body = ab;
       }
     }
+    console.log(`[ep] body-type=${typeof bodyLangsung} content-type=${contentType.slice(0, 60)} body-len=${body?.byteLength ?? 0}`);
   }
   let upstreamRes;
   try {
