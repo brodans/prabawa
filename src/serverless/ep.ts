@@ -68,17 +68,29 @@ function rewriteLocation(loc: string): string {
 }
 
 /**
- * Tulis ulang Set-Cookie: buang Domain, sesuaikan Path ke /ep, hapus Secure
- * agar cookie bisa disimpan di HTTP local (tidak perlu HTTPS di dev).
+ * Tulis ulang Set-Cookie:
+ * - Buang Domain (agar cookie tersimpan di domain Vercel, bukan domain upstream)
+ * - Sesuaikan Path ke /ep
+ * - Di production (HTTPS): pastikan Secure ada, tambah SameSite=Lax
+ * - Di dev lokal (HTTP): hapus Secure agar browser mau menyimpan di localhost
  */
 function rewriteSetCookie(cookies: string | string[]): string[] {
+  const isProd = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
   const list = Array.isArray(cookies) ? cookies : [cookies];
-  return list.map((cookie) =>
-    cookie
+  return list.map((cookie) => {
+    let c = cookie
       .replace(/;\s*domain=[^;]*/gi, '')
-      .replace(/;\s*path=\//gi, '; Path=/ep')
-      .replace(/;\s*secure/gi, '')
-  );
+      .replace(/;\s*path=[^;]*/gi, '; Path=/ep');
+    if (isProd) {
+      // Production (Vercel HTTPS): Secure wajib, SameSite=Lax agar cookie ikut
+      if (!/;\s*secure/i.test(c)) c += '; Secure';
+      if (!/;\s*samesite=/i.test(c)) c += '; SameSite=Lax';
+    } else {
+      // Dev lokal (HTTP): hapus Secure agar browser simpan di localhost
+      c = c.replace(/;\s*secure/gi, '');
+    }
+    return c;
+  });
 }
 
 export default async function handler(req: IncomingMessage & { url?: string; method?: string; headers: Record<string, string | string[] | undefined> }, res: ServerResponse): Promise<void> {
@@ -178,6 +190,12 @@ export default async function handler(req: IncomingMessage & { url?: string; met
 
   // Set status code
   res.statusCode = upstreamRes.status;
+
+  // Log untuk diagnosa cookie/session
+  const cookieMasuk = req.headers?.['cookie'] || '(tidak ada)';
+  const setCookieKeluar = upstreamRes.headers.get('set-cookie') || '(tidak ada)';
+  const locationKeluar = upstreamRes.headers.get('location') || '';
+  console.log(`[ep] upstream=${upstreamPath} status=${upstreamRes.status} cookie-masuk=${String(cookieMasuk).slice(0,80)} set-cookie=${String(setCookieKeluar).slice(0,120)} location=${locationKeluar}`);
 
   // Teruskan headers respons
   for (const [key, value] of upstreamRes.headers.entries()) {

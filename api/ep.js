@@ -66,10 +66,18 @@ function rewriteLocation(loc) {
   return baru;
 }
 function rewriteSetCookie(cookies) {
+  const isProd = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
   const list = Array.isArray(cookies) ? cookies : [cookies];
-  return list.map(
-    (cookie) => cookie.replace(/;\s*domain=[^;]*/gi, "").replace(/;\s*path=\//gi, "; Path=/ep").replace(/;\s*secure/gi, "")
-  );
+  return list.map((cookie) => {
+    let c = cookie.replace(/;\s*domain=[^;]*/gi, "").replace(/;\s*path=[^;]*/gi, "; Path=/ep");
+    if (isProd) {
+      if (!/;\s*secure/i.test(c)) c += "; Secure";
+      if (!/;\s*samesite=/i.test(c)) c += "; SameSite=Lax";
+    } else {
+      c = c.replace(/;\s*secure/gi, "");
+    }
+    return c;
+  });
 }
 async function handler(req, res) {
   const originalUrl = req.url || "/";
@@ -146,6 +154,10 @@ async function handler(req, res) {
     return;
   }
   res.statusCode = upstreamRes.status;
+  const cookieMasuk = req.headers?.["cookie"] || "(tidak ada)";
+  const setCookieKeluar = upstreamRes.headers.get("set-cookie") || "(tidak ada)";
+  const locationKeluar = upstreamRes.headers.get("location") || "";
+  console.log(`[ep] upstream=${upstreamPath} status=${upstreamRes.status} cookie-masuk=${String(cookieMasuk).slice(0, 80)} set-cookie=${String(setCookieKeluar).slice(0, 120)} location=${locationKeluar}`);
   for (const [key, value] of upstreamRes.headers.entries()) {
     if (HOP_BY_HOP_RESPONSE.has(key.toLowerCase())) continue;
     if (key.toLowerCase() === "location") {
