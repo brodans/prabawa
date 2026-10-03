@@ -9,6 +9,13 @@ import {
 } from '../lib/userManager';
 import { clearServerSessionCache } from '../lib/cacheManager';
 import type { IjinView } from '../lib/viewModels';
+import type {
+  HasilImei,
+  HasilKehadiran,
+  DetailPegawai,
+  HasilPerizinan,
+  BarisIjin,
+} from '../lib/webPresensi';
 import {
   loadSession,
   saveSession,
@@ -125,6 +132,21 @@ export interface RiwayatIzinState {
   hasLoadedOnce: boolean;
 }
 
+export type WebPresensiTab = 'imei' | 'kehadiran' | 'detail' | 'perizinan';
+
+export interface WebPresensiState {
+  sudahLogin: boolean;
+  hasilImei: HasilImei | null;
+  tab: WebPresensiTab;
+  kehadiran: HasilKehadiran | null;
+  detail: DetailPegawai | null;
+  ijinAjax: BarisIjin[] | null;
+  perizinan: HasilPerizinan | null;
+  semuaPerizinan: BarisIjin[] | null;
+  /** Flags apakah tiap tab sudah pernah di-load. */
+  dimuat: { kehadiran: boolean; detail: boolean; perizinan: boolean };
+}
+
 const EMPTY_CONFIG = {
   deviceId: '',
   latitude: '',
@@ -178,6 +200,8 @@ interface AppContextType {
   setLaporanLogState: React.Dispatch<React.SetStateAction<LaporanLogState>>;
   riwayatIzinState: RiwayatIzinState;
   setRiwayatIzinState: React.Dispatch<React.SetStateAction<RiwayatIzinState>>;
+  webPresensiState: WebPresensiState;
+  setWebPresensiState: React.Dispatch<React.SetStateAction<WebPresensiState>>;
 
   // Mode pengembang — mengaktifkan panel trafik JSON-RPC.
   developerMode: boolean;
@@ -435,6 +459,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setConfig(EMPTY_CONFIG);
       setCurrentUserState(null);
       setTabPermissionsState(UNAUTHENTICATED_PERMISSIONS);
+      setWebPresensiState({
+        sudahLogin: false,
+        hasilImei: null,
+        tab: 'imei',
+        kehadiran: null,
+        detail: null,
+        ijinAjax: null,
+        perizinan: null,
+        semuaPerizinan: null,
+        dimuat: { kehadiran: false, detail: false, perizinan: false },
+      });
       // Status auto-login ikut dibuang. Kalau tidak, entri "sedang berjalan"
       // dan "berhasil" masih milik akun yang baru saja keluar — dan login
       // berikutnya dengan akun sama akan menerima promise lama, bukan
@@ -611,6 +646,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     hasLoadedOnce: false,
   }));
 
+  const [webPresensiState, setWebPresensiState] = useState<WebPresensiState>(() => ({
+    sudahLogin: false,
+    hasilImei: null,
+    tab: 'imei',
+    kehadiran: null,
+    detail: null,
+    ijinAjax: null,
+    perizinan: null,
+    semuaPerizinan: null,
+    dimuat: { kehadiran: false, detail: false, perizinan: false },
+  }));
+
   /*
    * Nilai context di-`useMemo`, dan itu **wajib** — bukan "_optimasi_".
    *
@@ -655,6 +702,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLaporanLogState,
       riwayatIzinState,
       setRiwayatIzinState,
+      webPresensiState,
+      setWebPresensiState,
       currentUser,
       setCurrentUser,
       userRole,
@@ -665,13 +714,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // State
       pegawai, serverConnected, serverLoginError, serverLogoutRequested,
       loginForm, developerMode, config, activePage,
-      pathname, laporanLogState, riwayatIzinState, currentUser, userRole,
+      pathname, laporanLogState, riwayatIzinState, webPresensiState, currentUser, userRole,
       tabPermissions, cekingSesi,
       // Setter
       setDeveloperMode, setActivePage, setSubPath, setCurrentUser,
       // Dispatcher useState — stabil, tapi didaftarkan agar lengkap.
       setPegawai, setServerConnected, setServerLoginError, setServerLogoutRequested,
-      setLoginForm, setConfig, setLaporanLogState, setRiwayatIzinState,
+      setLoginForm, setConfig, setLaporanLogState, setRiwayatIzinState, setWebPresensiState,
     ]
   );
 
