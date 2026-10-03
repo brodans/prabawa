@@ -84,19 +84,20 @@ function rewriteSetCookie(cookies: string | string[]): string[] {
 export default async function handler(req: IncomingMessage & { url?: string; method?: string; headers: Record<string, string | string[] | undefined> }, res: ServerResponse): Promise<void> {
   const originalUrl = req.url || '/';
 
-  // Log untuk diagnosa routing di Vercel (muncul di Function Logs)
-  console.log(`[ep] method=${req.method} url=${originalUrl} x-rewrite-src=${req.headers?.['x-vercel-rewrite-source'] || '-'}`);
+  // Vercel routes dengan dest=/api/ep menyebabkan req.url = '/api/ep'
+  // (kehilangan sub-path). Baca original URL dari header yang Vercel set.
+  // Prioritas: x-matched-path > x-vercel-rewrite-source > req.url
+  const matchedPath = (req.headers?.['x-matched-path'] as string) || '';
+  const rewriteSrc  = (req.headers?.['x-vercel-rewrite-source'] as string) || '';
+  const sourceUrl   = rewriteSrc || matchedPath || originalUrl;
 
-  // Dengan Vercel rewrites, req.url bisa berupa destination (/api/ep) bukan
-  // source (/ep/p/captcha). Gunakan x-vercel-rewrite-source yang berisi
-  // original URL jika tersedia.
-  const sourceUrl = (req.headers?.['x-vercel-rewrite-source'] as string) || originalUrl;
+  console.log(`[ep] method=${req.method} url=${originalUrl} matched=${matchedPath} rewrite-src=${rewriteSrc}`);
 
   let upstreamPath = sourceUrl
     .replace(/^\/api\/ep/, '')
     .replace(/^\/ep/, '');
   if (!upstreamPath.startsWith('/')) upstreamPath = '/' + upstreamPath;
-  if (upstreamPath === '/') upstreamPath = '/';
+  if (!upstreamPath) upstreamPath = '/';
 
   // Terjemahkan /p/ ke /index.php/ (bypass Vercel WAF yang blokir .php)
   upstreamPath = upstreamPath.replace(/^\/p(\/|$)/, '/index.php$1');

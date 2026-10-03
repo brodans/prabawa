@@ -73,11 +73,13 @@ function rewriteSetCookie(cookies) {
 }
 async function handler(req, res) {
   const originalUrl = req.url || "/";
-  console.log(`[ep] method=${req.method} url=${originalUrl} x-rewrite-src=${req.headers?.["x-vercel-rewrite-source"] || "-"}`);
-  const sourceUrl = req.headers?.["x-vercel-rewrite-source"] || originalUrl;
+  const matchedPath = req.headers?.["x-matched-path"] || "";
+  const rewriteSrc = req.headers?.["x-vercel-rewrite-source"] || "";
+  const sourceUrl = rewriteSrc || matchedPath || originalUrl;
+  console.log(`[ep] method=${req.method} url=${originalUrl} matched=${matchedPath} rewrite-src=${rewriteSrc}`);
   let upstreamPath = sourceUrl.replace(/^\/api\/ep/, "").replace(/^\/ep/, "");
   if (!upstreamPath.startsWith("/")) upstreamPath = "/" + upstreamPath;
-  if (upstreamPath === "/") upstreamPath = "/";
+  if (!upstreamPath) upstreamPath = "/";
   upstreamPath = upstreamPath.replace(/^\/p(\/|$)/, "/index.php$1");
   const upstreamUrl = `${TARGET}${upstreamPath}`;
   const headers = {};
