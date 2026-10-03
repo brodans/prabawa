@@ -20,11 +20,10 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { epAsalRegex, epTargetOrigin } from '../lib/epTarget';
+import { epTargetOrigin } from '../lib/epTarget';
 
 const TARGET = epTargetOrigin();
 const TARGET_ORIGIN = new URL(TARGET).origin;
-const ASAL_UPSTREAM = epAsalRegex();
 
 // Header yang TIDAK diteruskan ke upstream (hop-by-hop + host)
 const HOP_BY_HOP_REQUEST = new Set([

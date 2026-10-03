@@ -28,15 +28,10 @@ function epTargetOrigin() {
   if (dasar) return asalDari(dasar, "PRESENSI_BASE_URL");
   return EP_TARGET_BAWAAN;
 }
-function epAsalRegex() {
-  const host = new URL(epTargetOrigin()).host.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^https?://${host}`, "i");
-}
 
 // src/serverless/ep.ts
 var TARGET = epTargetOrigin();
 var TARGET_ORIGIN = new URL(TARGET).origin;
-var ASAL_UPSTREAM = epAsalRegex();
 var HOP_BY_HOP_REQUEST = /* @__PURE__ */ new Set([
   "host",
   "connection",
@@ -59,10 +54,15 @@ var HOP_BY_HOP_RESPONSE = /* @__PURE__ */ new Set([
   "upgrade"
 ]);
 function rewriteLocation(loc) {
-  let baru = loc.replace(ASAL_UPSTREAM, "");
+  let baru = loc;
+  try {
+    const u = new URL(loc);
+    baru = u.pathname + u.search + u.hash;
+  } catch {
+  }
   if (!baru.startsWith("/")) baru = "/" + baru;
   if (!/^\/ep(\/|$)/.test(baru)) baru = "/ep" + baru;
-  baru = baru.replace(/\/index\.php\//g, "/p/");
+  baru = baru.replace(/\/index\.php(\/|$)/g, "/p$1");
   return baru;
 }
 function rewriteSetCookie(cookies) {
@@ -99,6 +99,8 @@ async function handler(req, res) {
   headers["host"] = new URL(TARGET).host;
   headers["referer"] = TARGET_ORIGIN + "/";
   headers["origin"] = TARGET_ORIGIN;
+  delete headers["x-forwarded-host"];
+  delete headers["x-forwarded-for"];
   let body;
   const method = req.method || "GET";
   if (["POST", "PUT", "PATCH"].includes(method)) {
