@@ -1,0 +1,406 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-slate-850: #162032;
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+@layer base {
+  /* ─── Responsive Viewport ───────────────────────────────────────── */
+  html {
+    /* Prevent font size inflation di iOS Safari saat orientasi berubah */
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Fill-available height agar iOS Safari tidak ada gap */
+    height: -webkit-fill-available;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Prevent overscroll bounce / rubber-band di iOS */
+    overscroll-behavior: none;
+    /* Stable min-height di iOS Safari */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    /* Hilangkan highlight biru saat tap di mobile */
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+  }
+
+  @media (pointer: coarse) {
+    body {
+      touch-action: pan-x pan-y;
+    }
+  }
+
+  /* Box-sizing global */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  /* Ring Aksesibilitas Terpusat */
+  :focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+
+  /**
+   * `scrollbar-gutter: stable` dipasang di elemen scroll dalam (div konten),
+   * bukan di html/body — karena scroll utama ada di dalam div flex, bukan
+   * di body. Kalau dipasang di html, ia menyisakan ruang scrollbar di kanan
+   * meskipun body tidak pernah scroll, sehingga konten terlihat tidak mentok
+   * ke tepi kanan layar.
+   */
+
+  /* Root container full viewport */
+  #root {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  @supports (min-height: 100svh) {
+    body,
+    #root {
+      min-height: 100svh;
+    }
+  }
+
+  /**
+   * ─── Safe area (notch, tepi melengkung, bilah gestur) ────────────
+   *
+   * `index.html` mendeklarasikan `viewport-fit=cover`, jadi iOS **menggambar
+   * aplikasi sampai ke tepi layar** — termasuk ke area notch dan ke tepi yang
+   * melengkung. Navigator tidak mengetuk area itu: tombol paling kanan bisa
+   * terpotong, dan baris paling bawah tertutup bilah gestur.
+   *
+   * Semula `viewport-fit=cover` ada tapi `env(safe-area-inset-*)` **tidak pernah
+   * dipakai di mana pun** — deklarasi itu tanpa pasangan. Akibatnya konten
+   * berakhir tepat di tepi yang tidak bisa disentuh; itu yang dilaporkan
+   * sebagai "mepet di kanan".
+   *
+   * Nilainya selalu `0px` di perangkat tanpa notch (seluruh desktop, dan
+   * Android tanpa cutout), jadi tidak ada yang berubah di sana.
+   */
+  :root {
+    --poni-kiri: env(safe-area-inset-left, 0px);
+    --poni-kanan: env(safe-area-inset-right, 0px);
+    --poni-bawah: env(safe-area-inset-bottom, 0px);
+    --poni-atas: env(safe-area-inset-top, 0px);
+  }
+}
+
+/* ─── Padding yang memperhitungkan safe area ──────────────────────────
+ *
+ * Semua nilai dibungkus `max(padding biasa, safe area)`. Di perangkat tanpa
+ * notch hasilnya **persis sama** dengan utility yang digantikannya — `max()`
+ * memilih yang lebih besar, dan `0px` tidak pernah mengalahkan `1rem`.
+ * Yang berubah hanya perangkat yang memang punya area tepi terpakai.
+ *
+ * Skala paddingnya mengikuti utility yang digantikan, breakpoint demi
+ * breakpoint, supaya jarak isi tetap sama seperti sebelumnya.
+ */
+@layer components {
+  /* Konten halaman — menggantikan `p-4 sm:p-6 lg:p-8`. */
+  .poni-konten {
+    padding-top: 1.25rem;
+    padding-left: max(1rem, var(--poni-kiri));
+    padding-right: max(1rem, var(--poni-kanan));
+    padding-bottom: max(1rem, var(--poni-bawah));
+  }
+  @media (min-width: 640px) {
+    .poni-konten {
+      padding-top: 1.5rem;
+      padding-left: max(1.5rem, var(--poni-kiri));
+      padding-right: max(1.5rem, var(--poni-kanan));
+      padding-bottom: max(1.5rem, var(--poni-bawah));
+    }
+  }
+  @media (min-width: 1024px) {
+    .poni-konten {
+      padding-top: 1.75rem;
+      padding-left: max(2rem, var(--poni-kiri));
+      padding-right: max(2rem, var(--poni-kanan));
+      padding-bottom: max(2rem, var(--poni-bawah));
+    }
+  }
+
+  /* Top bar — menggantikan `px-4 sm:px-8`. */
+  .poni-header {
+    padding-left: max(1rem, var(--poni-kiri));
+    padding-right: max(1rem, var(--poni-kanan));
+  }
+  @media (min-width: 640px) {
+    .poni-header {
+      padding-left: max(2rem, var(--poni-kiri));
+      padding-right: max(1rem, var(--poni-kanan));
+    }
+  }
+
+  /* Sidebar — tepi kiri & bawah, karena di HP sidebar menumpuk di atas konten. */
+  .poni-sidebar {
+    padding-left: var(--poni-kiri);
+    padding-bottom: var(--poni-bawah);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── Sleek Scrollbar (Presisi untuk Modal & Global) ─────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(203, 213, 225, 0.8); /* slate-300 */
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background-color: rgba(71, 85, 105, 0.8); /* slate-600 */
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8; /* slate-400 */
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b; /* slate-500 */
+}
+
+/* Support Firefox thin scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(203, 213, 225, 0.8) transparent;
+}
+.dark * {
+  scrollbar-color: rgba(71, 85, 105, 0.8) transparent;
+}
+
+.login-grid-mask {
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 20%, transparent 100%);
+  mask-image: radial-gradient(ellipse at center, #000 20%, transparent 100%);
+}
+
+/* Custom Scrollbar Helper untuk Modal Body */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+}
+
+/* Scrollbar Firefox — tanpa ini batang tetap biru bawaan sistem. */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  scroll-behavior: smooth;
+}
+.dark .custom-scrollbar {
+  scrollbar-color: #475569 transparent;
+}
+
+/*
+ * Kolom konten — satu-satunya elemen yang benar-benar menggulir vertikal.
+ *
+ * `scrollbar-gutter: stable` menyisakan ruang untuk scrollbar **walaupun
+ * scrollbar-nya sedang tidak muncul**. Tanpa itu, mengunci gulir saat modal
+ * terbuka membuat ruang scrollbar hilang, lebar halaman bertambah, dan
+ * seluruh konten meleser ke kanan satuophor lalu kembali — layout shift yang
+ * persis terasa di perangkat kecil.
+ *
+ * Ditaruh di sini, bukan di `html`/`body`: scroll utama berada di dalam div
+ * flex ini. Memasangnya di `html` menyisakan ruang kosong di tepi kanan
+ * meski `body` tidak pernah menggulir, sehingga konten terlihat tidak
+ * mentok ke tepi layar.
+ *
+ * ⚠️ Bukan inline `style={{ scrollbarGutter: 'stable' }}` di `App.tsx`.
+ * Aturan ini hanya berlaku kalau ada di CSS hasil build — yang diperiksa
+ * `cek-modal-ringan.ts`.
+ */
+.konten-gulir {
+  scrollbar-gutter: stable;
+}
+
+/* Terapkan ke seluruh area yang bisa digulir, bukan hanya yang bertanda kelas */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(203 213 225) transparent;
+  }
+  .dark * {
+    scrollbar-color: rgb(71 85 105) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgb(203 213 225);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .dark *::-webkit-scrollbar-thumb {
+    background: rgb(71 85 105);
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgb(148 163 184);
+    background-clip: content-box;
+  }
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background: rgb(100 116 139);
+  }
+}
+
+/* ─── Animations & Keyframes ──────────────────────────────────────── */
+/*
+ * ⚠️ `@keyframes spin` sengaja tidak ditulis di sini.
+ *
+ * Semula ada, hanya untuk `.animate-spin-slow` — kelas yang tidak pernah
+ * dipakai. Yang tidak terlihat dari diff: utility `animate-spin` milik
+ * Tailwind juga memakai keyframes bernama `spin`, dan utility itu dipakai
+ * di `src/pages/WebPresensi.tsx` untuk spinner saat memuat.
+ *
+ * Karena itu baris `@keyframes spin` tidak boleh ikut dihapus asal-asalan.
+ * Sudah diverifikasi terpisah dengan `@tailwindcss/cli`: utility `animate-spin`
+ * memunculkan keyframes-nya sendiri, jadi tidak bergantung pada berkas ini.
+ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+.animate-pop-in {
+  animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Modal: animasi ringan, tanpa blur & tanpa layout shift ────────
+ *
+ * Modal adalah tempat yang paling sering dibuka-tutup, jadi animasinya
+ * harus murah. Tiga hal yang membuat modal terasa berat, dan ketiganya
+ * sudah dihilangkan di sini:
+ *
+ * 1. **`backdrop-filter: blur()`** pada overlay. Ini penyebab utama
+ *    "lemot": browser harus mengambil ulang seluruh isi layar di belakang
+ *    setiap kali frame digambar ulang, lalu mengaburinya — di ponsel dan
+ *    tablet itu bisa ratusan milidetik per frame. Diganti warna pekat
+ *    saja; panel modalnya sendiri tetap berbayang.
+ * 2. **`scale` pada panel.** `transform: scale()` memaksa browser
+ *    menghitung ulang seluruh isi panel tiap frame (bukan cuma
+ *    memindahkan bitmap seperti `translate`). Diganti `translateY` saja,
+ *    yang murni operasi compositor.
+ * 3. **Perubahan `overflow` pada `<body>`.** Menghilangkan scrollbar
+ *    mengubah lebar halaman sehingga seluruh konten meleser
+ *    (layout shift). Diperbaiki dengan kompensasi lebar scrollbar lewat
+ *    properti `scrollbar-gutter`, bukan padding yang dihitung JS.
+ *
+ * Semua animasi ini hanya menyentuh `opacity` dan `transform`, jadi
+ * berjalan di thread compositor tanpa memicu layout maupun paint isi.
+ */
+.modal-layer {
+  right: var(--dev-panel-right-offset, 0px) !important;
+}
+
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-panel-in {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.modal-overlay-enter {
+  animation: modal-overlay-in 0.14s ease-out both;
+}
+.modal-panel-enter {
+  animation: modal-panel-in 0.16s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+/* Saat menutup, `open` langsung false sehingga elemen dilepas seketika.
+ * Without exit animation, tidak ada jeda "menunggu animasi" yang terasa
+ * saat modal hilang. */
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay-enter,
+  .modal-panel-enter {
+    animation-duration: 0.01ms;
+  }
+}
+
+/* ─── Popup kalender (DatePicker) ───────────────────────────────────
+ *
+ * Panel ini dirender lewat `createPortal` ke `document.body` dengan
+ * `position: fixed`, jadi animasi masuknya harus `transform`-only supaya
+ * tidak memicu layout. Dipisah dua keyframe karena arah masuk mengikuti
+ * sisi panel: dari atas saat terbuka ke bawah, dari bawah saat terbuka
+ * ke atas. Satu keyframe untuk keduanya akan terlihat melompat.
+ */
+@keyframes popInBelow {
+  from { opacity: 0; transform: translate3d(0, -6px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes popInAbove {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.animate-pop-in-below {
+  animation: popInBelow 0.13s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-pop-in-above {
+  animation: popInAbove 0.13s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-in-below,
+  .animate-pop-in-above {
+    animation-duration: 0.01ms;
+  }
+}
+
+.developer-inspector-layer {
+  isolation: isolate;
+}
+
+/*
+ * ⚠️ Dua blok terakhir di berkas ini sudah dihapus karena tidak dirujuk satu
+ * pun kelas di `src/**`: `.grid-pattern` (dekorasi grid halaman login) dan
+ * `.custom-grid` (grid proyeksi titik absen di `LokasiAbsen.tsx`). Kalau
+ * ternyata masih dipakai, bentuknya bukan gagal diam-diam — gridnya hilang.
+ */

@@ -1,0 +1,43 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules
+/dist
+/dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+.env
+.env.*
+!.env.example
+
+# Metadata configs
+metadata.json
+
+# Cache incremental TypeScript. `tsc -b` pada `tsconfig.node.json` menulis
+# berkas ini di root, dan isinya dibuat otomatis — masuk repo hanya bikin
+# `git status` riuh dan rawan jadi sumber konflik.
+*.tsbuildinfo
+
+# Model OCR (13 MB). Tidak di-deploy ke Vercel sejak captcha produksi diubah manual
+# (lihat `OCR_LOKAL` di `WebPresensi.tsx`). `ocr_service.py` mengunduh sendiri ke
+# `.cache/` untuk `npm run dev`; folder `api/model/` hanya perlu diisi kalau
+# menjalankan versi Node.js dari `src/serverless/ocr.ts` secara lokal.
+api/model/

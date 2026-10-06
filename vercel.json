@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": false,
+  "functions": {
+    "api/billing-aktivasi.ts":  { "maxDuration": 60 },
+    "api/panel-auth.ts":        { "maxDuration": 60 },
+    "api/rpc.ts":               { "maxDuration": 60 },
+    "api/upload.ts":            { "maxDuration": 60 },
+    "api/health.ts":            { "maxDuration": 30 },
+    "api/midtrans-charge.ts":   { "maxDuration": 30 },
+    "api/ep.ts":                { "maxDuration": 30 }
+  },
+  "routes": [
+    { "src": "^/ep(/.*)?$", "dest": "/api/ep", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"] },
+    { "handle": "filesystem" },
+    { "src": "^/(.*)$", "dest": "/index.html" }
+  ]
+}
