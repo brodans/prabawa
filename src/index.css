@@ -246,6 +246,7 @@
  */
 .konten-gulir {
   scrollbar-gutter: stable;
+  min-height: 0;
 }
 
 /* Terapkan ke seluruh area yang bisa digulir, bukan hanya yang bertanda kelas */

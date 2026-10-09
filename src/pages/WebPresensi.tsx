@@ -20,6 +20,7 @@ import {
   X,
   Copy,
   Check,
+  CheckCircle2,
   AlertCircle,
   Loader2,
   Shield,
@@ -44,7 +45,7 @@ import {
   type HasilKehadiran,
   type HasilPerizinan,
 } from '../lib/webPresensi';
-import { useAppContext } from '../context/AppContext';
+import { useAppContext, type WebPresensiTab } from '../context/AppContext';
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Konstanta
@@ -56,6 +57,86 @@ import { useAppContext } from '../context/AppContext';
  * Hanya dipakai kalau `OCR_LOKAL` — di produksi tidak ada percobaan ulang.
  */
 const MAX_PERCOBAAN_OCR = 3;
+const KUNCI_SESI_WEB = 'prabawa:web-presensi-session';
+
+interface SesiWebTersimpan {
+  versi: 1;
+  username: string;
+  nip: string;
+  hasilImei: HasilImei;
+  tab: WebPresensiTab;
+}
+
+function hapusSesiWeb() {
+  try {
+    sessionStorage.removeItem(KUNCI_SESI_WEB);
+  } catch (error) {
+    console.warn('Status sesi Web Presensi tidak dapat dihapus dari browser.', error);
+  }
+}
+
+function bacaSesiWeb(username: string): SesiWebTersimpan | null {
+  try {
+    const raw = sessionStorage.getItem(KUNCI_SESI_WEB);
+    if (!raw) return null;
+    const nilai: unknown = JSON.parse(raw);
+    if (
+      typeof nilai !== 'object' || nilai === null || Array.isArray(nilai)
+    ) {
+      hapusSesiWeb();
+      return null;
+    }
+    const record = nilai as Record<string, unknown>;
+    const hasil = record.hasilImei;
+    if (typeof hasil !== 'object' || hasil === null || Array.isArray(hasil)) {
+      hapusSesiWeb();
+      return null;
+    }
+    const imeiRecord = hasil as Record<string, unknown>;
+    const profil = imeiRecord.profil;
+    const profilValid = profil === null || (
+      typeof profil === 'object' && profil !== null && !Array.isArray(profil) &&
+      'nama' in profil && typeof profil.nama === 'string' &&
+      'nip' in profil && typeof profil.nip === 'string'
+    );
+    if (
+      record.versi !== 1 ||
+      record.username !== username ||
+      typeof record.nip !== 'string' ||
+      (imeiRecord.imei !== null && typeof imeiRecord.imei !== 'string') ||
+      !profilValid ||
+      !['imei', 'kehadiran', 'detail', 'perizinan'].includes(String(record.tab))
+    ) {
+      hapusSesiWeb();
+      return null;
+    }
+
+    return {
+      versi: 1,
+      username,
+      nip: record.nip,
+      hasilImei: {
+        imei: imeiRecord.imei as string | null,
+        profil: profil as HasilImei['profil'],
+      },
+      tab: record.tab as WebPresensiTab,
+    };
+  } catch (error) {
+    console.warn('Status sesi Web Presensi tersimpan tidak dapat dibaca.', error);
+    hapusSesiWeb();
+    return null;
+  }
+}
+
+function adaSesiWebTersimpan(username: string): boolean {
+  if (!username) return false;
+  try {
+    return sessionStorage.getItem(KUNCI_SESI_WEB) !== null;
+  } catch (error) {
+    console.warn('Status sesi Web Presensi tidak dapat diperiksa dari browser.', error);
+    return false;
+  }
+}
 
 /**
  * Apakah captcha boleh diisi otomatis.
@@ -450,7 +531,8 @@ function Tabel({ kolom, children, lebar }: { kolom: string[]; children: React.Re
 
 export default function WebPresensi() {
   // ── State yang di-persist ke AppContext (bertahan saat pindah menu) ──
-  const { webPresensiState, setWebPresensiState } = useAppContext();
+  const { webPresensiState, setWebPresensiState, currentUser } = useAppContext();
+  const username = currentUser?.username ?? '';
 
   const sudahLogin = webPresensiState.sudahLogin;
   const hasilImei  = webPresensiState.hasilImei;
@@ -469,6 +551,7 @@ export default function WebPresensi() {
   );
 
   const setSudahLogin      = useCallback((v: boolean)                    => patch({ sudahLogin: v }), [patch]);
+  const setPemilikSesi     = useCallback((v: string | null)               => patch({ pemilikSesi: v }), [patch]);
   const setHasilImei       = useCallback((v: HasilImei | null)           => patch({ hasilImei: v }), [patch]);
   const setTab             = useCallback((v: typeof tab)                 => patch({ tab: v }), [patch]);
   const setKehadiran       = useCallback((v: HasilKehadiran | null)      => patch({ kehadiran: v }), [patch]);
@@ -491,6 +574,7 @@ export default function WebPresensi() {
   const [loadingCaptcha, setLoadingCaptcha] = useState(false);
   const [loadingProses, setLoadingProses]   = useState(false);
   const [loadingLogout, setLoadingLogout]   = useState(false);
+  const [memulihkanSesi, setMemulihkanSesi] = useState(() => adaSesiWebTersimpan(username));
 
   const [error, setError]   = useState('');
   const [status, setStatus] = useState('');
@@ -606,7 +690,87 @@ export default function WebPresensi() {
     return '';
   }, []);
 
-  useEffect(() => { refreshCaptcha(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    let hidup = true;
+    if (sudahLogin && webPresensiState.pemilikSesi === username) {
+      setMemulihkanSesi(false);
+      return () => { hidup = false; };
+    }
+    if (sudahLogin) {
+      patch({
+        sudahLogin: false,
+        pemilikSesi: null,
+        hasilImei: null,
+        tab: 'imei',
+        kehadiran: null,
+        detail: null,
+        ijinAjax: null,
+        perizinan: null,
+        semuaPerizinan: null,
+        dimuat: { kehadiran: false, detail: false, perizinan: false },
+      });
+    }
+    const tersimpan = username ? bacaSesiWeb(username) : null;
+    if (!tersimpan) {
+      setMemulihkanSesi(false);
+      if (!sudahLogin) void refreshCaptcha();
+      return () => { hidup = false; };
+    }
+
+    setMemulihkanSesi(true);
+    setError('');
+    setStatus('Memverifikasi sesi Web Presensi...');
+    void ambilImei()
+      .then((hasil) => {
+        if (!hidup) return;
+        const hasilTerverifikasi = {
+          ...hasil,
+          profil: hasil.profil ?? tersimpan.hasilImei.profil ?? (
+            tersimpan.nip ? { nama: '', nip: tersimpan.nip } : null
+          ),
+        };
+        setHasilImei(hasilTerverifikasi);
+        setSudahLogin(true);
+        setPemilikSesi(username);
+        setTab(tersimpan.tab);
+        dimuatRef.current = { kehadiran: false, detail: false, perizinan: false };
+      })
+      .catch((error: unknown) => {
+        if (!hidup) return;
+        const err = error as Error & { sesiHabis?: boolean };
+        if (err.sesiHabis) hapusSesiWeb();
+        setError(err.sesiHabis
+          ? 'Sesi Web Presensi sudah berakhir. Silakan login kembali.'
+          : `Gagal memverifikasi sesi Web Presensi: ${err.message}`);
+        void refreshCaptcha();
+      })
+      .finally(() => {
+        if (!hidup) return;
+        setMemulihkanSesi(false);
+        setStatus('');
+      });
+
+    return () => { hidup = false; };
+  // Sesi diperiksa sekali setiap halaman Web Presensi dipasang.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username]);
+
+  useEffect(() => {
+    if (!sudahLogin || !username || !hasilImei) return;
+    const sesi: SesiWebTersimpan = {
+      versi: 1,
+      username,
+      nip: hasilImei.profil?.nip ?? nip.trim(),
+      hasilImei,
+      tab,
+    };
+    try {
+      sessionStorage.setItem(KUNCI_SESI_WEB, JSON.stringify(sesi));
+    } catch (error) {
+      console.warn('Status sesi Web Presensi tidak dapat disimpan.', error);
+      setError('Login berhasil, tetapi status sesi tidak dapat disimpan di browser ini.');
+    }
+  }, [sudahLogin, username, hasilImei, tab, nip]);
 
   // ── Kosongkan data sesi ────────────────────────────────────────────
   const kosongkanData = useCallback(() => {
@@ -624,7 +788,9 @@ export default function WebPresensi() {
 
   const tanganiSesiHabis = useCallback(
     async (pesan = 'Sesi berakhir, silakan login ulang.') => {
+      hapusSesiWeb();
       setSudahLogin(false);
+      setPemilikSesi(null);
       kosongkanData();
       setTab('imei');
       setError(pesan);
@@ -726,7 +892,7 @@ export default function WebPresensi() {
       await login({ nip: nip.trim(), password, captcha: kode });
       setStatus('Mengambil IMEI...');
       const data = await ambilImei();
-      setHasilImei(data); setSudahLogin(true); setTab('imei');
+      setHasilImei(data); setSudahLogin(true); setPemilikSesi(username); setTab('imei');
       dimuatRef.current = { kehadiran: false, detail: false, perizinan: false };
       setStatus(data.imei ? 'Selesai.' : 'Login berhasil, tidak ada IMEI.');
     } catch (err) {
@@ -743,7 +909,9 @@ export default function WebPresensi() {
       await logout();
     } finally {
       // Reset state setelah logout selesai (sukses maupun gagal)
+      hapusSesiWeb();
       setSudahLogin(false);
+      setPemilikSesi(null);
       kosongkanData();
       setTab('imei');
       setError('');
@@ -836,126 +1004,147 @@ export default function WebPresensi() {
   // ──────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div />
-        {sudahLogin && hasilImei?.profil && (
-          <div className="text-right text-sm shrink-0">
-            <div className="font-semibold text-slate-700 dark:text-slate-300">{hasilImei.profil.nama}</div>
-            <div className="text-xs text-slate-400 dark:text-slate-500">NIP {hasilImei.profil.nip}</div>
-          </div>
-        )}
-      </div>
-
       {/* ── Form Login ─────────────────────────────────────────────── */}
-      <form onSubmit={proses} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-sm space-y-4">
+      <form onSubmit={proses} className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-indigo-500" />
           <h2 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Login e-Presensi</h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* NIP */}
-          <div>
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-nip">NIP</label>
-            <input
-              id="web-nip" value={nip} onChange={(e) => setNip(e.target.value)}
-              placeholder="NIP 18 digit" required autoComplete="off"
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
-            />
+        {sudahLogin && (
+          <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/30 sm:flex-row sm:items-center">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Berhasil login</p>
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="min-w-0 rounded-lg border border-emerald-200/80 bg-white/80 px-3 py-2 dark:border-emerald-900/50 dark:bg-slate-900/60">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Nama</p>
+                  <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
+                    {hasilImei?.profil?.nama || 'Pegawai'}
+                  </p>
+                </div>
+                <div className="min-w-0 rounded-lg border border-emerald-200/80 bg-white/80 px-3 py-2 dark:border-emerald-900/50 dark:bg-slate-900/60">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">NIP</p>
+                  <p className="break-all text-sm font-medium text-slate-800 dark:text-slate-200">
+                    {hasilImei?.profil?.nip || nip.trim() || '—'}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-          {/* Password dengan toggle mata */}
-          <div>
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-password">Password</label>
-            <div className="relative">
+        )}
+
+        {!sudahLogin && !memulihkanSesi && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* NIP */}
+            <div>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-nip">NIP</label>
               <input
-                id="web-password" value={password} onChange={(e) => setPassword(e.target.value)}
-                type={lihatPassword ? 'text' : 'password'}
-                placeholder="Password" required autoComplete="new-password"
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-4 pr-11 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
+                id="web-nip" value={nip} onChange={(e) => setNip(e.target.value)}
+                placeholder="NIP 18 digit" required autoComplete="off"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
               />
-              <button
-                type="button"
-                onClick={() => setLihatPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                tabIndex={-1}
-                aria-label={lihatPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-              >
-                {lihatPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </div>
+            {/* Password dengan toggle mata */}
+            <div>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-password">Password</label>
+              <div className="relative">
+                <input
+                  id="web-password" value={password} onChange={(e) => setPassword(e.target.value)}
+                  type={lihatPassword ? 'text' : 'password'}
+                  placeholder="Password" required autoComplete="new-password"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-4 pr-11 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setLihatPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  tabIndex={-1}
+                  aria-label={lihatPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                >
+                  {lihatPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Captcha */}
+        {!sudahLogin && !memulihkanSesi && (
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-captcha">
+                Captcha{' '}
+                {!OCR_LOKAL
+                  ? '(ketik manual)'
+                  : ocrTersedia === true
+                    ? '(otomatis ✓)'
+                    : ocrTersedia === false
+                      ? '(ketik manual)'
+                      : '(memuat...)'}
+              </label>
+              <input
+                id="web-captcha" value={captcha} onChange={(e) => simpanCaptcha(e.target.value)}
+                placeholder={ocrTersedia && OCR_LOKAL ? 'Terisi otomatis' : 'Ketik kode captcha'}
+                autoComplete="off" inputMode="numeric" maxLength={4}
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
+              />
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {captchaImg ? (
+                <button type="button" onClick={() => refreshCaptcha()}
+                  className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 hover:border-indigo-400 transition relative"
+                  title="Klik untuk ganti captcha">
+                  <img src={captchaImg} alt="captcha" className="h-11 w-auto" />
+                  {loadingCaptcha && (
+                    <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 flex items-center justify-center">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                    </div>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => refreshCaptcha()}
+                  disabled={loadingCaptcha}
+                  title="Klik untuk muat captcha"
+                  className="h-11 w-20 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-center hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition disabled:opacity-40"
+                >
+                  {loadingCaptcha
+                    ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                    : <RefreshCw className="w-4 h-4 text-slate-400" />}
+                </button>
+              )}
+              <button type="button" onClick={() => refreshCaptcha()} disabled={loadingCaptcha}
+                className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-40 dark:hover:text-indigo-400 transition"
+                title="Ganti captcha">
+                <RefreshCw className={`w-4 h-4 ${loadingCaptcha ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Captcha */}
-        <div className="flex items-end gap-3">
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-captcha">
-              Captcha{' '}
-              {!OCR_LOKAL
-                ? '(ketik manual)'
-                : ocrTersedia === true
-                  ? '(otomatis ✓)'
-                  : ocrTersedia === false
-                    ? '(ketik manual)'
-                    : '(memuat...)'}
-            </label>
-            <input
-              id="web-captcha" value={captcha} onChange={(e) => simpanCaptcha(e.target.value)}
-              placeholder={ocrTersedia && OCR_LOKAL ? 'Terisi otomatis' : 'Ketik kode captcha'}
-              autoComplete="off" inputMode="numeric" maxLength={4}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
-            />
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {captchaImg ? (
-              <button type="button" onClick={() => refreshCaptcha()}
-                className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 hover:border-indigo-400 transition relative"
-                title="Klik untuk ganti captcha">
-                <img src={captchaImg} alt="captcha" className="h-11 w-auto" />
-                {loadingCaptcha && (
-                  <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 flex items-center justify-center">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
-                  </div>
-                )}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => refreshCaptcha()}
-                disabled={loadingCaptcha}
-                title="Klik untuk muat captcha"
-                className="h-11 w-20 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-center hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition disabled:opacity-40"
-              >
-                {loadingCaptcha
-                  ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                  : <RefreshCw className="w-4 h-4 text-slate-400" />}
-              </button>
-            )}
-            <button type="button" onClick={() => refreshCaptcha()} disabled={loadingCaptcha}
-              className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-40 dark:hover:text-indigo-400 transition"
-              title="Ganti captcha">
-              <RefreshCw className={`w-4 h-4 ${loadingCaptcha ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-        </div>
-
-        {captchaInfo && <p className="text-[11px] text-slate-400 dark:text-slate-500 italic">{captchaInfo}</p>}
+        {!sudahLogin && !memulihkanSesi && captchaInfo && <p className="text-[11px] text-slate-400 dark:text-slate-500 italic">{captchaInfo}</p>}
 
         {status && (
           <div className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400">
-            <Loader2 className="w-4 h-4 animate-spin" />{status}
+            {memulihkanSesi && !loadingProses
+              ? <RefreshCw className="w-4 h-4 animate-spin" />
+              : <Loader2 className="w-4 h-4 animate-spin" />}
+            {status}
           </div>
         )}
 
         {error && <Pesan tipe="error">{error}</Pesan>}
 
-        <div className="flex gap-3 pt-1">
-          <button type="submit" disabled={loadingProses || loadingCaptcha}
+        <div className="flex flex-wrap gap-3 pt-1">
+          {!sudahLogin && (
+          <button type="submit" disabled={loadingProses || loadingCaptcha || memulihkanSesi}
             className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95">
             {loadingProses ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
-            {loadingProses ? 'Memproses...' : 'Login & Ambil Data'}
+            {loadingProses ? 'Memproses...' : memulihkanSesi ? 'Memulihkan sesi...' : 'Login & Ambil Data'}
           </button>
+          )}
           {sudahLogin && (
             <button type="button" onClick={keluar} disabled={loadingLogout}
               className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-5 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors">

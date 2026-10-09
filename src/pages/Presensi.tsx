@@ -35,7 +35,7 @@ import {
   type LokasiView,
   type WorkCodeView,
 } from '../lib/apiCalls';
-import { getNowWIBTime, getTodayWIB, timeToMinutes } from '../lib/dateFormatter';
+import { getNowWIBTime, getTodayWIB } from '../lib/dateFormatter';
 import { ABSEN_CHECK_TYPE, formatLatLong, TIPE_IJIN_LABEL } from '../lib/presensiContract';
 import { checkGeofence } from '../lib/geo';
 import { isCheckType, jamTampil, labelCheckType, pilihWorkCodeUntukHari } from '../lib/viewModels';
@@ -253,58 +253,11 @@ export default function Presensi() {
   const jamMasukAktif = jamTampil(punchMasuk?.waktu);
   const jamPulangAktif = jamTampil(punchPulang?.waktu);
 
-  const nowMinutes = timeToMinutes(getNowWIBTime().slice(0, 5)) ?? 0;
-  const batasMasuk = timeToMinutes(schedule?.jam.jam_masuk_awal ?? null);
-  const batasKeluar = timeToMinutes(schedule?.jam.jam_keluar_akhir ?? null);
-
   // WFH hanya diizinkan hari Jumat.
   const hariWfh =
     new Intl.DateTimeFormat('id-ID', { weekday: 'long', timeZone: 'Asia/Jakarta' })
       .format(new Date(`${today}T00:00:00Z`))
       .toLowerCase() === 'jumat';
-
-  /**
-   * Apakah waktu sekarang berada di dalam rentang jam kerja work code.
-   *
-   * ⚠️ INI PURELY INFORMATIF — tidak pernah memblokir absensi.
-   *
-  * Dulu gate ini mematikan tombol "Absen" di luar jam kerja. Itu
-   * salah untuk dua alasan:
-   *
-   * 1. **Server adalah satu-satunya penentu.** `absen` dan `cekabsen` tidak
-   *    pernah menerima jam sebagai param — penentuannya 100% di sisi
-   *    server. Menolak lebih awal di klien hanya menebak-nebak, dan
-   *    menebak-nebak keliru berarti absensi yang sah jadi tidak bisa
-   *    dikirim.
-   * 2. `jam_masuk_awal` bisa `null` / `"00:00:00"` untuk work code
-   *    EVENT, sehingga gate lama ikut mematikan absensi pada hari dengan
-   *    jadwal tidak lazim.
-   *
-   * Sekarang rentang ini hanya ditampilkan sebagai informasi, dan
-   * `server` yang memutuskan. Kalau server menolak, pesannya tampil
-   * apa adanya di dialog konfirmasi.
-   */
-  const dalamRentangJam =
-    checkType === ABSEN_CHECK_TYPE.PULANG
-      ? batasKeluar === null || nowMinutes <= batasKeluar
-      : batasMasuk === null || nowMinutes >= batasMasuk;
-
-  /**
-   * Rentang jam kerja work code, mis. "06:30 – 17:00".
-   *
-   * Keterangan saja. Untuk work code EVENT yang jamnya kosong, teksnya
-   * "tidak ditentukan" — bukan "–", supaya tidak terbaca seperti error.
-   */
-  const rentangJam = useMemo(() => {
-    const jam = schedule?.jam;
-    const potong = (v?: string) => (v && v.length >= 5 ? v.slice(0, 5) : '');
-    if (checkType === ABSEN_CHECK_TYPE.PULANG) {
-      const tutup = potong(jam?.jam_keluar_akhir) || potong(jam?.jam_keluar);
-      return tutup ? `sampai ${tutup}` : 'tidak ditentukan';
-    }
-    const buka = potong(jam?.jam_masuk_awal) || potong(jam?.jam_masuk);
-    return buka ? `sejak ${buka}` : 'tidak ditentukan';
-  }, [schedule, checkType]);
 
   // ── Buka konfirmasi ─────────────────────────────────────────────
   const handleAbsen = () => {
@@ -458,10 +411,7 @@ export default function Presensi() {
             {/* ── Koordinat absen ──────────────────────────────────
                 Ini yang menggantikan GPS. Titik yang dipilih di sini
                 dikirim apa adanya sebagai `last_latlong` ke server saat absen. */}
-            <Field
-              label="Koordinat Absen"
-              hint="Titik dari Lokasi Absen tetap tersimpan di daftar. Pilihan peta hanya berlaku sementara."
-            >
+            <Field label="Koordinat Absen">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
@@ -551,10 +501,7 @@ export default function Presensi() {
               </div>
             </Field>
 
-            <Field
-              label="Work Code"
-              hint="Wajib — server membalas 'Work Kode wajib dipilih' bila kosong. Nilai dikirim apa adanya dari getworkcode."
-            >
+            <Field label="Work Code">
               <Dropdown
                 value={workCodeId}
                 onChange={value => {
@@ -584,7 +531,7 @@ export default function Presensi() {
               />
             </Field>
 
-            <Field label="Jenis Absensi" hint="Dikirim sebagai parameter `checktype`.">
+            <Field label="Jenis Absensi">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {CHECK_TYPES.map(item => (
                   <button
@@ -607,14 +554,7 @@ export default function Presensi() {
               </div>
             </Field>
 
-            <Field
-              label="Mode Kerja"
-              hint={
-                hariWfh
-                  ? 'Hari Jumat — Work-From-Home boleh dipilih (iswfh = 1).'
-                  : 'Work-From-Home hanya diizinkan hari Jumat; server menolak iswfh = 1 pada hari lain.'
-              }
-            >
+            <Field label="Mode Kerja">
               <Checkbox
                 checked={isWfh}
                 disabled={!hariWfh}
@@ -626,10 +566,7 @@ export default function Presensi() {
               />
             </Field>
 
-            <Field
-              label="Serta Pengajuan Izin"
-              hint="Object absen juga menerima pengajuan izin pada panggilan yang sama lewat parameter ijin, type_ijin, dan keterangan."
-            >
+            <Field label="Serta Pengajuan Izin">
               <Checkbox
                 checked={kirimIjin}
                 onChange={checked => {
@@ -673,31 +610,7 @@ export default function Presensi() {
               </Alert>
             ) : !tabPermissions.aksiAbsen ? (
               <Alert tone="amber">Akun Anda tidak memiliki hak untuk melakukan absensi.</Alert>
-            ) : (
-              /*
-               * ⚠️ Di luar jam kerja tetap BISA absen — server yang
-               * menentukan. Jadwal work code hanya ditampilkan sebagai
-               * informasi, tidak dipakai memblokir.
-               *
-               * Karena itu nadanya bukan peringatan di kedua sisi:
-               *
-               * - `emerald` (centang) saat **di dalam** rentang. Ini kabar
-               *   baik: waktu sekarang wajar, tidak ada hal yang perlu diketahui
-               *   pengguna selain waktunya. Kalau nada ini amber/biru,
-               *   setiap absensi normal terlihat seperti ada masalah.
-               * - `amber` (perhatian) saat **di luar** rentang. Bukan
-               *   larangan — teksnya sudah menjelaskan itu — tapi memang
-               *   perlu disebut supaya orang tidak kaget saat server menolak.
-               */
-              <Alert tone={dalamRentangJam ? 'emerald' : 'amber'}>
-                Waktu sekarang{' '}
-                <span className="font-mono">{getNowWIBTime().slice(0, 5)} WIB</span>
-                {schedule ? ` · jadwal ${schedule.nama}` : ''}
-                {dalamRentangJam
-                  ? ' berada di dalam rentang jam kerja.'
-                  : ` di luar rentang jam kerja (${rentangJam}). Server tetap yang memutuskan — penolakan bila ada akan muncul di dialog konfirmasi.`}
-              </Alert>
-            )}
+            ) : null}
 
             <div className="space-y-2.5">
               <ActionButton

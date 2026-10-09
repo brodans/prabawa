@@ -345,14 +345,7 @@ export default function Perizinan() {
           <CardTitle>Formulir Pengajuan</CardTitle>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Field
-              label="Jenis Izin"
-              hint={
-                jenisList.length === 0
-                  ? 'Katalog jenis izin belum dimuat dari server pusat.'
-                  : 'Katalog dari object jenis_ijin, dikelompokkan dengan getmastertipeijin.'
-              }
-            >
+            <Field label="Jenis Izin">
               <Dropdown
                 value={form.jenisIjin}
                 onChange={value =>
@@ -381,14 +374,7 @@ export default function Perizinan() {
               />
             </Field>
 
-            <Field
-              label="Tipe Izin"
-              hint={
-                selectedMaster
-                  ? `Tipe yang valid untuk "${selectedMaster.nama}", sesuai daftar server.`
-                  : 'Pilih jenis izin terlebih dahulu.'
-              }
-            >
+            <Field label="Tipe Izin">
               <Dropdown
                 value={form.tipeIjin}
                 onChange={value => setForm(prev => ({ ...prev, tipeIjin: value }))}
@@ -436,7 +422,7 @@ export default function Perizinan() {
               </Alert>
             )}
 
-            <Field label="Alasan" hint="Wajib diisi — disimpan pada field `alasan` oleh server.">
+            <Field label="Alasan">
               <Textarea
                 value={form.alasan}
                 onChange={event => setForm(prev => ({ ...prev, alasan: event.target.value.slice(0, 500) }))}
@@ -444,12 +430,7 @@ export default function Perizinan() {
               />
             </Field>
 
-            <Field
-              label="Lampiran"
-              hint={`Opsional — JPG atau PDF, maks ${Math.round(
-                MAX_ATTACHMENT_BYTES / 1_000_000
-              )} MB. Bisa diklik atau langsung diseret ke kotaknya. Diunggah ke endpoint \`/service/importfile\` memakai id izin, sama seperti aplikasi Android (bukan base64 di dalam JSON).`}
-            >
+            <Field label="Lampiran">
               {/*
                * `Dropzone` — Area seret, plus tombol "Pilih Berkas" di
                * dalamnya. `handleFile` tetap satu-satunya tempat validasi

@@ -136,6 +136,7 @@ export type WebPresensiTab = 'imei' | 'kehadiran' | 'detail' | 'perizinan';
 
 export interface WebPresensiState {
   sudahLogin: boolean;
+  pemilikSesi: string | null;
   hasilImei: HasilImei | null;
   tab: WebPresensiTab;
   kehadiran: HasilKehadiran | null;
@@ -461,6 +462,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setTabPermissionsState(UNAUTHENTICATED_PERMISSIONS);
       setWebPresensiState({
         sudahLogin: false,
+        pemilikSesi: null,
         hasilImei: null,
         tab: 'imei',
         kehadiran: null,
@@ -648,6 +650,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [webPresensiState, setWebPresensiState] = useState<WebPresensiState>(() => ({
     sudahLogin: false,
+    pemilikSesi: null,
     hasilImei: null,
     tab: 'imei',
     kehadiran: null,

@@ -333,12 +333,40 @@ function PageLoading({ pageId }: { pageId: string }) {
     );
   } else if (pageId === 'tabWeb') {
     content = (
-      <div className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6 space-y-5">
-        <Skeleton className="h-5 w-48" />
-        {filters(3)}
-        <Skeleton className="h-11 w-full rounded-xl" />
-        <SkeletonList rows={3} />
-      </div>
+      <>
+        <div className="w-full rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-4 sm:p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-4 rounded-full" />
+            <Skeleton className="h-4 w-36" />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {[0, 1].map((field) => (
+              <div key={field} className="space-y-2">
+                <Skeleton className="h-3 w-12" />
+                <Skeleton className="h-11 w-full rounded-xl" />
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-11 w-full rounded-xl" />
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <Skeleton className="h-11 w-20 rounded-xl" />
+              <Skeleton className="h-11 w-11 rounded-xl" />
+            </div>
+          </div>
+          <Skeleton className="h-10 w-44 rounded-xl" />
+        </div>
+        <div className="flex gap-1 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-1.5">
+          {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-9 flex-1 rounded-xl" />)}
+        </div>
+        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6 space-y-4">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+        </div>
+      </>
     );
   } else if (pageId === 'tabDocs') {
     content = (
@@ -367,7 +395,7 @@ function PageLoading({ pageId }: { pageId: string }) {
 
   return (
     <div className="w-full space-y-6" aria-label="Memuat halaman" role="status">
-      {header}
+      {pageId !== 'tabWeb' && header}
       {content}
       <span className="sr-only">Memuat halaman...</span>
     </div>
@@ -1050,7 +1078,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
         <BannerServerPusat />
 
         {/* `konten-gulir` memberi `scrollbar-gutter: stable` — lihat `index.css`. */}
-        <div className="konten-gulir flex-1 flex flex-col min-w-0 h-full overflow-y-auto custom-scrollbar relative">
+        <div className="konten-gulir flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto custom-scrollbar relative">
           <main className="poni-konten flex-1 min-w-0 overflow-x-hidden w-full">
             <div className="min-w-0 w-full">
               <PageErrorBoundary key={activePageData.id} pageId={activePageData.id}>
