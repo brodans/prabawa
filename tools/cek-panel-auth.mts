@@ -1635,20 +1635,30 @@ cek('isAuthenticated dimulai false, bukan dari storage',
 cek('tidak ada setIsAuthenticated yang membaca storage',
   !/setIsAuthenticated\(\s*\(\)\s*=>\s*!!loadSession/.test(appSrc));
 cek('layar tunggu mengikuti status verifikasi dari AppContext',
-  /const memulihkan = adaSesiSaatMuat/.test(appSrc) &&
+    /const fallbackPemeriksaan = <LayarPemeriksaanSesi pageId=\{activePage\} \/>/.test(appSrc) &&
   /if \(cekingSesi\) return;\s*setIsAuthenticated\(currentUser !== null\)/.test(appSrc),
   'verifikasi sukses membuka aplikasi; sesi yang ditolak tetap tidak terautentikasi');
 cek('pemulihan sesi menampilkan placeholder halaman terakhir tanpa akses',
   /cekingSesi \? \(\s*fallbackPemeriksaan/.test(appSrc) &&
-    /function LayarMemulihkanSesi/.test(appSrc) &&
+      /function LayarPemeriksaanSesi/.test(appSrc) &&
     /adaSesiSaatMuat/.test(ctxSrc));
 cek('pemeriksaan langganan memakai fallback yang sama selama pemulihan',
   /fallbackLoading=\{fallbackPemeriksaan\}/.test(appSrc) &&
     /fallbackLoading\) return <>\{fallbackLoading\}<\/>/.test(gateSrc));
-cek('login awal memakai label status yang sama dan fixed viewport',
-  /fixed inset-0 flex flex-col items-center justify-center/.test(appSrc) &&
-    /Memeriksa sesi…/.test(appSrc) &&
-    !/Memeriksa langganan…/.test(gateSrc));
+cek('pemeriksaan sesi ditampilkan di tengah workspace',
+    /fixed inset-0 z-\[60\] grid place-items-center/.test(appSrc) &&
+      /Memeriksa sesi/.test(appSrc) &&
+      /Menyiapkan ruang kerja Anda/.test(appSrc) &&
+      !/Memeriksa langganan…/.test(gateSrc));
+cek('loader meniru shell workspace di desktop dan mobile',
+    /hidden h-full w-64[\s\S]{0,100}lg:flex/.test(appSrc) &&
+      /lg:hidden/.test(appSrc) &&
+      /poni-konten min-h-0 flex-1 overflow-hidden/.test(appSrc) &&
+      /APP_LOGO/.test(appSrc));
+cek('kerangka loader tidak berkedip dan ukuran nyaman pada layar kecil',
+    /\[\&_\*\]:!animate-none/.test(appSrc) &&
+      /w-\[min\(22rem,100%\)\]/.test(appSrc) &&
+      /safe-area-inset-left/.test(appSrc));
 cek('shell mengunci dokumen sebelum first paint untuk mencegah scrollbar ganda',
   /React\.useLayoutEffect\(\(\) => \{\s*if \(adaSesiSaatMuat \|\| isAuthenticated\) \{\s*document\.documentElement\.classList\.add\('app-shell-active'\)/.test(appSrc));
 cek('request panel-auth punya timeout dan AbortSignal',

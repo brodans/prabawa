@@ -110,15 +110,6 @@ const WebPresensi = lazyPage('tabWeb');
 
 interface PageDefinition {
   id: string;
-  /**
-   * Id lain yang juga menandai menu ini sebagai aktif.
-   *
-   * Menu "Manajemen Akun" punya dua URL (`/manajemen-akun` dan
-   * `/manajemen-akun/langganan`) yang keduanya menunjuk ke satu menu.
-   * Tanpa `matchIds`, membuka tab Langganan akan membuat sidebar kehilangan
-   * sorotan sepenuhnya — dan pengguna mengira dia sudah keluar dari menu itu.
-   */
-  matchIds?: string[];
   icon: LucideIcon;
   label: string;
   component: React.ComponentType;
@@ -139,11 +130,9 @@ const PAGES: PageDefinition[] = [
   // `visiblePages` (role) dan di `tabPermissions.tabManajemenAkun`, yang
   // `batasiIzin` paksa `false` untuk semua non-admin.
   //
-  // Satu menu, dua tab, dua URL — `matchIds` menggabungkan
-  // `/manajemen-akun` dan `/manajemen-akun/langganan` ke satu sorotan.
+  // Semua pengelolaan akun dan langganan berada pada satu halaman.
   {
     id: 'tabManajemenAkun',
-    matchIds: ['tabLangganan'],
     icon: UserCog,
     label: 'Manajemen Akun',
     component: ManajemenAkun,
@@ -173,21 +162,6 @@ const GROUP_LABELS: Record<PageDefinition['group'], string> = {
  * hal yang wajar di navigasi yang panjang.
  */
 const GROUP_ORDER: PageDefinition['group'][] = ['utama', 'admin', 'referensi'];
-
-/**
- * Apakah `page` mewakili `activeId`?
- *
- * Menu "Manajemen Akun" punya **satu** entri di `PAGES` tapi **dua** URL
- * (`/manajemen-akun` dan `/manajemen-akun/langganan`). Router mengembalikan
- * `tabLangganan` untuk URL kedua, dan id itu tidak ada di `PAGES`.
- *
- * Dua tempat di bawah memeriksa memeriksa dengan cara berbeda — sidebar
- * memakai `matchIds`, fallback izin memakai `page.id === activePage` — dan
- * ketidaksamaannya itu yang membuat menekan tab Langganan melempar pengguna
- * kembali ke Beranda. Satu helper, dua aturan yang sama.
- */
-const pageMenutup = (page: PageDefinition, activeId: string): boolean =>
-  page.id === activeId || (page.matchIds?.includes(activeId) ?? false);
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Komponen pendukung shell
@@ -293,18 +267,36 @@ function PageLoading({ pageId }: { pageId: string }) {
     );
   } else if (pageId === 'tabManajemenAkun') {
     content = (
-      <>
-        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
-          <Skeleton className="h-8 w-36 rounded-lg" />
-          <Skeleton className="h-8 w-44 rounded-lg" />
-        </div>
-        {stats(3)}
-        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-4 sm:p-5">
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-4 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-9 w-32 rounded-xl" />
+          </div>
           {filters(4)}
-          <Skeleton className="my-5 h-3 w-40" />
-          <SkeletonTable columns={7} rows={7} />
+          <SkeletonTable columns={7} rows={6} />
         </div>
-      </>
+        {stats(4)}
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-4 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-5">
+          {filters(5)}
+          <SkeletonTable columns={8} rows={6} />
+        </div>
+        <div className="space-y-6">
+          {[0, 1, 2].map(section => (
+            <div key={section} className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60">
+              <Skeleton className="mb-4 h-4 w-40" />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {[0, 1, 2, 3].map(field => (
+                  <div key={field} className="space-y-2">
+                    <Skeleton className="h-3 w-1/3" />
+                    <Skeleton className="h-10 w-full rounded-xl" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     );
   } else if (pageId === 'tabPerizinan') {
     content = (
@@ -536,7 +528,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
 
   React.useEffect(() => {
     if (visiblePages.length === 0) return;
-    if (visiblePages.some(page => pageMenutup(page, activePage))) return;
+    if (visiblePages.some(page => page.id === activePage)) return;
     setActivePage(visiblePages[0].id);
   }, [visiblePages, activePage, setActivePage]);
 
@@ -702,20 +694,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
   // ── Tombol "kembali" (browser back / tombol fisik Android) ──────────
   React.useEffect(() => {
     const handlePopState = () => {
-      /*
-       * ⚠️ Harus lewat `pageMenutup`, bukan `page.id === activePage`.
-       *
-       * Di tab Langganan, `activePage` adalah `tabLangganan` — id yang tidak
-       * ada di `PAGES`. Pencocokan lama mengembalikan `PAGES[0]` (Beranda),
-       * lalu handler ini menaruh `/beranda` ke URL. Akibatnya menekan tombol
-       * kembali di tab Langganan **tidak** menutup apa pun dan tidak
-       * kembali ke tab sebelumnya: yang terjadi adalah URL berubah jadi
-       * Beranda sementara state masih `tabLangganan` — dan pada
-       * `popstate` berikutnya, router membaca `/beranda` dan benar-benar
-       * melempar pengguna ke sana. Ini penyebab "menu Langganan balik ke
-       * Beranda" yang dilaporkan.
-       */
-      const currentPage = PAGES.find(page => pageMenutup(page, activePage)) ?? PAGES[0];
+      const currentPage = PAGES.find(page => page.id === activePage) ?? PAGES[0];
       const path = currentPage.path || PAGE_PATHS.tabBeranda;
       window.history.pushState(null, '', path);
 
@@ -746,9 +725,9 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
 
   // ── Halaman aktif + fallback izin ──────────────────────────────────
   const activePageData = (() => {
-    const found = PAGES.find(page => pageMenutup(page, activePage));
+    const found = PAGES.find(page => page.id === activePage);
     if (!found) return visiblePages[0] ?? PAGES[0];
-    if (!visiblePages.some(page => pageMenutup(page, activePage))) {
+    if (!visiblePages.some(page => page.id === activePage)) {
       const fallback = visiblePages[0] ?? PAGES[0];
       if (typeof window !== 'undefined' && window.location.pathname !== fallback.path) {
         window.history.replaceState(null, '', fallback.path);
@@ -824,7 +803,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
                   {GROUP_LABELS[group]}
                 </p>
                 {items.map(page => {
-                  const isActive = pageMenutup(page, activePage);
+                  const isActive = page.id === activePage;
                   const Icon = page.icon;
                   return (
                     <button
@@ -1159,58 +1138,69 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
 //  Root
 // ═══════════════════════════════════════════════════════════════════════
 
-/**
- * Layar "memeriksa sesi".
- *
- * Ada sebagai komponen sendiri, bukan `null`, karena penantian ini bisa
- * beberapa detik — koneksi ke server panel harus melewati jaringan dulu. Tanpa
- * layar ini, yang terlihat adalah kedipan ke layar login lalu kembali, dan
- * orang menyimpulkan loginnya gagal.
- *
- * ⚠️ Sengaja **tanpa** sidebar, tanpa nama akun, tanpa nama peran. Selama
- * token belum diverifikasi, tidak ada yang perlu ditampilkan — dan menampilkan
- * "admin" di sini berdasarkan `role` dari storage adalah persis bug yang
- * sedang ditutup.
- */
-function LayarMemeriksaSesi() {
+function LayarPemeriksaanSesi({ pageId }: { pageId: string }) {
   return (
     <div
-      className="fixed inset-0 flex flex-col items-center justify-center gap-3 overflow-hidden bg-slate-50 dark:bg-[#0a0f1c]"
-      role="status"
-      aria-live="polite"
+      className="fixed inset-0 z-50 flex h-dvh w-full overflow-hidden bg-slate-50 text-slate-800 dark:bg-[#0B1120] dark:text-slate-200"
+      aria-busy="true"
     >
-      <div className="w-8 h-8 border-[2.5px] border-slate-200 dark:border-slate-700 border-t-indigo-500 dark:border-t-indigo-400 rounded-full animate-spin" />
-      <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Memeriksa sesi…</p>
-    </div>
-  );
-}
-
-function LayarMemulihkanSesi({ pageId }: { pageId: string }) {
-  return (
-    <div className="fixed inset-0 flex h-dvh overflow-hidden bg-slate-50 dark:bg-[#0B1120]" aria-busy="true">
-      <aside className="hidden w-64 shrink-0 flex-col gap-6 border-r border-slate-800/60 bg-[#0F172A] p-5 lg:flex">
-        <div className="h-9 w-36 animate-pulse rounded-xl bg-slate-800/80" />
-        <div className="space-y-3">
-          {Array.from({ length: 7 }, (_, index) => (
-            <div key={index} className="h-10 w-full animate-pulse rounded-xl bg-slate-800/80" />
-          ))}
+      <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-slate-800/50 bg-[#0F172A] lg:flex dark:bg-[#070B14]">
+        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-800/60 px-5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-500 p-0.5 shadow-lg shadow-blue-500/20">
+            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[0.7rem] bg-[#0F172A] p-1 dark:bg-[#070B14]">
+              <img src={APP_LOGO} alt="" className="h-full w-full object-contain" />
+            </div>
+          </div>
+          <span className="truncate text-lg font-bold tracking-tight text-white">{APP_NAME}</span>
         </div>
+        <nav aria-hidden="true" className="flex-1 space-y-5 overflow-hidden px-3.5 py-5">
+          {[3, 1, 3].map((count, group) => (
+            <div key={group} className="space-y-2">
+              <div className="mb-3 h-2 w-20 rounded bg-slate-700/60" />
+              {Array.from({ length: count }, (_, index) => (
+                <div
+                  key={index}
+                  className={`h-11 rounded-xl ${group === 0 && index === 0 ? 'bg-blue-600/15' : 'bg-slate-800/50'}`}
+                />
+              ))}
+            </div>
+          ))}
+        </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center justify-end border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-950 sm:px-6">
-          <Skeleton className="h-8 w-8 rounded-full" />
+        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-slate-200/80 bg-slate-100/80 px-4 shadow-sm dark:border-slate-800/80 dark:bg-[#0B1120]/80 sm:px-6">
+          <div className="flex items-center gap-3 lg:hidden" aria-hidden="true">
+            <Skeleton className="h-9 w-9 rounded-xl" />
+            <Skeleton className="h-4 w-28" />
+          </div>
+          <div className="ml-auto flex items-center gap-3" aria-hidden="true">
+            <Skeleton className="hidden h-8 w-28 rounded-full sm:block" />
+            <Skeleton className="h-9 w-9 rounded-full" />
+          </div>
         </header>
-        <main className="relative min-h-0 flex-1 overflow-hidden p-4 sm:p-6">
-          <PageLoading pageId={pageId} />
-          <div
-            className="pointer-events-none absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200"
-            role="status"
-            aria-live="polite"
-          >
-            <LoaderCircle className="h-4 w-4 animate-spin text-indigo-500" />
-            Memeriksa sesi…
+        <main className="poni-konten min-h-0 flex-1 overflow-hidden">
+          <div className="[&_*]:!animate-none">
+            <PageLoading pageId={pageId} />
           </div>
         </main>
+      </div>
+      <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/10 px-4 py-6 backdrop-blur-[2px] [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))] dark:bg-slate-950/25">
+        <div
+          className="flex w-[min(22rem,100%)] items-center gap-4 rounded-2xl border border-white/80 bg-white/95 p-4 shadow-[0_20px_70px_-24px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 dark:border-slate-700/80 dark:bg-slate-900/95 dark:ring-white/5 sm:gap-4 sm:p-5"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+            <span className="absolute inset-0 rounded-2xl ring-1 ring-indigo-200/80 dark:ring-indigo-400/20" />
+            <LoaderCircle className="h-6 w-6 animate-spin" strokeWidth={2.4} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Memeriksa sesi</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              Menyiapkan ruang kerja Anda
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1266,10 +1256,7 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
     }
     document.documentElement.classList.remove('app-shell-active');
   }, [adaSesiSaatMuat, isAuthenticated]);
-  const memulihkan = adaSesiSaatMuat;
-  const fallbackPemeriksaan = memulihkan
-    ? <LayarMemulihkanSesi pageId={activePage} />
-    : <LayarMemeriksaSesi />;
+  const fallbackPemeriksaan = <LayarPemeriksaanSesi pageId={activePage} />;
 
   React.useEffect(() => {
     if (cekingSesi) return;

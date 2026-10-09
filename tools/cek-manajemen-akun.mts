@@ -264,7 +264,7 @@ console.log('\n=== 9. Titik absen tidak bocor antar akun');
   cek('JSON rusak -> daftar kosong', L.bacaTitik('budi').length === 0);
 }
 
-console.log('\n=== 10. Menu Manajemen Akun: satu menu, dua URL');
+console.log('\n=== 10. Satu halaman Manajemen Akun terpadu');
 const appSrc = kode(baca('../src/App.tsx'));
 const ctxSrc = kode(baca('../src/context/AppContext.tsx'));
 const akunSrc = kode(baca('../src/pages/ManajemenAkun.tsx'));
@@ -292,30 +292,23 @@ cek(
   /cekingSesi \|\| !currentUser \? \[\] : PAGES/.test(appSrc),
   'filter di luar harus menutup semua halaman, bukan hanya memfilter'
 );
-cek(
-  'dua URL terdaftar, berdiri sendiri',
-  /tabManajemenAkun: '\/manajemen-akun'/.test(ctxSrc) && /tabLangganan: '\/langganan'/.test(ctxSrc)
-);
-cek(
-  'langganan TIDAK dirangkum di bawah /manajemen-akun',
-  !/tabLangganan: '\/manajemen-akun/.test(ctxSrc),
-  'langganan menu setara, bukan anak dari manajemen akun'
-);
-cek('tab dihitung dari pathname', /tabDariPath\(pathname\)/.test(akunSrc) && /tabDariPath\(pathname\)/.test(langSrc));
-cek('tab diganti lewat setSubPath (tanpa reload)', /setSubPath\(item\.path\)/.test(akunSrc));
-cek('keduanya yang satu menu (matchIds)', /matchIds: \['tabLangganan'\]/.test(appSrc));
-cek('keduanya yang satu menu (sorotan)', /pageMenutup\(page, activePage\)/.test(appSrc));
+cek('satu route untuk Manajemen Akun', /tabManajemenAkun: '\/manajemen-akun'/.test(ctxSrc) && !/tabLangganan:/.test(ctxSrc));
+cek('Manajemen Akun dan Langganan ditampilkan pada halaman yang sama',
+  /<KelolaAkun[\s\S]*?<Langganan \/>/.test(akunSrc));
+cek('tidak ada tab navigasi terpisah untuk Langganan & Pembayaran',
+  !/Langganan & Pembayaran|role="tablist"|PATH_TAB_AKUN/.test(akunSrc));
+cek('pantau akun, pembayaran, dan metode tampil tanpa tab',
+  !/PATH_TAB_LANGGANAN|role="tablist"/.test(langSrc) &&
+    /Pantau Langganan Akun/.test(langSrc) &&
+    /Riwayat Pembayaran/.test(langSrc) &&
+    /<PengaturanPaket/.test(langSrc));
 cek('halaman menolak non-admin sendiri', /currentUser\?\.role !== 'admin'/.test(akunSrc));
 cek(
-  'URL lama /manajemen-akun/langganan dialihkan',
-  /PATH_LAMA/.test(ctxSrc) && /'\/manajemen-akun\/langganan': PATH_MAP\.tabLangganan/.test(ctxSrc)
+  'URL lama langganan diarahkan ke halaman terpadu',
+  /'\/manajemen-akun\/langganan': PATH_MAP\.tabManajemenAkun/.test(ctxSrc) &&
+    /'\/langganan\/pembayaran': PATH_MAP\.tabManajemenAkun/.test(ctxSrc)
 );
-// `PATH_LAMA` dipakai lagi di blok router di bawah; di sini cukup bentuk kuncinya.
 cek('prefix dicocokkan terpanjang dulu', /sort\(\(a, b\) => b\.path\.length - a\.path\.length\)/.test(ctxSrc));
-cek('tab Langganan juga punya URL sendiri', /PATH_TAB_LANGGANAN/.test(langSrc));
-
-// ═════════════════════════════════════════════════════════════════════
-console.log('\n=== 10b. Router benar-benar memetakan URL ke tab yang tepat');
 const { getPageFromPath, PATH_LAMA } = await import('../src/context/AppContext.tsx');
 cek('halaman utama', getPageFromPath('/beranda') === 'tabBeranda');
 cek('presensi', getPageFromPath('/presensi') === 'tabPresensi');
@@ -323,85 +316,10 @@ cek('trailing slash tetap dikenali', getPageFromPath('/presensi/') === 'tabPrese
 cek('URL tak dikenal -> fallback', getPageFromPath('/tidak-ada') === 'tabBeranda');
 cek('path kosong -> fallback', getPageFromPath('') === 'tabBeranda');
 cek('/manajemen-akun -> tab akun', getPageFromPath('/manajemen-akun') === 'tabManajemenAkun');
-cek('/langganan -> tab langganan', getPageFromPath('/langganan') === 'tabLangganan');
-cek('/langganan/akun -> tab langganan', getPageFromPath('/langganan/akun') === 'tabLangganan');
-cek('/langganan/pembayaran -> tab langganan', getPageFromPath('/langganan/pembayaran') === 'tabLangganan');
-cek('/langganan/metode -> tab langganan', getPageFromPath('/langganan/metode') === 'tabLangganan');
-cek('/manajemen-akun -> tab akun', getPageFromPath('/manajemen-akun') === 'tabManajemenAkun');
-//
-// `/langganan` boleh jadi awalan `/langganan/...`, tapi tidak boleh memakan
-// `/manajemen-akun`. Kalau pencocokan awalan tidak urut dari yang terpanjang,
-// salah satu dari keduanya akan menelan yang lain dan menu ikut lenyap.
-cek('awalan tidak menabrak /manajemen-akun', getPageFromPath('/manajemen-akun') === 'tabManajemenAkun');
-cek('awalan terpanjang menang, bukan yang pertama', getPageFromPath('/langganan/pembayaran') !== 'tabManajemenAkun');
+cek('/langganan dialihkan ke Manajemen Akun', getPageFromPath('/langganan') === 'tabManajemenAkun');
+cek('/langganan/pembayaran dialihkan ke Manajemen Akun', getPageFromPath('/langganan/pembayaran') === 'tabManajemenAkun');
 cek('sub-path dalam tidak menabrak halaman lain', getPageFromPath('/beranda/laporan') === 'tabBeranda');
-cek('URL lama punya tujuan', PATH_LAMA['/manajemen-akun/langganan'] === '/langganan');
-cek(
-  'URL lama benar-benar dipetakan ke tab yang ada',
-  getPageFromPath(PATH_LAMA['/manajemen-akun/langganan']) === 'tabLangganan'
-);
-
-// Tab internal Langganan juga harus round-trip lewat URL. Diimpor dari
-// `Langganan.tsx`, bukan disalin — kalau ia berubah di sana, tes ini ikut.
-const { PATH_TAB_LANGGANAN } = await import('../src/pages/Langganan.tsx');
-cek(
-  'semua URL tab Langganan berakar di /langganan',
-  Object.values(PATH_TAB_LANGGANAN).every(p => p.startsWith('/langganan')),
-  Object.values(PATH_TAB_LANGGANAN).join(' ')
-);
-for (const [tab, path] of Object.entries(PATH_TAB_LANGGANAN)) {
-  cek(`tab "${tab}" punya URL yang merujuk ke halaman langganan`, getPageFromPath(path) === 'tabLangganan', path);
-}
-cek('URL tiap tab unik', new Set(Object.values(PATH_TAB_LANGGANAN)).size === Object.keys(PATH_TAB_LANGGANAN).length);
-cek('tab "akun" adalah bawaan untuk path tanpa akhiran', PATH_TAB_LANGGANAN.akun.endsWith('/akun'));
-
-// ═════════════════════════════════════════════════════════════════════
-console.log('\n=== 10c. Menu Langganan TIDAK melempar ke Beranda');
-/**
- * Bug: pressing the Langganan tab lands the user back on Beranda.
- *
- * `/manajemen-akun/langganan` resolves to `tabLangganan`, which is not an
- * entry in `PAGES` — it is `matchIds` of the `tabManajemenAkun` entry. The
- * permission-fallback effect asked `visiblePages.some(page => page.id ===
- * activePage)`, found nothing, and immediately reset to `visiblePages[0]`,
- * which is Beranda.
- *
- * The sidebar used `matchIds` and the fallback did not, so the two disagreed
- * about whether a page was open. Both now go through one helper.
- */
-cek('ada satu helper pencocokan halaman', /const pageMenutup = \(page: PageDefinition, activeId: string\)/.test(appSrc));
-cek(
-  'helper memperhitungkan matchIds',
-  /page\.id === activeId \|\| \(page\.matchIds\?\.includes\(activeId\) \?\? false\)/.test(appSrc)
-);
-/*
- * Ketiga pemeriksaan harus cocok **di baris yang tepat**.
- *
- * Versi pertama dari assertions ini hanya mencari `pageMenutup(` di mana saja
- * di file, dan selalu lulus walau satu dari ketiga tempatnya masih memakai
- * `page.id === activePage` — persis bug yang seharusnya diuji. Setelah bug
- * dikembalikan secara manual, tes ini tetap hijau. Sekarang setiap tempat
- * diuji pada barisnya sendiri.
- */
-const barisEfekFallback = appSrc
-  .split('\n')
-  .find((l: string) => l.includes('visiblePages.some(') && l.includes('activePage)'));
-cek('fallback izin memakai helper', /visiblePages\.some\(page => pageMenutup\(page, activePage\)\)/.test(barisEfekFallback ?? ''), barisEfekFallback?.trim());
-const barisFallbackHalaman = appSrc
-  .split('\n')
-  .find((l: string) => l.includes('PAGES.find('));
-cek('penentuan halaman memakai helper', /PAGES\.find\(page => pageMenutup\(page, activePage\)\)/.test(barisFallbackHalaman ?? ''), barisFallbackHalaman?.trim());
-const barisSorotan = appSrc
-  .split('\n')
-  .find((l: string) => l.includes('const isActive ='));
-cek('sidebar memakai helper', /const isActive = pageMenutup\(page, activePage\);/.test(barisSorotan ?? ''), barisSorotan?.trim());
-// Tidak boleh ada perbandingan `page.id === activePage` telanjang di mana pun.
-cek(
-  'tidak ada page.id === activePage telanjang di seluruh file',
-  !/page\.id === activePage\b/.test(appSrc),
-  'semua pencocokan harus lewat pageMenutup()'
-);
-
+cek('URL lama beralih ke halaman Manajemen Akun', PATH_LAMA['/manajemen-akun/langganan'] === '/manajemen-akun');
 // ═════════════════════════════════════════════════════════════════════
 console.log('\n=== 11. Tab "Semua Pembayaran" tidak melakukan reload');
 cek('ada state menyegarkan terpisah', /const \[menyegarkan, setMenyegarkan\] = useState\(false\)/.test(langSrc));
@@ -504,10 +422,10 @@ cek('tidak ada kolom WhatsApp', !/header: 'WhatsApp'/.test(akunSrc));
 cek('tidak ada field nomorWa di form', !/nomorWa/.test(akunSrc));
 cek('tidak ada kolom Jabatan', !/Jabatan/.test(akunSrc));
 cek('tidak ada field jabatan di form', !/setJabatan|jabatan:/.test(akunSrc));
-cek('tidak ada kolom Langganan (punya tab sendiri)', !/header: 'Langganan'/.test(akunSrc));
+cek('tidak ada kolom Langganan khusus karena halaman sudah terpadu', !/header: 'Langganan'/.test(akunSrc));
 cek('UserAccount tidak lagi punya nomorWa', !/nomorWa\?: string/.test(baca('../src/lib/userManager.ts')));
 cek('UserAccount tidak lagi punya jabatan', !/jabatan\?: string/.test(baca('../src/lib/userManager.ts')));
-cek('Masa Aktif jadi tautan ke tab Langganan', /setSubPath\(PATH_TAB_AKUN\.langganan\)/.test(akunSrc));
+cek('Masa Aktif menavigasi ke panel langganan pada halaman yang sama', /kePanelLangganan/.test(akunSrc));
 cek('kolom NIP/IMEI menampilkan kredensial', /row\.kredensial\?\.nip/.test(akunSrc));
 cek('status auto-login terlihat', /Auto-login siap/.test(akunSrc));
 cek('password tidak pernah ditampilkan', !/passwordHash/.test(akunSrc));

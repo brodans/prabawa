@@ -559,5 +559,19 @@ console.log('\n=== 11. Pengaturan billing: hanya field layar yang ditulis server
     'kompatibilitas dengan pengaturan yang sudah memiliki metode QRIS Midtrans');
 }
 
+console.log('\n=== Kontrak pembuatan transaksi Snap');
+const modalSnap = readFileSync(join(process.cwd(), 'src/components/BayarLanggananModal.tsx'), 'utf8');
+const tipeSnap = readFileSync(join(process.cwd(), 'src/lib/midtrans.ts'), 'utf8');
+const handlerSnap = readFileSync(join(process.cwd(), 'src/serverless/midtrans-charge.ts'), 'utf8');
+const expressSnap = readFileSync(join(process.cwd(), 'src/api/server.ts'), 'utf8');
+cek('klien mengirim order_id dan gross_amount di transaction_details',
+  /transaction_details:\s*\{\s*order_id:\s*orderId,\s*gross_amount:\s*nominal/.test(modalSnap));
+cek('tipe payload mendefinisikan transaction_details wajib',
+  /transaction_details:\s*\{\s*order_id:\s*string;\s*gross_amount:\s*number/.test(tipeSnap));
+cek('handler Vercel memvalidasi order_id bersarang dan memanggil Snap API',
+  /transaction_details\?\.order_id/.test(handlerSnap) && /\/snap\/v1\/transactions/.test(handlerSnap));
+cek('handler Express memvalidasi order_id bersarang dan memanggil Snap API',
+  /transaction_details\?\.order_id/.test(expressSnap) && /\/snap\/v1\/transactions/.test(expressSnap));
+
 console.log(fail === 0 ? '\nSEMUA LULUS' : `\n${fail} KEGAGALAN`);
 process.exit(fail === 0 ? 0 : 1);

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CreditCard,
   Plus,
   RefreshCw,
   Search,
@@ -66,32 +65,11 @@ import IzinAkun from '../components/IzinAkun';
 import { formatTanggalLokal } from '../lib/tanggal';
 
 /**
- * URL tiap tab. Satu tab = satu URL.
- *
- * Tab Langganan memakai `/langganan` — bukan `/manajemen-akun/langganan`.
- * Keduanya menunjuk ke satu menu, tapi URL-nya berdiri sendiri: tab itu punya
- * halaman penuh dengan tab-tabnya sendiri, dan `/manajemen-akun/langganan`
- * akan mengatakannya adalah "bagian dari" manajemen akun, padahal tidak.
- */
-const PATH_TAB_AKUN = {
-  akun: '/manajemen-akun',
-  langganan: '/langganan',
-};
-
-const tabDariPath = (path: string): keyof typeof PATH_TAB_AKUN =>
-  path === PATH_TAB_AKUN.langganan || path.startsWith(`${PATH_TAB_AKUN.langganan}/`)
-    ? 'langganan'
-    : 'akun';
-
-/**
  * Satu baris tabel.
  *
- * ⚠️ Kolom "Langganan" (badge status) **sengaja tidak ada di sini**. Status
- * langganan punya tempatnya sendiri — tab Langganan — dan menampilkannya dua
- * kali berarti dua sumber yang bisa berbeda: satu dihitung ulang dari
- * dokumen, satu dari state tabel yang mungkin basi. Yang tersisa hanya angka
- * yang tidak ada di tempat lain (tanggal berakhir, total bayar) dan keduanya
- * menjadi tautan ke tab Langganan.
+ * ⚠️ Kolom "Langganan" (badge status) sengaja tidak digandakan di tabel akun.
+ * Status dan detail tagihan ditampilkan pada panel billing di halaman yang
+ * sama; tabel akun hanya menyediakan tautan ke panel tersebut.
  */
 interface BarisAkun {
   akun: UserAccount;
@@ -113,21 +91,8 @@ interface BarisAkun {
 const UKURAN_HALAMAN = 25;
 
 /**
- * Menu **Manajemen Akun** — satu menu, dua tab, dua URL.
- *
- * ## Kenapa satu menu
- *
- * Dulu hanya ada satu menu "Langganan" berisi Accounts, Payments, dan Methods
- * semuanya. duas concerns berbeda bercampur: satu tentang **orang** (siapa
- * saja yang ada, NIP/password/IMEI/lokasi), satu tentang **uang** (masa
- * aktif, tagihan, metode). Menjadikannya tab tidak mengubah apa pun — user
- * masih satu menu, dan masalahnya user tidak bisa menemukan akun tertentu
- * di antara 500 baris tagihan.
- *
- * Sekarang: satu menu dengan dua tab, masing-masing dengan URL sendiri.
- * `/manajemen-akun` untuk akun, `/manajemen-akun/langganan` untuk
- * langganan. Bisa dibagikan, bisa di-bookmark, dan tombol Back bekerja
- * seperti seharusnya.
+ * Menu Manajemen Akun terpadu untuk daftar akun dan seluruh pengelolaan
+ * langganan, pembayaran, metode, serta paket.
  *
  * ## Kolom Lokasi
  *
@@ -142,9 +107,8 @@ const UKURAN_HALAMAN = 25;
  * menyembunyikannya.
  */
 export default function ManajemenAkun() {
-  const { currentUser, pathname, setSubPath } = useAppContext();
+  const { currentUser } = useAppContext();
   const toast = useToast();
-  const tab = tabDariPath(pathname);
 
   /*
    * Gerbang admin.
@@ -180,88 +144,20 @@ export default function ManajemenAkun() {
     );
   }
 
-  /*
-   * Nama tab harus sama dengan **judul halaman yang dibuka tab itu**.
-   *
-   * "Langganan" membuka halaman berjudul "Langganan & Pembayaran" — jadi
-   * setengah sesuai, dan yang dilewatkan justru bagian yang menjelaskan ada
-   * dua tabel di dalamnya. "Manajemen Akun" sudah persis sama dengan
-   * judulnya, jadi tidak diubah.
-   */
-  const TABS = [
-    { value: 'akun' as const, label: 'Manajemen Akun', icon: Users, path: PATH_TAB_AKUN.akun },
-    {
-      value: 'langganan' as const,
-      label: 'Langganan & Pembayaran',
-      icon: CreditCard,
-      path: PATH_TAB_AKUN.langganan,
-    },
-  ];
-
   return (
     <div className="space-y-5">
-      {/*
-       * ⚠️ Tidak ada tombol "Menu Utama" di sini.
-       *
-       * Sidebar sudah ada di setiap halaman, dan di layar sempit ia ada di
-       * hamburger. Tombol kedua yang melakukan hal yang sama bukan pintasan —
-       * ia hanya menambah satu keputusan di tengah pekerjaan. Yang dipindah
-       * ke sini adalah **isi** halamannya: tab, filter, dan tabel.
-       *
-       * ⚠️ Judul **tidak** ikut berubah saat tab berganti.
-       *
-       * Dua percobaan sebelumnya sama-sama salah dan arahnya berlawanan:
-       *
-       * - Judul tetap "Manajemen Akun" + subjudul "…dan langganan" di kedua
-       *   tab → menekan tab tidak mengubah apa pun di kepala.
-       * - Judul disembunyikan di tab Langganan → tampilannya melompat ke bawah
-       *   saat tab berganti, dan yang di atas tabel kehilangan konteks.
-       *
-       * Yang benar: satu blok judul yang **konsisten di paling atas**,
-       * menjelaskan menu ini apa — bukan tab yang sedang aktif. Tab di
-       * bawahnya yang berubah; posisinya tidak.
-       *
-       * Karena itu tab kedua bernama "Langganan & Pembayaran", sama persis
-       * dengan judul halaman yang dibuka tab itu — bukan "Langganan" saja
-       * yang setengah sesuai.
-       */}
       <PageHeader
         title="Manajemen Akun"
-        subtitle="Kelola seluruh akun dan kredensial server"
+        subtitle="Kelola akun, akses, langganan, dan pembayaran"
         icon={<UserCog className="w-5 h-5" />}
       />
-
-      {/* Tab di atas konten — dipisah dari sidebar supaya satu menu ini
-          terbaca sebagai satu tempat, bukan dua menu yang tidak terkait. */}
-      <div
-        className="flex flex-wrap gap-1.5 border-b border-slate-200 dark:border-slate-700/60 pb-2"
-        role="tablist"
-        aria-label="Tab Manajemen Akun"
-      >
-        {TABS.map(item => {
-          const Icon = item.icon;
-          const aktif = tab === item.value;
-          return (
-            <button
-              key={item.value}
-              type="button"
-              role="tab"
-              aria-selected={aktif}
-              onClick={() => setSubPath(item.path)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                aktif
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {tab === 'langganan' ? <Langganan /> : <KelolaAkun toast={toast} setSubPath={setSubPath} />}
+      <KelolaAkun
+        toast={toast}
+        kePanelLangganan={() => document.getElementById('panel-langganan')?.scrollIntoView({ behavior: 'smooth' })}
+      />
+      <section id="panel-langganan" className="scroll-mt-5">
+        <Langganan />
+      </section>
     </div>
   );
 }
@@ -275,9 +171,9 @@ type SortKey = 'nama' | 'username' | 'status' | 'masaAkhir';
 /** Filter peran. Default `semua` — daftar lengkap yang ditampilkan. */
 type FilterPeran = 'semua' | UserRole;
 
-function KelolaAkun({ toast, setSubPath }: {
+function KelolaAkun({ toast, kePanelLangganan }: {
   toast: ReturnType<typeof useToast>;
-  setSubPath: (path: string) => void;
+  kePanelLangganan: () => void;
 }) {
   const [akun, setAkun] = useState<UserAccount[]>([]);
   const [langgananMap, setLanggananMap] = useState<Map<string, DokumenLangganan>>(new Map());
@@ -607,10 +503,10 @@ function KelolaAkun({ toast, setSubPath }: {
     },
     {
       /*
-       * Masa Aktif & Total Bayar — dua angka yang tidak ada di tab Langganan
+       * Masa Aktif & Total Bayar — dua angka yang tidak ada di panel Langganan
        * dengan bentuk yang bisa dipindai sekilas.
        *
-       * Keduanya tautan ke tab Langganan. Tanpa itu, menghapus badge status
+       * Keduanya tautan ke panel Langganan. Tanpa itu, menghapus badge status
        * akan membuat layar ini jadi buntu: admin melihat "terlambat 3 hari"
        * tapi tidak punya jalan dari sana ke tempat perpanjangan berada.
        */
@@ -623,7 +519,7 @@ function KelolaAkun({ toast, setSubPath }: {
         ) : (
           <button
             type="button"
-            onClick={() => setSubPath(PATH_TAB_AKUN.langganan)}
+            onClick={kePanelLangganan}
             title={`Kelola langganan ${row.akun.username}`}
             className="block w-full text-left min-w-0 text-[11px] leading-tight group"
           >
@@ -653,7 +549,7 @@ function KelolaAkun({ toast, setSubPath }: {
       render: row => (
         <button
           type="button"
-          onClick={() => setSubPath(PATH_TAB_AKUN.langganan)}
+          onClick={kePanelLangganan}
           title={`Riwayat pembayaran ${row.akun.username}`}
           className="block w-full text-left text-[11px] leading-tight group"
         >

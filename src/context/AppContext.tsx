@@ -281,13 +281,6 @@ const PATH_MAP: Record<string, string> = {
   tabLokasiAbsen: '/lokasi-absen',
   tabManajemenAkun: '/manajemen-akun',
   tabWeb: '/web',
-  // Tab Langganan punya URL-nya sendiri, tidak dirangkum di bawah
-  // `/manajemen-akun`. Alasannya bukan sekadar soal URL: path
-  // `/manajemen-akun/langganan` menyatakan "langganan adalah bagian dari
-  // manajemen akun", dan itu tidak benar — langganan punya daftarnya sendiri,
-  // paketnya sendiri, dan tagihannya sendiri. URL yang jujur membuatnya
-  // terlihat sebagai dua hal yang setara besar.
-  tabLangganan: '/langganan',
 };
 
 const FALLBACK_PAGE = 'tabBeranda';
@@ -295,13 +288,14 @@ const FALLBACK_PAGE = 'tabBeranda';
 /**
  * URL lama → URL baru.
  *
- * Hanya satu: `/manajemen-akun/langganan` (yang sempat dipakai) kembali ke
- * `/langganan`. Tanpa pengalihan ini, setiap tautan yang sudah dibagikan atau
- * disimpan di bookmark berakhir di 404 — dan 404 di sini berarti "Beranda",
- * jadi admin mengira langganannya hilang.
+ * URL langganan lama diarahkan ke satu halaman Manajemen Akun terpadu.
  */
 export const PATH_LAMA: Record<string, string> = {
-  '/manajemen-akun/langganan': PATH_MAP.tabLangganan,
+  '/langganan': PATH_MAP.tabManajemenAkun,
+  '/langganan/akun': PATH_MAP.tabManajemenAkun,
+  '/langganan/pembayaran': PATH_MAP.tabManajemenAkun,
+  '/langganan/metode': PATH_MAP.tabManajemenAkun,
+  '/manajemen-akun/langganan': PATH_MAP.tabManajemenAkun,
 };
 
 /**
@@ -309,11 +303,9 @@ export const PATH_LAMA: Record<string, string> = {
  *
  * Dua tahap, dan urutan itu penting:
  *
- * 1. **Cocok persis** dulu. `/manajemen-akun` harus menjadi tab akun, bukan
- *    tab langganan.
- * 2. **Cocok awalan terpanjang** kalau tidak ada yang persis. Ini yang
- *    membuat sub-path tab bekerja: `/langganan/pembayaran` harus tetap di
- *    halaman tab Langganan.
+ * 1. **Cocok persis** dulu.
+ * 2. URL lama dialihkan sebelum pemetaan.
+ * 3. **Cocok awalan terpanjang** untuk subhalaman yang memakai path.
  *
  * Awalan harus diurutkan dari yang **terpanjang**. Kalau diurutkan seperti
  * `Object.keys`, awalan yang lebih pendek akan menang lebih dulu dan setiap
@@ -326,6 +318,8 @@ const AWALAN_PATH = Object.entries(PATH_MAP)
 export const getPageFromPath = (path: string): string => {
   // Normalisasi: buang slash di akhir supaya `/presensi/` tetap dikenali.
   const bersih = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path;
+  const tujuanLama = PATH_LAMA[bersih];
+  if (tujuanLama) return getPageFromPath(tujuanLama);
   for (const [tabId, tabPath] of Object.entries(PATH_MAP)) {
     if (bersih === tabPath) return tabId;
   }

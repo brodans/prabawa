@@ -964,7 +964,7 @@ export default function BayarLanggananModal({
   );
 }
 
-/** Ambil token Snap untuk satu transaksi lewat Core API. */
+/** Ambil token Snap untuk satu transaksi. */
 async function snapToken(
   orderId: string,
   nominal: number,
@@ -972,8 +972,10 @@ async function snapToken(
   username: string
 ): Promise<string> {
   const hasil = await buatTransaksi({
-    order_id: orderId,
-    gross_amount: nominal,
+    transaction_details: {
+      order_id: orderId,
+      gross_amount: nominal,
+    },
     item_details: [{ price: nominal, quantity: 1, name: `${APP_NAME} — ${labelPaket}` }],
     customer_details: { first_name: username },
     enabled_payments: ['qris'],

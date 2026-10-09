@@ -26,7 +26,7 @@ import {
   type RpcResponse,
 } from '../lib/presensiContract';
 import { APP_FULL_NAME } from '../lib/appIdentity';
-import { midtransBaseUrl } from '../lib/midtransEnv';
+import { midtransSnapBaseUrl } from '../lib/midtransEnv';
 /*
  * Normalisasi Origin yang sama persis dengan yang dipakai function Vercel.
  *
@@ -491,7 +491,7 @@ export async function startServer() {
     }
   );
 
-  // ─── Pembayaran: Midtrans Core API ──────────────────────────────────
+  // ─── Pembayaran: Midtrans Snap API ──────────────────────────────────
   //
   // ⚠️ `Server Key` TIDAK PERNAH sampai ke peramban. Route di bawah satu-
   //-satunya pembaca `MIDTRANS_SERVER_KEY`; logika dan pesan errornya
@@ -502,7 +502,7 @@ export async function startServer() {
   // penolakan origin yang tidak ada di allow-list.
   const midtransServerKey = process.env.MIDTRANS_SERVER_KEY || '';
   // Mode produksi/sandbox dari satu sumber — lihat `lib/midtransEnv.ts`.
-  const midtransBase = midtransBaseUrl;
+  const midtransBase = midtransSnapBaseUrl;
 
   app.post('/api/midtrans-charge', bodyKecil, async (req, res) => {
     if (!midtransServerKey) {
@@ -523,7 +523,7 @@ export async function startServer() {
 
     const auth = Buffer.from(`${midtransServerKey}:`).toString('base64');
     try {
-      const upstream = await fetchWithRetryAndTimeout(`${midtransBase()}/v2/charge`, {
+      const upstream = await fetchWithRetryAndTimeout(`${midtransBase()}/snap/v1/transactions`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',

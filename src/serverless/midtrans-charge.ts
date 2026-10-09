@@ -14,12 +14,7 @@
  */
 
 // Mode produksi/sandbox diputuskan satu tempat — lihat `lib/midtransEnv.ts`.
-import { midtransProduksi } from '../lib/midtransEnv';
-
-const BASE_PRODUKSI = 'https://api.midtrans.com';
-const BASE_SANDBOX = 'https://api.sandbox.midtrans.com';
-
-const modeProduksi = midtransProduksi;
+import { midtransSnapBaseUrl } from '../lib/midtransEnv';
 
 function serverKey(): string {
   return process.env.MIDTRANS_SERVER_KEY || '';
@@ -65,10 +60,10 @@ export default async function handler(req: any, res: any) {
   }
 
   const auth = Buffer.from(`${key}:`).toString('base64');
-  const baseUrl = modeProduksi() ? BASE_PRODUKSI : BASE_SANDBOX;
+  const baseUrl = midtransSnapBaseUrl();
 
   try {
-    const upstream = await fetch(`${baseUrl}/v2/charge`, {
+    const upstream = await fetch(`${baseUrl}/snap/v1/transactions`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',

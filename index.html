@@ -57,6 +57,16 @@
         } catch(e) {}
       })();
     </script>
+    <script>
+      (function() {
+        try {
+          var username = sessionStorage.getItem('epresensi_jatim_sesi_aktif');
+          if (username && sessionStorage.getItem('epresensi_jatim_session_' + username)) {
+            document.documentElement.classList.add('app-shell-active');
+          }
+        } catch(e) {}
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

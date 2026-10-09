@@ -14,7 +14,6 @@ import {
   QrCode,
   Receipt,
   RefreshCw,
-  Settings2,
   ShieldCheck,
   Smartphone,
   Trash2,
@@ -117,36 +116,6 @@ import {
 import { getTodayWIB, getTodayWIBWithDaysOffset } from '../lib/dateFormatter';
 import { formatTanggalLokal, formatTanggalWaktuLokal } from '../lib/tanggal';
 
-/**
- * Tab halaman ini.
- *
- * Ditentukan **dari URL**, bukan dari `useState`. Alasannya: tab yang hanya
- * hidup di state akan hilang saat halaman dimuat ulang, dan tidak bisa
- * dibagikan. Untuk admin yang memeriksa tagihan dari HP lalu membuka ulang
- * tautan yang sama, itu berarti selalu kembali ke tab pertama.
- */
-type TabLangganan = 'akun' | 'pembayaran' | 'pengaturan';
-
-/**
- * Path untuk tiap tab. Satu tab = satu URL.
- *
- * Root-nya `/langganan`, sejajar dengan `/manajemen-akun` — bukan
- * `/manajemen-akun/langganan`. Alasannya ada di `AppContext`: kedua tab itu
- * dua hal yang setara besar, dan URL yang jujur tidak seharusnya mengarang
- * hubungan kepemilikan yang tidak ada.
- */
-export const PATH_TAB_LANGGANAN: Record<TabLangganan, string> = {
-  akun: '/langganan/akun',
-  pembayaran: '/langganan/pembayaran',
-  pengaturan: '/langganan/metode',
-};
-
-const tabDariPath = (path: string): TabLangganan => {
-  if (path.endsWith('/pembayaran')) return 'pembayaran';
-  if (path.endsWith('/metode')) return 'pengaturan';
-  return 'akun';
-};
-
 /** Filter status di tab Akun. */
 type FilterStatus = 'semua' | 'aktif' | 'gratis' | 'kadaluarsa' | 'belum';
 
@@ -178,10 +147,8 @@ export default function Langganan() {
   /*
    * Gerbang admin.
    *
-   * Jalur lain sudah dikunci di `visiblePages` (App.tsx) dan `batasiIzin`
-   * (userManager). Pemeriksaan di sini menutup jalur ketiga: mengetik
-   * `/langganan` di address bar merender modul ini **sebelum**
-   * `visiblePages` dievaluasi.
+   * Halaman ini dirender sebagai bagian Manajemen Akun. Pemeriksaan di sini
+   * tetap menjaga akses admin apabila komponen digunakan secara terpisah.
    *
    * `cekingSesi` ikut diperiksa karena selama token belum diverifikasi
    * `currentUser` bernilai `null` — dan `null?.role !== 'admin'` memang sudah
@@ -212,8 +179,6 @@ export default function Langganan() {
 
 /** Isi halaman — dipisah supaya aturan admin dievaluasi sekali di awal render. */
 function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
-  const { setSubPath, pathname } = useAppContext();
-  const tab = tabDariPath(pathname);
   const [loading, setLoading] = useState(true);
   /** Muat ulang diam-diam setelah data pertama sampai — lihat `muat()`. */
   const [menyegarkan, setMenyegarkan] = useState(false);
@@ -762,36 +727,9 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
           </Alert>
         )}
 
-      {/* ── Tab ────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-1.5 border-b border-slate-200 dark:border-slate-700/60 pb-2">
-        {([
-          { value: 'akun', label: 'Pantau Akun', icon: Users },
-          { value: 'pembayaran', label: 'Semua Pembayaran', icon: Receipt },
-          { value: 'pengaturan', label: 'Metode & Paket', icon: Settings2 },
-        ] as const).map(item => {
-          const Icon = item.icon;
-          const aktif = tab === item.value;
-          return (
-            <button
-              key={item.value}
-              type="button"
-              onClick={() => setSubPath(PATH_TAB_LANGGANAN[item.value])}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                aktif
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
-
       {loading ? (
-        <div role="status" aria-label="Memuat data langganan">
-          {tab === 'akun' ? (
+        <div className="space-y-6" role="status" aria-label="Memuat data langganan">
+          <div>
             <Card padded={false} className="p-5 sm:p-6">
               <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex flex-wrap gap-1.5">
@@ -805,7 +743,8 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
               </div>
               <SkeletonTable columns={kolomAkun.length} rows={6} />
             </Card>
-          ) : tab === 'pembayaran' ? (
+          </div>
+          <div>
             <Card padded={false} className="p-5 sm:p-6">
               <div className="mb-4 flex items-center justify-between">
                 <Skeleton className="h-4 w-40" />
@@ -813,8 +752,8 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
               </div>
               <SkeletonTable columns={kolomTagihan.length} rows={6} />
             </Card>
-          ) : (
-            <div className="space-y-6">
+          </div>
+          <div className="space-y-6">
               {[0, 1, 2].map(section => (
                 <Card key={section}>
                   <Skeleton className="mb-4 h-4 w-40" />
@@ -828,12 +767,13 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
                   </div>
                 </Card>
               ))}
-            </div>
-          )}
+          </div>
           <span className="sr-only">Memuat data langganan...</span>
         </div>
-      ) : tab === 'akun' ? (
+      ) : (
+        <>
         <Card padded={false} className="p-5 sm:p-6">
+          <CardTitle>Pantau Langganan Akun</CardTitle>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-4">
             <div className="flex flex-wrap gap-1.5">
               {FILTER_STATUS.map(item => {
@@ -883,7 +823,7 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
             />
           )}
         </Card>
-      ) : tab === 'pembayaran' ? (
+        <div id="panel-riwayat-pembayaran" className="scroll-mt-5">
         <Card padded={false} className="p-5 sm:p-6">
           <CardTitle action={
             <ActionButton
@@ -902,7 +842,8 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
             <DataTable columns={kolomTagihan} rows={tagihan} keyOf={item => item.orderId} />
           )}
         </Card>
-      ) : (
+        </div>
+        <div id="panel-metode-paket" className="scroll-mt-5">
         <PengaturanPaket
           pengaturan={pengaturan}
           onSimpan={async nilai => {
@@ -913,6 +854,8 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
           }}
           onEditRekening={rek => setDialogRekening(rek)}
         />
+        </div>
+        </>
       )}
 
       {/* ── Dialog: toggle gratis ───────────────────────────────────── */}

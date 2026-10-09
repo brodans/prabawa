@@ -18,6 +18,9 @@
 function midtransProduksi() {
   return process.env.MIDTRANS_IS_PRODUCTION === "true" || process.env.VITE_MIDTRANS_IS_PRODUCTION === "true";
 }
+function midtransSnapBaseUrl() {
+  return midtransProduksi() ? "https://app.midtrans.com" : "https://app.sandbox.midtrans.com";
+}
 
 // src/serverless/_cors.ts
 var HOST_LOKAL = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
@@ -62,9 +65,6 @@ function terapkanCors(res, origin) {
 }
 
 // src/serverless/midtrans-charge.ts
-var BASE_PRODUKSI = "https://api.midtrans.com";
-var BASE_SANDBOX = "https://api.sandbox.midtrans.com";
-var modeProduksi = midtransProduksi;
 function serverKey() {
   return process.env.MIDTRANS_SERVER_KEY || "";
 }
@@ -98,9 +98,9 @@ async function handler(req, res) {
     });
   }
   const auth = Buffer.from(`${key}:`).toString("base64");
-  const baseUrl = modeProduksi() ? BASE_PRODUKSI : BASE_SANDBOX;
+  const baseUrl = midtransSnapBaseUrl();
   try {
-    const upstream = await fetch(`${baseUrl}/v2/charge`, {
+    const upstream = await fetch(`${baseUrl}/snap/v1/transactions`, {
       method: "POST",
       headers: {
         Accept: "application/json",

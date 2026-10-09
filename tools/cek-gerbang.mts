@@ -109,27 +109,21 @@ cek(
   /cekingSesi \|\| !currentUser \? \[\] : PAGES/.test(appKode),
   'selama verifikasi berjalan, tidak boleh ada halaman yang bisa dirender'
 );
-// Satu menu, dua URL. `/langganan` lama harus dialihkan supaya tautan yang
-// sudah dibagikan tidak berakhir di 404 (yang di sini berarti "Beranda").
+// Satu menu dan satu URL; URL billing lama tetap diarahkan ke halaman akun.
 cek('route akun', ctxSrc.includes("tabManajemenAkun: '/manajemen-akun'"));
-cek('route langganan berdiri sendiri', ctxSrc.includes("tabLangganan: '/langganan'"));
 cek(
-  'langganan tidak dirangkum di bawah /manajemen-akun',
-  !ctxSrc.includes("tabLangganan: '/manajemen-akun"),
-  'dua menu setara, bukan hierarki'
+  'route langganan tidak terpisah',
+  !ctxSrc.includes('tabLangganan:')
 );
-cek('URL lama /manajemen-akun/langganan dialihkan', /'\/manajemen-akun\/langganan': PATH_MAP\.tabLangganan/.test(ctxSrc));
+cek('URL lama /manajemen-akun/langganan dialihkan', /'\/manajemen-akun\/langganan': PATH_MAP\.tabManajemenAkun/.test(ctxSrc));
+cek('URL lama /langganan dialihkan', /'\/langganan': PATH_MAP\.tabManajemenAkun/.test(ctxSrc));
 cek('pengalihan memakai replaceState (tidak menumpuk riwayat)', /replaceState\(null, '', tujuan\)/.test(ctxSrc));
 cek('halaman menolak non-admin sendiri', /currentUser\?\.role !== 'admin'/.test(akunSrc));
 cek('pesan akses ditolak ditampilkan', akunSrc.includes('Akses Ditolak'));
 cek('tabManajemenAkun di bawah PERMISSION_KHUSUS_ADMIN', /PERMISSION_KHUSUS_ADMIN[\s\S]{0,80}tabManajemenAkun/.test(userSrc));
 
-// Dua tab = dua URL, dan keduanya harus bisa dicapai tanpa memuat ulang.
-cek('tab ManajemenAkun punya URL sendiri', akunSrc.includes("akun: '/manajemen-akun'"));
-cek('tab Langganan punya URL sendiri', akunSrc.includes("langganan: '/langganan'"));
-cek('perpindahan tab memakai setSubPath (bukan setActivePage)', /setSubPath\(item\.path\)/.test(akunSrc));
-cek('tab ditentukan dari URL, bukan useState', /tabDariPath\(pathname\)/.test(akunSrc));
-cek('kedua URL tetap menyorot satu menu yang sama', /matchIds: \['tabLangganan'\]/.test(appKode));
+cek('billing dirender di halaman Manajemen Akun', /<Langganan \/>/.test(akunSrc));
+cek('tidak ada navigasi tab billing tersendiri', !/setSubPath\(item\.path\)|tabDariPath\(pathname\)/.test(akunSrc));
 cek('menu administrasi dipisah dari Menu Utama', /admin: 'Administrasi'/.test(appKode));
 cek('batasiIzin memaksa nilainya false', /for \(const key of PERMISSION_KHUSUS_ADMIN\) base\[key\] = false;/.test(userSrc));
 cek('halaman di-filter juga oleh tabPermissions', /tabPermissions as unknown as Record<string, boolean>\)\[page\.id\] === true/.test(appKode));

@@ -93,8 +93,10 @@ export interface DetailItemMidtrans {
 }
 
 export interface KonfigurasiMidtrans {
-  order_id: string;
-  gross_amount: number;
+  transaction_details: {
+    order_id: string;
+    gross_amount: number;
+  };
   item_details?: DetailItemMidtrans[];
   customer_details?: { first_name: string; email?: string; phone?: string };
   /** Batasi metode; mis. `['qris']` atau `['bca_va']`. */
