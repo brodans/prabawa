@@ -22,6 +22,25 @@ function midtransSnapBaseUrl() {
   return midtransProduksi() ? "https://app.midtrans.com" : "https://app.sandbox.midtrans.com";
 }
 
+// src/lib/midtransSnapContract.ts
+function responsSnapBerhasil(data) {
+  return typeof data === "object" && data !== null && "token" in data && typeof data.token === "string" && data.token.trim().length > 0;
+}
+function pesanGalatSnap(data, statusHttp) {
+  if (typeof data === "object" && data !== null) {
+    const detail = data;
+    const pesanMidtrans = Array.isArray(detail.error_messages) ? detail.error_messages.find((item) => typeof item === "string" && item.trim() !== "") : void 0;
+    if (pesanMidtrans) return pesanMidtrans;
+    if (typeof detail.status_message === "string" && detail.status_message.trim()) {
+      return detail.status_message;
+    }
+    if (typeof detail.status_code === "string" || typeof detail.status_code === "number") {
+      return `Midtrans menolak transaksi (kode ${detail.status_code}, HTTP ${statusHttp}).`;
+    }
+  }
+  return `Gagal memproses transaksi Midtrans (HTTP ${statusHttp}).`;
+}
+
 // src/serverless/_cors.ts
 var HOST_LOKAL = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 function lengkapiSkema(origin) {
@@ -118,13 +137,9 @@ async function handler(req, res) {
         error_messages: ["Respons tidak valid dari Midtrans (bukan JSON)."]
       });
     }
-    const sukses = ["200", "201", "202"].includes(String(data.status_code));
-    if (!sukses) {
+    if (!upstream.ok || !responsSnapBerhasil(data)) {
       return res.status(422).json({
-        error_messages: [
-          data.error_messages?.[0] || data.status_message || `Gagal memproses (status: ${data.status_code})`
-        ],
-        raw: data
+        error_messages: [pesanGalatSnap(data, upstream.status)]
       });
     }
     return res.status(200).json(data);

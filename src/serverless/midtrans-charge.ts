@@ -15,6 +15,7 @@
 
 // Mode produksi/sandbox diputuskan satu tempat — lihat `lib/midtransEnv.ts`.
 import { midtransSnapBaseUrl } from '../lib/midtransEnv';
+import { pesanGalatSnap, responsSnapBerhasil } from '../lib/midtransSnapContract';
 
 function serverKey(): string {
   return process.env.MIDTRANS_SERVER_KEY || '';
@@ -83,14 +84,10 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // Midtrans memakai status_code 200/201/202 untuk sukses.
-    const sukses = ['200', '201', '202'].includes(String(data.status_code));
-    if (!sukses) {
+    // Respons sukses Snap berisi token dan redirect_url, bukan status_code.
+    if (!upstream.ok || !responsSnapBerhasil(data)) {
       return res.status(422).json({
-        error_messages: [
-          data.error_messages?.[0] || data.status_message || `Gagal memproses (status: ${data.status_code})`,
-        ],
-        raw: data,
+        error_messages: [pesanGalatSnap(data, upstream.status)],
       });
     }
 

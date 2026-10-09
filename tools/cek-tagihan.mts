@@ -564,6 +564,7 @@ const modalSnap = readFileSync(join(process.cwd(), 'src/components/BayarLanggana
 const tipeSnap = readFileSync(join(process.cwd(), 'src/lib/midtrans.ts'), 'utf8');
 const handlerSnap = readFileSync(join(process.cwd(), 'src/serverless/midtrans-charge.ts'), 'utf8');
 const expressSnap = readFileSync(join(process.cwd(), 'src/api/server.ts'), 'utf8');
+const snapContract = await import('../src/lib/midtransSnapContract.ts');
 cek('klien mengirim order_id dan gross_amount di transaction_details',
   /transaction_details:\s*\{\s*order_id:\s*orderId,\s*gross_amount:\s*nominal/.test(modalSnap));
 cek('tipe payload mendefinisikan transaction_details wajib',
@@ -572,6 +573,71 @@ cek('handler Vercel memvalidasi order_id bersarang dan memanggil Snap API',
   /transaction_details\?\.order_id/.test(handlerSnap) && /\/snap\/v1\/transactions/.test(handlerSnap));
 cek('handler Express memvalidasi order_id bersarang dan memanggil Snap API',
   /transaction_details\?\.order_id/.test(expressSnap) && /\/snap\/v1\/transactions/.test(expressSnap));
+cek('respons Snap sukses dikenali dari token, bukan status_code',
+  snapContract.responsSnapBerhasil({
+    token: 'snap-token',
+    redirect_url: 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token',
+  }));
+cek('respons tanpa token tidak dianggap transaksi Snap berhasil',
+  !snapContract.responsSnapBerhasil({ status_code: '201' }));
+cek('error Snap tidak menampilkan status undefined',
+  snapContract.pesanGalatSnap({}, 422) === 'Gagal memproses transaksi Midtrans (HTTP 422).');
+cek('kedua handler memakai kontrak respons Snap bersama dan tidak meneruskan raw',
+  /responsSnapBerhasil\(data\)/.test(handlerSnap) &&
+    /responsSnapBerhasil\(data\)/.test(expressSnap) &&
+    !/raw:\s*data/.test(handlerSnap));
+cek('retry Midtrans memakai tagihan pending yang sudah dibuat',
+  /tagihanLokal\?\.paketId === paketDipilih\.id/.test(modalSnap) &&
+    /if \(!tagihanLokalPaket\)\s*\{\s*await buatTagihan/.test(modalSnap));
+
+console.log('\n=== Respons sukses Snap dari endpoint Vercel');
+{
+  const { default: handlerSnapVercel } = await import('../src/serverless/midtrans-charge.ts');
+  const fetchAsli = globalThis.fetch;
+  const keyAsli = process.env.MIDTRANS_SERVER_KEY;
+  let statusHttp = 0;
+  let isiRespons: unknown;
+  const res = {
+    status(kode: number) {
+      statusHttp = kode;
+      return this;
+    },
+    json(nilai: unknown) {
+      isiRespons = nilai;
+      return this;
+    },
+    end() {
+      return this;
+    },
+    setHeader() {},
+  };
+  process.env.MIDTRANS_SERVER_KEY = 'kunci-uji';
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        token: 'snap-token-uji',
+        redirect_url: 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token-uji',
+      }),
+      { status: 201, headers: { 'Content-Type': 'application/json' } }
+    );
+  try {
+    await handlerSnapVercel(
+      {
+        method: 'POST',
+        headers: {},
+        body: { transaction_details: { order_id: 'PRABAWA-UJI', gross_amount: 10000 } },
+      },
+      res
+    );
+    cek('HTTP 201 Snap dengan token dipulangkan sebagai HTTP 200 ke klien',
+      statusHttp === 200 && (isiRespons as { token?: string })?.token === 'snap-token-uji',
+      `status=${statusHttp}`);
+  } finally {
+    globalThis.fetch = fetchAsli;
+    if (keyAsli === undefined) delete process.env.MIDTRANS_SERVER_KEY;
+    else process.env.MIDTRANS_SERVER_KEY = keyAsli;
+  }
+}
 
 console.log(fail === 0 ? '\nSEMUA LULUS' : `\n${fail} KEGAGALAN`);
 process.exit(fail === 0 ? 0 : 1);

@@ -239,6 +239,10 @@ export default function BayarLanggananModal({
   const [langkah, setLangkah] = useState<Langkah>('pilih-paket');
   const [terpilih, setTerpilih] = useState<PaketLangganan | null>(null);
   const [orderId, setOrderId] = useState('');
+  const [tagihanLokal, setTagihanLokal] = useState<{
+    orderId: string;
+    paketId: string;
+  } | null>(null);
   const [qrTeks, setQrTeks] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [rekening, setRekening] = useState<RekeningBank | null>(null);
@@ -289,6 +293,7 @@ export default function BayarLanggananModal({
     setLangkah('pilih-paket');
     setTerpilih(null);
     setOrderId('');
+    setTagihanLokal(null);
     setQrTeks('');
     setQrDataUrl(null);
     setRekening(null);
@@ -375,8 +380,8 @@ export default function BayarLanggananModal({
       if (!ringkasan) return;
       setBekerja(true);
       setGalat(null);
-      const id = idTagihan(paketDipilih.id);
-      setOrderId(id);
+      const tagihanLokalPaket =
+        tagihanLokal?.paketId === paketDipilih.id ? tagihanLokal : null;
 
       /*
        * Melanjutkan tagihan yang sudah ada: jangan buat dokumen baru.
@@ -388,6 +393,8 @@ export default function BayarLanggananModal({
        * dokumen yang sudah ada yang dipakai.
        */
       const idLanjut = lanjutkanOrderId?.trim() || null;
+      const id = idLanjut ?? tagihanLokalPaket?.orderId ?? idTagihan(paketDipilih.id);
+      setOrderId(id);
 
       try {
         /*
@@ -436,12 +443,15 @@ export default function BayarLanggananModal({
         }
 
         const { buatTagihan } = await import('../lib/akunFirestore');
-        await buatTagihan({
-          orderId: id,
-          usernameLabel: ringkasan.username,
-          paketId: paketDipilih.id,
-          metode,
-        });
+        if (!tagihanLokalPaket) {
+          await buatTagihan({
+            orderId: id,
+            usernameLabel: ringkasan.username,
+            paketId: paketDipilih.id,
+            metode,
+          });
+          setTagihanLokal({ orderId: id, paketId: paketDipilih.id });
+        }
 
         if (metode === 'qris') {
           // QRIS statis → dinamis. Nominal terkunci di dalam QR, jadi
@@ -463,7 +473,7 @@ export default function BayarLanggananModal({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ringkasan, pengaturan, lanjutkanOrderId, tagihan]
+    [ringkasan, pengaturan, lanjutkanOrderId, tagihan, tagihanLokal]
   );
 
   /**

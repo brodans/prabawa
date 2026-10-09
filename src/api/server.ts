@@ -27,6 +27,7 @@ import {
 } from '../lib/presensiContract';
 import { APP_FULL_NAME } from '../lib/appIdentity';
 import { midtransSnapBaseUrl } from '../lib/midtransEnv';
+import { pesanGalatSnap, responsSnapBerhasil } from '../lib/midtransSnapContract';
 /*
  * Normalisasi Origin yang sama persis dengan yang dipakai function Vercel.
  *
@@ -543,28 +544,10 @@ export async function startServer() {
           .json({ error_messages: ['Respons tidak valid dari Midtrans (bukan JSON).'] });
       }
 
-      // Midtrans memakai `status_code` 200/201/202 untuk sukses.
-      /*
-       * Hanya `error_messages` yang diteruskan — **bukan** badan respons utuh.
-       *
-       * Semula ada `raw: data` di sini. Tidak ada satu pun pemanggil yang
-       * membacanya (grep di `src/lib/midtrans.ts` dan
-       * `src/lib/aktivasiLangganan.ts` kosong), jadi ia tidak pernah dipakai —
-       * sementara isinya seluruh balasan Midtrans, termasuk `bank_details`,
-       * nomor Virtual Account, dan `expiry_time`. Untuk kasus gagal, isinya
-       * bisa apa saja yang dikembalikan layanan pembayaran; meneruskannya
-       * hanya membuka informasi yang tidak perlu diketahui peramban.
-       *
-       * Yang dibutuhkan layar sudah ada di `error_messages`.
-       */
-      const sukses = ['200', '201', '202'].includes(String(data.status_code));
-      if (!sukses) {
+      // Respons sukses Snap berisi token dan redirect_url, bukan status_code.
+      if (!upstream.ok || !responsSnapBerhasil(data)) {
         return res.status(422).json({
-          error_messages: [
-            data.error_messages?.[0] ||
-              data.status_message ||
-              `Gagal memproses (status: ${data.status_code})`,
-          ],
+          error_messages: [pesanGalatSnap(data, upstream.status)],
         });
       }
 
