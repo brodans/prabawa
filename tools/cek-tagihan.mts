@@ -567,6 +567,9 @@ const expressSnap = readFileSync(join(process.cwd(), 'src/api/server.ts'), 'utf8
 const snapContract = await import('../src/lib/midtransSnapContract.ts');
 cek('klien mengirim order_id dan gross_amount di transaction_details',
   /transaction_details:\s*\{\s*order_id:\s*orderId,\s*gross_amount:\s*nominal/.test(modalSnap));
+cek('Midtrans Snap memakai kode metode QRIS yang didukung',
+  /enabled_payments:\s*\['other_qris'\]/.test(modalSnap),
+  'Snap mengenali other_qris, bukan qris');
 cek('tipe payload mendefinisikan transaction_details wajib',
   /transaction_details:\s*\{\s*order_id:\s*string;\s*gross_amount:\s*number/.test(tipeSnap));
 cek('handler Vercel memvalidasi order_id bersarang dan memanggil Snap API',

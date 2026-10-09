@@ -99,7 +99,7 @@ export interface KonfigurasiMidtrans {
   };
   item_details?: DetailItemMidtrans[];
   customer_details?: { first_name: string; email?: string; phone?: string };
-  /** Batasi metode; mis. `['qris']` atau `['bca_va']`. */
+  /** Batasi metode; mis. `['other_qris']` atau `['bca_va']`. */
   enabled_payments?: string[];
   /** QRIS dinamis dengan nominal per transaksi. */
   qr_string?: string;

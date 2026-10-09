@@ -988,7 +988,7 @@ async function snapToken(
     },
     item_details: [{ price: nominal, quantity: 1, name: `${APP_NAME} — ${labelPaket}` }],
     customer_details: { first_name: username },
-    enabled_payments: ['qris'],
+    enabled_payments: ['other_qris'],
   });
   const token = (hasil as Record<string, unknown>).token;
   if (typeof token !== 'string' || !token) {
