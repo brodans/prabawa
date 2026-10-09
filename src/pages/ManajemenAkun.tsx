@@ -29,7 +29,6 @@ import {
   EmptyState,
   Field,
   Input,
-  PageHeader,
   PasswordField,
   Skeleton,
   SkeletonTable,
@@ -160,14 +159,7 @@ export default function ManajemenAkun() {
   return (
     <div className="space-y-5">
       <section className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm dark:border-slate-700/60 dark:bg-slate-800/60">
-        <div className="p-4 sm:p-5">
-          <PageHeader
-            title="Manajemen Akun"
-            subtitle="Kelola akun, langganan, dan pembayaran"
-            icon={<UserCog className="w-5 h-5" />}
-          />
-        </div>
-        <div className="border-t border-slate-200/70 px-3 py-3 dark:border-slate-700/60 sm:px-5">
+        <div className="px-3 py-3 sm:px-5">
           <div
             className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-900/70"
             role="tablist"

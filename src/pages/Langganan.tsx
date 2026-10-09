@@ -385,25 +385,16 @@ function LanggananInner({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <ActionButton
-          variant="ghost"
-          size="sm"
-          onClick={() => void muat()}
-          loading={menyegarkan || loading}
-          icon={<RefreshCw className="h-4 w-4" />}
-        >
-          Muat Ulang
-        </ActionButton>
-      </div>
-
       {loading ? (
         section === 'pembayaran' ? (
           <div role="status" aria-label="Memuat riwayat pembayaran">
             <Card padded={false} className="p-4 sm:p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-8 w-24 rounded-lg" />
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-24 rounded-lg" />
+                <Skeleton className="h-8 w-24 rounded-lg" />
+              </div>
             </div>
             <SkeletonTable columns={kolomTagihan.length} rows={6} />
             </Card>
@@ -412,7 +403,10 @@ function LanggananInner({
           <div className="space-y-5" role="status" aria-label="Memuat metode pembayaran">
             {[0, 1, 2].map(sectionIndex => (
               <Card key={sectionIndex}>
-                <Skeleton className="mb-4 h-4 w-40" />
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <Skeleton className="h-4 w-40" />
+                  {sectionIndex === 0 && <Skeleton className="h-8 w-24 rounded-lg" />}
+                </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {[0, 1, 2, 3].map(field => (
                     <div key={field} className="space-y-2">
@@ -427,17 +421,30 @@ function LanggananInner({
         )
       ) : section === 'pembayaran' ? (
         <Card padded={false} className="p-4 sm:p-5">
-          <CardTitle action={
-            <ActionButton
-              size="sm"
-              variant="danger"
-              disabled={tagihan.length === 0 || menghapusSemua}
-              onClick={() => setKonfirmasiHapusSemua(true)}
-              icon={<Trash2 className="h-4 w-4" />}
-            >
-              Hapus Semua
-            </ActionButton>
-          }>
+          <CardTitle
+            action={
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <ActionButton
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void muat()}
+                  loading={menyegarkan || loading}
+                  icon={<RefreshCw className="h-4 w-4" />}
+                >
+                  Muat Ulang
+                </ActionButton>
+                <ActionButton
+                  size="sm"
+                  variant="danger"
+                  disabled={tagihan.length === 0 || menghapusSemua}
+                  onClick={() => setKonfirmasiHapusSemua(true)}
+                  icon={<Trash2 className="h-4 w-4" />}
+                >
+                  Hapus Semua
+                </ActionButton>
+              </div>
+            }
+          >
             Riwayat Pembayaran Akun
           </CardTitle>
           {tagihan.length === 0 ? (
@@ -449,6 +456,8 @@ function LanggananInner({
       ) : (
         <PengaturanPaket
           pengaturan={pengaturan}
+          onMuatUlang={() => void muat()}
+          menyegarkan={menyegarkan || loading}
           onSimpan={async nilai => {
             await savePengaturanBilling(nilai);
             setPengaturan(nilai);
@@ -566,14 +575,24 @@ function PengaturanPaket({
   pengaturan,
   onSimpan,
   onEditRekening,
+  onMuatUlang,
+  menyegarkan,
 }: {
   pengaturan: PengaturanBilling;
   onSimpan: (nilai: PengaturanBilling) => Promise<void>;
   onEditRekening: (rek: RekeningBank) => void;
+  onMuatUlang: () => void;
+  menyegarkan: boolean;
 }) {
   return (
     <div className="space-y-6">
-      <PengaturanBillingForm nilai={pengaturan} onSimpan={onSimpan} onEditRekening={onEditRekening} />
+      <PengaturanBillingForm
+        nilai={pengaturan}
+        onSimpan={onSimpan}
+        onEditRekening={onEditRekening}
+        onMuatUlang={onMuatUlang}
+        menyegarkan={menyegarkan}
+      />
     </div>
   );
 }
@@ -588,10 +607,14 @@ function PengaturanBillingForm({
   nilai,
   onSimpan,
   onEditRekening,
+  onMuatUlang,
+  menyegarkan,
 }: {
   nilai: PengaturanBilling;
   onSimpan: (nilai: PengaturanBilling) => Promise<void>;
   onEditRekening: (rek: RekeningBank) => void;
+  onMuatUlang: () => void;
+  menyegarkan: boolean;
 }) {
   const [draft, setDraft] = useState<PengaturanBilling>(nilai);
   const [menyimpan, setMenyimpan] = useState(false);
@@ -680,7 +703,21 @@ function PengaturanBillingForm({
     <div className="space-y-6">
       {/* Metode yang diizinkan */}
       <Card>
-        <CardTitle>Metode Pembayaran</CardTitle>
+        <CardTitle
+          action={
+            <ActionButton
+              size="sm"
+              variant="ghost"
+              onClick={onMuatUlang}
+              loading={menyegarkan}
+              icon={<RefreshCw className="h-4 w-4" />}
+            >
+              Muat Ulang
+            </ActionButton>
+          }
+        >
+          Metode Pembayaran
+        </CardTitle>
         <div className="space-y-2.5">
           {([
             { value: 'qris', label: 'QRIS Manual', hint: 'QRIS statis dari bank, dibuat dinamis per tagihan' },
@@ -780,14 +817,27 @@ function PengaturanBillingForm({
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
             Tempel string QRIS statis dari aplikasi bank. Nominal akan ditambahkan otomatis per tagihan.
           </p>
-          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
-            <Textarea
-              value={draft.qrisStatis}
-              onChange={event => cekQris(event.target.value)}
-              rows={3}
-              placeholder="Tempel string QRIS dari aplikasi bank"
-              className="font-mono text-xs"
-            />
+          <div className="grid grid-cols-1 gap-4 sm:items-stretch sm:grid-cols-[minmax(0,1fr)_160px]">
+            <div className="flex min-w-0 flex-col gap-3">
+              <Textarea
+                value={draft.qrisStatis}
+                onChange={event => cekQris(event.target.value)}
+                rows={6}
+                placeholder="Tempel string QRIS dari aplikasi bank"
+                className="font-mono text-xs"
+              />
+              {ringkasanQris && (
+                <div className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] dark:border-slate-700 dark:bg-slate-900/40">
+                  <p className="font-semibold text-slate-700 dark:text-slate-200">
+                    {ringkasanQris.namaPenerbit || 'QRIS valid'} · {ringkasanQris.kotaMerchant}
+                  </p>
+                  <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                    {ringkasanQris.metode === 'dinamis' ? 'QRIS dinamis' : 'QRIS statis'} ·{' '}
+                    {ringkasanQris.nominal ? `nominal ${ringkasanQris.nominal}` : 'nominal saat transaksi'}
+                  </p>
+                </div>
+              )}
+            </div>
             {ringkasanQris && (
               <div className="flex justify-center sm:justify-end">
                 <Suspense
@@ -815,17 +865,6 @@ function PengaturanBillingForm({
                 </li>
               ))}
             </ul>
-          )}
-          {ringkasanQris && (
-            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] dark:border-slate-700 dark:bg-slate-900/40">
-              <p className="font-semibold text-slate-700 dark:text-slate-200">
-                {ringkasanQris.namaPenerbit || 'QRIS valid'} · {ringkasanQris.kotaMerchant}
-              </p>
-              <p className="mt-0.5 text-slate-500 dark:text-slate-400">
-                {ringkasanQris.metode === 'dinamis' ? 'QRIS dinamis' : 'QRIS statis'} ·{' '}
-                {ringkasanQris.nominal ? `nominal ${ringkasanQris.nominal}` : 'nominal saat transaksi'}
-              </p>
-            </div>
           )}
         </Card>
       )}

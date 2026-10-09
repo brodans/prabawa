@@ -614,7 +614,7 @@ console.log('\n=== 18. Tombol "Menu Utama" dihapus');
 cek('tidak ada teks "Menu Utama" di halaman', !/Menu Utama/.test(akunSrc));
 cek('tidak lagi memanggil setActivePage ke Beranda', !/setActivePage\('tabBeranda'\)/.test(akunSrc));
 cek('tidak lagi mengimpor ChevronDown di halaman', !/ChevronDown/.test(akunSrc));
-cek('PageHeader tetap ada', /<PageHeader/.test(akunSrc));
+cek('judul duplikat halaman tidak dirender', !/<PageHeader/.test(akunSrc) && !/Kelola akun, langganan, dan pembayaran/.test(akunSrc));
 cek('label "Menu Utama" untuk grup di App.tsx tetap ada', /utama: 'Menu Utama'/.test(appSrc));
 
 // ═════════════════════════════════════════════════════════════════════

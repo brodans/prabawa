@@ -6,7 +6,6 @@ import {
   FileDown,
   FileSpreadsheet,
   FileText,
-  Printer,
   RefreshCw,
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -273,14 +272,6 @@ export default function Laporan() {
     }
   };
 
-  const printReport = () => {
-    if (filtered.length === 0) {
-      toast.info('Tidak ada data untuk dicetak.');
-      return;
-    }
-    window.print();
-  };
-
   const visible = reportType === 'rekap' ? rekap : filtered;
 
   return (
@@ -289,108 +280,11 @@ export default function Laporan() {
         title="Laporan"
         subtitle={`${activeReport.label} · ${dateStart} s/d ${dateEnd}`}
         icon={<FileText className="w-5 h-5" />}
-        action={
-          <>
-            <ActionButton
-              variant="ghost"
-              size="sm"
-              onClick={() => void loadData()}
-              loading={loading}
-              icon={<RefreshCw className="w-4 h-4" />}
-            >
-              Muat Ulang
-            </ActionButton>
-            <ActionButton
-              variant="secondary"
-              size="sm"
-              onClick={printReport}
-              disabled={visible.length === 0}
-              icon={<Printer className="w-4 h-4" />}
-            >
-              Cetak
-            </ActionButton>
-            {/*
-             * ⚠️ Tiga tombol, bukan lima — dan bukan tombol per format.
-             *
-             * Menaruh "Excel", "CSV", "PDF" masing-masing sebagai tombol membuat
-             * baris aksi +±354 px; di layar 360 px yang tersedia hanya 328 px,
-             * sehingga tombol terakhir keluar viewport tanpa ada yang memberi tahu.
-             *
-             * Nama formatnya tetap terlihat: tombolnya berlabel
-             * "Ekspor", dan setiap opsi menyebut format serta kegunaannya.
-             */}
-            <TombolMenu
-              label="Ekspor"
-              icon={<Download className="w-4 h-4" />}
-              variant="primary"
-              disabled={visible.length === 0}
-              loading={sibukPdf}
-              items={[
-                {
-                  id: 'excel',
-                  label: 'Excel',
-                  /*
-                   * Ekstensi ditulis di depan, bukan disembunyikan di ujung
-                   * kalimat. Satu tombol "Ekspor" dengan tiga opsi baru berarti
-                   * pembaca harus berhenti untuk tahu format apa yang diunduh —
-                   * dan "Excel" sendiri bisa berarti `.xlsx` atau `.csv`,
-                   * karena itulah sebutan yang dipakai banyak aplikasi.
-                   */
-                  hint: '.xls · dua lembar (riwayat + rekap) · kolom Jarak bisa dijumlahkan',
-                  icon: FileSpreadsheet,
-                  onClick: exportExcel,
-                },
-                {
-                  id: 'pdf',
-                  label: 'PDF',
-                  hint: '.pdf · A4 mendatar · teksnya bisa dicari, bukan gambar',
-                  icon: FileDown,
-                  onClick: () => void exportPdf(),
-                },
-                {
-                  id: 'csv',
-                  label: 'CSV',
-                  hint: '.csv · untuk diimpor ke sistem lain',
-                  icon: FileText,
-                  onClick: exportCsv,
-                },
-              ]}
-            />
-          </>
-        }
       />
 
       {error && <Alert tone="rose">{error}</Alert>}
 
-      {/* ── Penyaring ──────────────────────────────────────────────
-       *
-       * Porsi lebar mengikuti isi field, bukan urutan tampil.
-       *
-       * ⚠️ Semula 4 + 2 + 2 + 4: "Jenis Laporan" dan "Format Unduhan"
-       * masing-masing dapat 4 kolom, sedangkan kedua tanggal hanya 2.
-       *
-       * Alasannya jelas dari isinya:
-       *
-       * - `DatePicker` memuat ikon kalender, tanggal, dan chevron. Di 2/12
-       *   dari lebar konten — yang di layar 1440 px hanya sekitar 180 px, dan
-       *   di tablet jauh lebih sempit — tanggalnya **terpotong**. Itu persis
-       *   yang dilaporkan.
-       * - `Format Unduhan` hanya punya dua opsi pendek ("PDF (cetak)",
-       *   "Excel / CSV") di dalam dropdown tertutup. 4/12 untuk itu membuat
-       *   dropdown selebar separuh baris untuk isi satu kata.
-       *
-       * Sekarang tiga field, masing-masing 4 dari 12 kolom: tanggal mendapat
-       * ruang yang layak dan tidak ada lagi kolom yang hanya berisi dropdown.
-       *
-       * ⚠️ Field "Format Unduhan" **dihapus**, bukan disembunyikan. Nilainya
-       * tidak pernah dibaca apa pun: tombol "Cetak" selalu mencetak dan
-       * "Ekspor" selalu mengunduh CSV, apa pun yang dipilih di dropdown. Jadi
-       * dropdown itu tidak ada artinya — dan karena `patch()`
-       * menyalakan ulang `hasLoadedOnce`, setiap kali diubah ia menembakkan
-       * ulang seluruh 1 + jumlah hari request `history_absen` (sampai 63)
-       * untuk data yang hasilnya identik. Kontrol yang tidak melakukan
-       * apa-apa tapi mahal harus dihapus, bukan disembunyikan.
-       */}
+      {/* Jenis laporan dan rentang tanggal berbagi lebar yang seimbang. */}
       <Card className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Field label="Jenis Laporan">
@@ -466,7 +360,52 @@ export default function Laporan() {
 
       {/* ── Tabel laporan ────────────────────────────────────────── */}
       <Card padded={false} className="p-5 sm:p-6 print:shadow-none print:border-0">
-        <CardTitle action={<Badge tone="blue">object: {activeReport.rpc}</Badge>}>
+        <CardTitle
+          action={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Badge tone="blue">object: {activeReport.rpc}</Badge>
+              <ActionButton
+                variant="ghost"
+                size="sm"
+                onClick={() => void loadData()}
+                loading={loading}
+                icon={<RefreshCw className="w-4 h-4" />}
+              >
+                Muat Ulang
+              </ActionButton>
+              <TombolMenu
+                label="Ekspor"
+                icon={<Download className="w-4 h-4" />}
+                variant="primary"
+                disabled={visible.length === 0}
+                loading={sibukPdf}
+                items={[
+                  {
+                    id: 'excel',
+                    label: 'Excel',
+                    hint: '.xls · dua lembar (riwayat + rekap) · kolom Jarak bisa dijumlahkan',
+                    icon: FileSpreadsheet,
+                    onClick: exportExcel,
+                  },
+                  {
+                    id: 'pdf',
+                    label: 'PDF',
+                    hint: '.pdf · A4 mendatar · teksnya bisa dicari, bukan gambar',
+                    icon: FileDown,
+                    onClick: () => void exportPdf(),
+                  },
+                  {
+                    id: 'csv',
+                    label: 'CSV',
+                    hint: '.csv · untuk diimpor ke sistem lain',
+                    icon: FileText,
+                    onClick: exportCsv,
+                  },
+                ]}
+              />
+            </div>
+          }
+        >
           {activeReport.label}
         </CardTitle>
         {loading ? (

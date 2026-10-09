@@ -330,11 +330,6 @@ export default function Perizinan() {
         title="Perizinan"
         subtitle="Ajukan izin, cuti, atau izin tidak masuk kantor"
         icon={<FileCheck2 className="w-5 h-5" />}
-        action={
-          <ActionButton variant="ghost" size="sm" onClick={() => void loadData()} icon={<RefreshCw className="w-4 h-4" />}>
-            Muat Ulang
-          </ActionButton>
-        }
       />
 
       {error && <Alert tone="rose">{error}</Alert>}
@@ -477,7 +472,22 @@ export default function Perizinan() {
 
       {/* ── Pengajuan terbaru ──────────────────────────────────── */}
       <Card>
-        <CardTitle action={<Badge tone="slate">{rows.length} pengajuan</Badge>}>
+        <CardTitle
+          action={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Badge tone="slate">{rows.length} pengajuan</Badge>
+              <ActionButton
+                variant="ghost"
+                size="sm"
+                onClick={() => void loadData()}
+                loading={loading}
+                icon={<RefreshCw className="w-4 h-4" />}
+              >
+                Muat Ulang
+              </ActionButton>
+            </div>
+          }
+        >
           <span className="flex items-center gap-2">
             <CalendarDays className="w-4 h-4" /> Pengajuan {RECENT_WINDOW_DAYS} Hari Terakhir
           </span>

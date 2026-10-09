@@ -290,28 +290,6 @@ export default function RiwayatIzin() {
         title="Riwayat Izin"
         subtitle={`${currentUser?.username ?? '-'} · ${dateStart} s/d ${dateEnd}`}
         icon={<History className="w-5 h-5" />}
-        action={
-          <>
-            <ActionButton
-              variant="ghost"
-              size="sm"
-              onClick={() => void loadData()}
-              loading={loading}
-              icon={<RefreshCw className="w-4 h-4" />}
-            >
-              Muat Ulang
-            </ActionButton>
-            <ActionButton
-              variant="secondary"
-              size="sm"
-              onClick={exportCsv}
-              disabled={filtered.length === 0}
-              icon={<Download className="w-4 h-4" />}
-            >
-              CSV
-            </ActionButton>
-          </>
-        }
       />
 
       {error && <Alert tone="rose">{error}</Alert>}
@@ -400,7 +378,33 @@ export default function RiwayatIzin() {
 
       {/* ── Tabel ────────────────────────────────────────────────── */}
       <Card padded={false} className="p-5 sm:p-6">
-        <CardTitle action={<Badge tone="slate">{filtered.length} baris</Badge>}>Daftar Pengajuan</CardTitle>
+        <CardTitle
+          action={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Badge tone="slate">{filtered.length} baris</Badge>
+              <ActionButton
+                variant="ghost"
+                size="sm"
+                onClick={() => void loadData()}
+                loading={loading}
+                icon={<RefreshCw className="w-4 h-4" />}
+              >
+                Muat Ulang
+              </ActionButton>
+              <ActionButton
+                variant="secondary"
+                size="sm"
+                onClick={exportCsv}
+                disabled={filtered.length === 0}
+                icon={<Download className="w-4 h-4" />}
+              >
+                CSV
+              </ActionButton>
+            </div>
+          }
+        >
+          Daftar Pengajuan
+        </CardTitle>
         {loading ? (
           <SkeletonTable columns={columns.length} rows={6} />
         ) : filtered.length === 0 ? (
