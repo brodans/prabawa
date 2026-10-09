@@ -1648,7 +1648,7 @@ cek('pemeriksaan langganan memakai fallback yang sama selama pemulihan',
 cek('pemeriksaan sesi ditampilkan di tengah workspace',
     /fixed inset-0 z-\[60\] grid place-items-center/.test(appSrc) &&
       /Memeriksa sesi/.test(appSrc) &&
-      /Menyiapkan ruang kerja Anda/.test(appSrc) &&
+      /role="status"[\s\S]*?aria-live="polite"/.test(appSrc) &&
       !/Memeriksa langganan…/.test(gateSrc));
 cek('loader meniru shell workspace di desktop dan mobile',
     /hidden h-full w-64[\s\S]{0,100}lg:flex/.test(appSrc) &&

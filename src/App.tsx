@@ -190,8 +190,9 @@ function Clock() {
 }
 
 function PageLoading({ pageId }: { pageId: string }) {
+  const { webPresensiState, pegawai } = useAppContext();
   const header = (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-center gap-3">
         <Skeleton className="h-11 w-11 shrink-0 rounded-2xl" />
         <div className="min-w-0 space-y-2">
@@ -199,29 +200,37 @@ function PageLoading({ pageId }: { pageId: string }) {
           <Skeleton className="h-3.5 w-64 max-w-full" />
         </div>
       </div>
-      <Skeleton className="h-9 w-28 shrink-0 rounded-xl" />
+      {(pageId === 'tabBeranda' || pageId === 'tabPresensi') && (
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-28 shrink-0 rounded-xl" />
+          {pageId === 'tabBeranda' && <Skeleton className="h-9 w-28 shrink-0 rounded-xl" />}
+        </div>
+      )}
     </div>
   );
   const stats = (count: number) => (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       {Array.from({ length: count }, (_, index) => (
-        <div key={index} className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 space-y-3">
-          <Skeleton className="h-3 w-2/5" />
-          <Skeleton className="h-7 w-1/3" />
-          <Skeleton className="h-3 w-3/5" />
+        <div key={index} className="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/60">
+          <div className="flex items-start justify-between gap-2">
+            <Skeleton className="h-3 w-2/5" />
+            <Skeleton className="h-4 w-4 rounded" />
+          </div>
+          <Skeleton className="mt-2 h-7 w-1/3" />
+          <Skeleton className="mt-1 h-3 w-3/5" />
         </div>
       ))}
     </div>
   );
+  const filterFields = (count = 4) =>
+    Array.from({ length: count }, (_, index) => (
+      <div key={index} className="space-y-2">
+        <Skeleton className="h-3 w-1/3" />
+        <Skeleton className="h-10 w-full rounded-xl" />
+      </div>
+    ));
   const filters = (count = 4) => (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {Array.from({ length: count }, (_, index) => (
-        <div key={index} className="space-y-2">
-          <Skeleton className="h-3 w-1/3" />
-          <Skeleton className="h-10 w-full rounded-xl" />
-        </div>
-      ))}
-    </div>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">{filterFields(count)}</div>
   );
   const table = (columns = 6, rows = 6) => (
     <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-4 sm:p-5">
@@ -232,17 +241,147 @@ function PageLoading({ pageId }: { pageId: string }) {
       <SkeletonTable columns={columns} rows={rows} />
     </div>
   );
+  const webTabPanel = (() => {
+    switch (webPresensiState.tab) {
+      case 'imei':
+        return (
+          <div className="space-y-4">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-16 w-full rounded-xl" />
+          </div>
+        );
+      case 'kehadiran':
+        return (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-8 w-24 rounded-lg" />
+            </div>
+            <SkeletonTable columns={7} rows={5} />
+            <div className="flex justify-center gap-2">
+              <Skeleton className="h-8 w-20 rounded-lg" />
+              <Skeleton className="h-8 w-20 rounded-lg" />
+              <Skeleton className="h-8 w-20 rounded-lg" />
+            </div>
+          </>
+        );
+      case 'detail':
+        return (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-5 w-36" />
+              <Skeleton className="h-8 w-24 rounded-lg" />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div key={index} className="space-y-2">
+                  <Skeleton className="h-3 w-1/3" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+              ))}
+            </div>
+            {[0, 1, 2].map(section => (
+              <div key={section} className="space-y-3">
+                <Skeleton className="h-3 w-44" />
+                <SkeletonTable columns={section === 2 ? 6 : 4} rows={3} />
+              </div>
+            ))}
+          </div>
+        );
+      case 'perizinan':
+        return (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Skeleton className="h-5 w-36" />
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-24 rounded-lg" />
+                <Skeleton className="h-8 w-28 rounded-lg" />
+              </div>
+            </div>
+            <SkeletonTable columns={6} rows={5} />
+            <div className="flex justify-center gap-2">
+              <Skeleton className="h-8 w-20 rounded-lg" />
+              <Skeleton className="h-8 w-20 rounded-lg" />
+              <Skeleton className="h-8 w-20 rounded-lg" />
+            </div>
+          </>
+        );
+    }
+  })();
 
   let content: React.ReactNode;
-  if (pageId === 'tabPresensi') {
+  if (pageId === 'tabBeranda' && !pegawai) {
+    content = (
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        <div className="space-y-4 rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6 lg:col-span-3">
+          <Skeleton className="h-4 w-40" />
+          {filterFields(3)}
+          <Skeleton className="h-10 w-36 rounded-xl" />
+          <Skeleton className="h-3 w-3/4" />
+        </div>
+        <div className="space-y-6 lg:col-span-2">
+          <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
+            <Skeleton className="mb-3 h-4 w-40" />
+            <Skeleton className="h-16 w-full rounded-xl" />
+          </div>
+        </div>
+      </div>
+    );
+  } else if (pageId === 'tabBeranda') {
+    content = (
+      <>
+        {stats(4)}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {[0, 1].map(card => (
+            <div key={card} className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
+              <Skeleton className="mb-4 h-4 w-40" />
+              {card === 0 ? (
+                <>
+                  <div className="mb-4 flex items-center gap-4">
+                    <Skeleton className="h-16 w-16 shrink-0 rounded-2xl" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-3 w-1/2" />
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                    </div>
+                  </div>
+                  <SkeletonList rows={6} />
+                </>
+              ) : (
+                <SkeletonList rows={3} />
+              )}
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  } else if (pageId === 'tabPresensi') {
     content = (
       <>
         {stats(4)}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6 space-y-5">
             <Skeleton className="h-4 w-32" />
-            {filters(2)}
-            <Skeleton className="h-24 w-full rounded-xl" />
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-32" />
+              <div className="flex gap-2">
+                <Skeleton className="h-[42px] flex-1 rounded-xl" />
+                <Skeleton className="h-[42px] w-32 rounded-xl" />
+              </div>
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+            <Skeleton className="h-20 w-full rounded-xl" />
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-[42px] w-full rounded-xl" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[0, 1, 2].map(item => <Skeleton key={item} className="h-10 rounded-xl" />)}
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Skeleton className="h-10 rounded-xl" />
+              <Skeleton className="h-10 rounded-xl" />
+            </div>
             <Skeleton className="h-12 w-full rounded-xl" />
           </div>
           <div className="lg:col-span-2 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6">
@@ -255,41 +394,93 @@ function PageLoading({ pageId }: { pageId: string }) {
   } else if (pageId === 'tabLokasiAbsen') {
     content = (
       <>
-        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6">
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
           <div className="mb-4 flex justify-between"><Skeleton className="h-4 w-36" /><Skeleton className="h-6 w-32 rounded-full" /></div>
+          <div className="mb-3 flex flex-wrap items-center gap-4">
+            {[0, 1, 2].map(item => <Skeleton key={item} className="h-3 w-20" />)}
+            <Skeleton className="ml-auto h-3 w-40" />
+          </div>
           <Skeleton className="h-[min(480px,65vh)] w-full rounded-xl" />
         </div>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Skeleton className="h-36 rounded-2xl" />
-          <Skeleton className="h-36 rounded-2xl" />
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-6 w-24 rounded-full" />
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {[0, 1].map(item => (
+              <div key={item} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                <div className="mb-3 flex items-center gap-3">
+                  <Skeleton className="h-9 w-9 rounded-xl" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3 w-2/3" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-7 w-28 rounded-lg" />
+                  <Skeleton className="h-7 w-24 rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <Skeleton className="h-4 w-44" />
+            <Skeleton className="h-6 w-28 rounded-full" />
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {[0, 1].map(item => (
+              <div key={item} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                <Skeleton className="mb-3 h-4 w-2/3" />
+                <SkeletonList rows={3} />
+              </div>
+            ))}
+          </div>
         </div>
       </>
     );
   } else if (pageId === 'tabManajemenAkun') {
     content = (
-      <div className="space-y-4">
-        <div className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white dark:border-slate-700/60 dark:bg-slate-800/60">
-          <div className="flex gap-2 border-b border-slate-200/70 p-3 dark:border-slate-700/60 sm:p-4">
-            {[0, 1, 2].map(tab => (
-              <Skeleton key={tab} className="h-10 flex-1 rounded-lg" />
-            ))}
+      <div className="space-y-5">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm dark:border-slate-700/60 dark:bg-slate-800/60">
+          <div className="px-3 py-3 sm:px-5">
+            <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-900/70">
+              {[0, 1, 2].map(tab => (
+                <div key={tab} className="flex min-h-12 items-center justify-center gap-2 rounded-lg px-2 py-2">
+                  <Skeleton className="h-4 w-4 shrink-0 rounded" />
+                  <Skeleton className="h-3 w-3/4 max-w-28" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-200/70 bg-white p-4 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-5">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-200/70 dark:border-slate-700/60 dark:bg-slate-700/60 sm:grid-cols-4">
             {[0, 1, 2, 3].map(item => (
-              <div key={item} className="space-y-2">
+              <div key={item} className="space-y-2 bg-white p-4 dark:bg-slate-800/60">
+                <Skeleton className="h-3 w-2/5" />
+                <Skeleton className="h-6 w-1/3" />
                 <Skeleton className="h-3 w-3/5" />
-                <Skeleton className="h-6 w-2/5" />
-                <Skeleton className="h-3 w-4/5" />
               </div>
             ))}
           </div>
-        </div>
-        <div className="rounded-2xl border border-slate-200/70 bg-white p-4 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-5">
-          {filters(4)}
-          <div className="mt-4">
-            <SkeletonTable columns={8} rows={6} />
+          <div className="rounded-2xl border border-slate-200/70 bg-white p-4 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-5">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[minmax(0,1fr)_8rem_9rem_auto] sm:items-end">
+              {[0, 1, 2, 3].map(item => (
+                <div key={item} className="space-y-2">
+                  <Skeleton className="h-3 w-1/3" />
+                  <Skeleton className="h-[42px] w-full rounded-xl" />
+                </div>
+              ))}
+            </div>
+            <div className="mt-2.5 flex min-h-[26px] items-center">
+              <Skeleton className="h-3 w-40" />
+            </div>
+            <div className="mt-4">
+              <SkeletonTable columns={8} rows={7} />
+            </div>
           </div>
         </div>
       </div>
@@ -297,73 +488,193 @@ function PageLoading({ pageId }: { pageId: string }) {
   } else if (pageId === 'tabPerizinan') {
     content = (
       <>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 space-y-4">
-            <Skeleton className="h-4 w-36" />
-            {filters(4)}
-            <Skeleton className="h-24 w-full rounded-xl" />
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
+          <Skeleton className="mb-4 h-4 w-36" />
+          <div className="space-y-4">
+            {filterFields(2)}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{filterFields(2)}</div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Skeleton className="h-10 w-36 rounded-xl" />
+              <Skeleton className="h-10 w-28 rounded-xl" />
+            </div>
           </div>
-          <Skeleton className="h-64 rounded-2xl" />
         </div>
-        {table(7)}
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <Skeleton className="h-4 w-52" />
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-8 w-28 rounded-lg" />
+            </div>
+          </div>
+          <SkeletonTable columns={6} rows={5} />
+        </div>
       </>
     );
-  } else if (pageId === 'tabRiwayatIzin' || pageId === 'tabLaporan') {
+  } else if (pageId === 'tabRiwayatIzin') {
     content = (
       <>
-        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6 space-y-4">
-          <Skeleton className="h-4 w-40" />
-          {filters(4)}
-          <Skeleton className="h-9 w-36 rounded-xl" />
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="grid flex-1 gap-3 sm:grid-cols-2 sm:max-w-md">
+              {filterFields(2)}
+            </div>
+            <Skeleton className="h-10 w-28 rounded-xl" />
+          </div>
+          <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-3 dark:border-slate-700/60 sm:flex-row sm:items-center sm:justify-between">
+            <Skeleton className="h-3 w-32" />
+            <div className="flex flex-wrap gap-1.5">
+              {[0, 1, 2, 3].map(item => <Skeleton key={item} className="h-7 w-20 rounded-lg" />)}
+            </div>
+          </div>
         </div>
         {stats(4)}
-        {table(pageId === 'tabLaporan' ? 7 : 6)}
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <Skeleton className="h-4 w-36" />
+            <div className="flex gap-2">
+              {[0, 1, 2].map(item => <Skeleton key={item} className="h-8 w-24 rounded-lg" />)}
+            </div>
+          </div>
+          <SkeletonTable columns={6} rows={6} />
+        </div>
+      </>
+    );
+  } else if (pageId === 'tabLaporan') {
+    content = (
+      <>
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">{filterFields(3)}</div>
+          <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 dark:border-slate-700/60 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-8 w-16 rounded-lg" />
+              <Skeleton className="h-8 w-16 rounded-lg" />
+            </div>
+            <Skeleton className="h-10 w-40 rounded-xl" />
+          </div>
+        </div>
+        {stats(4)}
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <Skeleton className="h-4 w-36" />
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-8 w-24 rounded-lg" />
+              <Skeleton className="h-8 w-24 rounded-lg" />
+            </div>
+          </div>
+          <SkeletonTable columns={7} rows={6} />
+        </div>
       </>
     );
   } else if (pageId === 'tabWeb') {
-    content = (
-      <>
-        <div className="w-full rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-4 sm:p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-4 w-4 rounded-full" />
-            <Skeleton className="h-4 w-36" />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {[0, 1].map((field) => (
-              <div key={field} className="space-y-2">
-                <Skeleton className="h-3 w-12" />
+    const login = (
+      <div className="w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Skeleton className="h-4 w-4 rounded-full" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        {webPresensiState.sudahLogin ? (
+          <>
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60 sm:flex-row sm:items-center">
+              <Skeleton className="h-5 w-5 shrink-0 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Skeleton className="h-14 rounded-lg" />
+                  <Skeleton className="h-14 rounded-lg" />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex gap-3">
+              <Skeleton className="h-10 w-28 rounded-xl" />
+            </div>
+          </>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {[0, 1].map(item => (
+                <div key={item} className="space-y-2">
+                  <Skeleton className="h-3 w-12" />
+                  <Skeleton className="h-[42px] w-full rounded-xl" />
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-3 w-16" />
                 <Skeleton className="h-11 w-full rounded-xl" />
               </div>
-            ))}
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-11 w-full rounded-xl" />
+              <div className="flex shrink-0 items-center gap-2">
+                <Skeleton className="h-11 w-20 rounded-xl" />
+                <Skeleton className="h-11 w-10 rounded-xl" />
+              </div>
             </div>
-            <div className="flex items-center gap-2 self-start sm:self-auto">
-              <Skeleton className="h-11 w-20 rounded-xl" />
-              <Skeleton className="h-11 w-11 rounded-xl" />
-            </div>
+            <Skeleton className="h-10 w-40 rounded-xl" />
           </div>
-          <Skeleton className="h-10 w-44 rounded-xl" />
-        </div>
-        <div className="flex gap-1 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-1.5">
-          {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-9 flex-1 rounded-xl" />)}
-        </div>
-        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6 space-y-4">
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-20 w-full rounded-xl" />
+        )}
+      </div>
+    );
+    content = webPresensiState.sudahLogin ? (
+      <>
+        {login}
+        <div className="space-y-4">
+          <div className="flex gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-9 min-w-0 flex-1 rounded-xl" />)}
+          </div>
+          <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            {webTabPanel}
+          </div>
         </div>
       </>
-    );
+    ) : login;
   } else if (pageId === 'tabDocs') {
     content = (
-      <div className="space-y-4">
-        <Skeleton className="h-36 rounded-2xl" />
-        <Skeleton className="h-64 rounded-2xl" />
-        <Skeleton className="h-48 rounded-2xl" />
-      </div>
+      <>
+        {stats(4)}
+        <div className="flex flex-wrap gap-1.5 rounded-2xl border border-slate-200 bg-slate-100/70 p-1.5 dark:border-slate-700 dark:bg-slate-800/50">
+          {Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="h-8 w-28 rounded-xl" />)}
+        </div>
+        {[0, 1, 2].map(card => (
+          <div key={card} className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <Skeleton className="h-5 w-40" />
+              {card === 0 && <Skeleton className="h-6 w-36 rounded-full" />}
+            </div>
+            {card === 0 ? (
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-12 rounded-xl" />)}
+                </div>
+                <Skeleton className="mt-4 h-40 w-full rounded-xl" />
+              </>
+            ) : card === 1 ? (
+              <div className="space-y-3">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-5/6" />
+                <Skeleton className="h-3 w-2/3" />
+                <div className="grid grid-cols-1 gap-2.5">
+                  {[0, 1, 2].map(item => <Skeleton key={item} className="h-10 rounded-xl" />)}
+                </div>
+              </div>
+            ) : (
+              <>
+                <Skeleton className="mb-3 h-3 w-4/5" />
+                <Skeleton className="h-44 w-full rounded-xl" />
+              </>
+            )}
+          </div>
+        ))}
+      </>
     );
   } else {
     content = (
@@ -383,8 +694,8 @@ function PageLoading({ pageId }: { pageId: string }) {
   }
 
   return (
-    <div className="w-full space-y-6" aria-label="Memuat halaman" role="status">
-      {pageId !== 'tabWeb' && header}
+    <div className={`w-full ${pageId === 'tabManajemenAkun' ? 'space-y-5' : 'space-y-6'}`} aria-label="Memuat halaman" role="status">
+      {pageId !== 'tabWeb' && pageId !== 'tabManajemenAkun' && header}
       {content}
       <span className="sr-only">Memuat halaman...</span>
     </div>
@@ -1149,28 +1460,44 @@ function LayarPemeriksaanSesi({ pageId }: { pageId: string }) {
           </div>
           <span className="truncate text-lg font-bold tracking-tight text-white">{APP_NAME}</span>
         </div>
-        <nav aria-hidden="true" className="flex-1 space-y-5 overflow-hidden px-3.5 py-5">
-          {[3, 1, 3].map((count, group) => (
-            <div key={group} className="space-y-2">
-              <div className="mb-3 h-2 w-20 rounded bg-slate-700/60" />
-              {Array.from({ length: count }, (_, index) => (
+        <nav aria-hidden="true" className="flex-1 space-y-5 overflow-y-auto px-3.5 py-5 custom-scrollbar">
+          {GROUP_ORDER.map(group => (
+            <div key={group} className="space-y-1.5">
+              <div className="mb-2 h-3 w-24 rounded bg-slate-700/60" />
+              {PAGES.filter(page => page.group === group).map(page => (
                 <div
-                  key={index}
-                  className={`h-11 rounded-xl ${group === 0 && index === 0 ? 'bg-blue-600/15' : 'bg-slate-800/50'}`}
-                />
+                  key={page.id}
+                  className={`flex h-11 items-center gap-3.5 rounded-xl px-3.5 ${
+                    page.id === pageId ? 'bg-blue-600/10' : ''
+                  }`}
+                >
+                  <Skeleton className={`h-5 w-5 shrink-0 rounded ${page.id === pageId ? 'bg-blue-500/30' : 'bg-slate-700/60'}`} />
+                  <Skeleton className="h-3 w-28 max-w-[70%] bg-slate-700/60" />
+                </div>
               ))}
             </div>
           ))}
         </nav>
+        <div className="mt-auto shrink-0 space-y-2.5 border-t border-slate-800/60 bg-gradient-to-b from-transparent to-slate-900/50 p-3.5">
+          <div className="min-h-[58px] rounded-xl border border-slate-700/50 bg-[#1E293B]/50 p-3">
+            <Skeleton className="h-3 w-2/3 bg-slate-700/70" />
+            <Skeleton className="mt-2 h-3 w-1/2 bg-slate-700/70" />
+          </div>
+          <Skeleton className="h-11 w-full rounded-xl bg-slate-800/60" />
+        </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-slate-200/80 bg-slate-100/80 px-4 shadow-sm dark:border-slate-800/80 dark:bg-[#0B1120]/80 sm:px-6">
-          <div className="flex items-center gap-3 lg:hidden" aria-hidden="true">
-            <Skeleton className="h-9 w-9 rounded-xl" />
-            <Skeleton className="h-4 w-28" />
+          <div className="flex min-w-0 flex-1 items-center gap-3" aria-hidden="true">
+            <Skeleton className="h-9 w-9 shrink-0 rounded-xl lg:hidden" />
+            <div className="min-w-0 space-y-1">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-3 w-40" />
+            </div>
           </div>
-          <div className="ml-auto flex items-center gap-3" aria-hidden="true">
-            <Skeleton className="hidden h-8 w-28 rounded-full sm:block" />
+          <div className="ml-auto flex shrink-0 items-center gap-3 sm:gap-4" aria-hidden="true">
+            <Skeleton className="hidden h-8 w-24 rounded-full md:block" />
+            <Skeleton className="h-9 w-9 rounded-full" />
             <Skeleton className="h-9 w-9 rounded-full" />
           </div>
         </header>
@@ -1180,7 +1507,7 @@ function LayarPemeriksaanSesi({ pageId }: { pageId: string }) {
           </div>
         </main>
       </div>
-      <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/10 px-4 py-6 backdrop-blur-[2px] [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))] dark:bg-slate-950/25">
+      <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/10 px-4 py-6 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))] dark:bg-slate-950/25">
         <div
           className="flex w-[min(22rem,100%)] items-center gap-4 rounded-2xl border border-white/80 bg-white/95 p-4 shadow-[0_20px_70px_-24px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 dark:border-slate-700/80 dark:bg-slate-900/95 dark:ring-white/5 sm:gap-4 sm:p-5"
           role="status"
@@ -1192,9 +1519,6 @@ function LayarPemeriksaanSesi({ pageId }: { pageId: string }) {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Memeriksa sesi</p>
-            <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              Menyiapkan ruang kerja Anda
-            </p>
           </div>
         </div>
       </div>

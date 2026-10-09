@@ -51,11 +51,6 @@ export function midtransProduksi(): boolean {
   );
 }
 
-/** Base URL Core API sesuai mode yang aktif. */
-export function midtransBaseUrl(): string {
-  return midtransProduksi() ? 'https://api.midtrans.com' : 'https://api.sandbox.midtrans.com';
-}
-
 /** Base URL Snap API sesuai mode yang aktif. */
 export function midtransSnapBaseUrl(): string {
   return midtransProduksi() ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com';

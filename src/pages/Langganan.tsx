@@ -401,22 +401,65 @@ function LanggananInner({
           </div>
         ) : (
           <div className="space-y-5" role="status" aria-label="Memuat metode pembayaran">
-            {[0, 1, 2].map(sectionIndex => (
-              <Card key={sectionIndex}>
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <Skeleton className="h-4 w-40" />
-                  {sectionIndex === 0 && <Skeleton className="h-8 w-24 rounded-lg" />}
+            <Card>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-8 w-24 rounded-lg" />
+              </div>
+              <div className="space-y-2.5">
+                {[0, 1, 2].map(item => <Skeleton key={item} className="h-14 w-full rounded-xl" />)}
+              </div>
+              <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-700/60">
+                <Skeleton className="h-5 w-56 rounded-lg" />
+                <Skeleton className="h-4 w-64 max-w-full rounded-lg" />
+                <Skeleton className="h-4 w-48 rounded-lg" />
+              </div>
+            </Card>
+            <Card>
+              <div className="mb-3 flex items-center justify-between">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-6 w-20 rounded-full" />
+              </div>
+              <Skeleton className="mb-3 h-3 w-3/4" />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
+                <div className="space-y-3">
+                  <Skeleton className="h-36 w-full rounded-xl" />
+                  <Skeleton className="h-12 w-full rounded-xl" />
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {[0, 1, 2, 3].map(field => (
-                    <div key={field} className="space-y-2">
-                      <Skeleton className="h-3 w-1/3" />
-                      <Skeleton className="h-10 w-full rounded-xl" />
-                    </div>
-                  ))}
+                <Skeleton className="mx-auto aspect-[440/580] w-40 rounded-2xl" />
+              </div>
+            </Card>
+            <Card>
+              <div className="mb-4 flex items-center justify-between">
+                <Skeleton className="h-4 w-44" />
+                <Skeleton className="h-6 w-20 rounded-full" />
+              </div>
+              <Skeleton className="mb-2 h-3 w-32" />
+              <Skeleton className="h-10 w-full rounded-xl" />
+              <Skeleton className="mt-4 mb-2 h-3 w-28" />
+              <Skeleton className="h-28 w-full rounded-xl" />
+            </Card>
+            <Card>
+              <div className="mb-4 flex items-center justify-between">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-8 w-28 rounded-lg" />
+              </div>
+              {[0, 1].map(item => (
+                <div key={item} className="mb-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {[0, 1, 2, 3].map(field => (
+                      <div key={field} className="space-y-2">
+                        <Skeleton className="h-3 w-1/3" />
+                        <Skeleton className="h-10 w-full rounded-xl" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </Card>
-            ))}
+              ))}
+            </Card>
+            <div className="flex justify-end">
+              <Skeleton className="h-10 w-44 rounded-xl" />
+            </div>
           </div>
         )
       ) : section === 'pembayaran' ? (
@@ -1325,24 +1368,9 @@ export function PerpanjangModal({
   onClose: () => void;
   onPilih: (durasi: number, satuan: SatuanDurasi) => void;
 }) {
-  /*
-   * Opsi perpanjangan admin — **satuan bulan saja**.
-   *
-   * Dulu ada pilihan harian ("+3 hari") untuk penyesuaian kecil. Itu satuan
-   * yang salah tempat di sini: perpanjangan masa aktif selalu berupa periode
-   * (1 bulan, 3 bulan), dan angka hari membuat "+3 hari" terlihat seperti
-   * opsi setara dengan "+1 bulan" padahal jauh lebih kecil. Kalau memang
-   * perlu tanggal yang persis, tersedia dialog **Setel Tanggal** — yang
-   * memang satu-satunya tempat angka harian masih masuk akal.
-   *
-   * "1 Bulan" berarti satu bulan penuh, bukan 30 hari — bedanya nyata di
-   * tanggal 31: 31 Jan + 1 bulan = 28 Feb, bukan 2 Mar.
-   */
-  const opsi: { durasi: number; satuan: SatuanDurasi; label: string; hint: string }[] = [
-    { durasi: 1, satuan: 'bulan', label: '1 Bulan', hint: 'sampai tanggal yang sama bulan depan' },
-    { durasi: 3, satuan: 'bulan', label: '3 Bulan', hint: 'sampai tanggal yang sama 3 bulan depan' },
-    { durasi: 6, satuan: 'bulan', label: '6 Bulan', hint: 'sampai tanggal yang sama 6 bulan depan' },
-    { durasi: 12, satuan: 'bulan', label: '1 Tahun', hint: 'sampai tanggal yang sama tahun depan' },
+  const opsi: { durasi: number; satuan: SatuanDurasi; label: string }[] = [
+    { durasi: 7, satuan: 'hari', label: '1 Minggu' },
+    { durasi: 1, satuan: 'bulan', label: '1 Bulan' },
   ];
 
   return (
@@ -1357,15 +1385,6 @@ export function PerpanjangModal({
         <div className="space-y-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Perpanjangan untuk <strong className="text-slate-700 dark:text-slate-200">{ringkasan.username}</strong>.
-            {!ringkasan.masaAkhir || ringkasan.sisaHari <= 0 ? (
-              ' Masa aktif akan dihitung dari hari ini.'
-            ) : (
-              <>
-                {' '}
-                Sisa <strong className="text-slate-700 dark:text-slate-200">{ringkasan.sisaHari} hari</strong>{' '}
-                yang sudah ada tetap dipertahankan.
-              </>
-            )}
           </p>
           <div className="grid grid-cols-2 gap-2.5">
             {opsi.map(item => (
@@ -1378,15 +1397,11 @@ export function PerpanjangModal({
                 <span className="block text-sm font-bold text-slate-700 dark:text-slate-200">
                   {item.label}
                 </span>
-                <span className="block text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 leading-tight">
-                  {item.hint}
-                </span>
               </button>
             ))}
           </div>
           <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">
-            Ini perpanjangan, bukan pencatatan pembayaran — total bayar dan riwayat tagihan tidak
-            berubah. Kalau memang perlu tanggal yang tidak bulat, pakai &quot;Setel Tanggal&quot;.
+            Tidak mengubah riwayat pembayaran.
           </p>
         </div>
       )}

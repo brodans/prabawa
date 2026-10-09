@@ -340,7 +340,7 @@ export default function SettingAkunModal({ onClose }: SettingAkunModalProps) {
             'min(100%, calc(100vw - var(--dev-panel-right-offset, 0px) - 2rem))',
           maxWidth: '28rem',
         }}
-        className="modal-panel-enter bg-white dark:bg-slate-800 rounded-2xl shadow-2xl shadow-slate-950/20 h-auto min-h-[min(640px,calc(100dvh-2rem))] max-h-[calc(100dvh-2rem)] border border-slate-200 dark:border-slate-700/80 overflow-hidden flex flex-col outline-none"
+        className="modal-panel-enter bg-white dark:bg-slate-800 rounded-2xl shadow-2xl shadow-slate-950/20 h-auto min-h-[min(32rem,calc(100dvh-2rem))] max-h-[calc(100dvh-2rem)] border border-slate-200 dark:border-slate-700/80 overflow-hidden flex flex-col outline-none"
       >
         {/* Header Modal */}
         <div className="flex justify-between items-center p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700/80 shrink-0 bg-white dark:bg-slate-800">

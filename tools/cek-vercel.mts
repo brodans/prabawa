@@ -1271,9 +1271,9 @@ cek('midtransEnv tidak diimpor apa pun yang masuk bundle peramban',
   !/from '\.\//.test(midtransEnvSrc) && !/from '\.\.\//.test(midtransEnvSrc),
   'modul ini hanya untuk sisi server; `process.env` tidak ada di peramban');
 cek('semua pemakai sisi server mengambil base URL dari midtransEnv',
-  /midtransBaseUrl/.test(bacaSrc('src/api/server.ts')) &&
+  /midtransSnapBaseUrl/.test(bacaSrc('src/api/server.ts')) &&
     /midtransProduksi/.test(bacaSrc('src/lib/serverBilling.ts')) &&
-    srcServerless.some(isi => /from '\.\.\/lib\/midtransEnv'/.test(isi)),
+    /midtransSnapBaseUrl/.test(bacaSrc('src/serverless/midtrans-charge.ts')),
   'base URL yang dihitung sendiri di tempat lain bisa menyimpang dari mode yang dipakai verifikasi');
 
 

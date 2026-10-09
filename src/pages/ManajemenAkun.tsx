@@ -706,24 +706,29 @@ function KelolaAkun({ toast }: {
   if (loading) {
     return (
       <div className="space-y-4" role="status" aria-label="Memuat Manajemen Akun">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[0, 1, 2].map(item => (
-            <div
-              key={item}
-              className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6 space-y-3"
-            >
+        <Card padded={false} className="grid grid-cols-2 gap-px overflow-hidden bg-slate-200/70 dark:bg-slate-700/60 sm:grid-cols-4">
+          {[0, 1, 2, 3].map(item => (
+            <div key={item} className="space-y-2 bg-white p-4 dark:bg-slate-800/60">
               <Skeleton className="h-3 w-2/5" />
-              <Skeleton className="h-7 w-1/3" />
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-3 w-3/5" />
             </div>
           ))}
-        </div>
+        </Card>
 
         <Card padded={false} className="p-4 sm:p-5">
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[minmax(0,1fr)_8rem_9rem_auto] sm:items-end">
             {[0, 1, 2, 3].map(item => (
               <div key={item} className="space-y-2">
                 <Skeleton className="h-3 w-1/3" />
-                <Skeleton className="h-[42px] w-full rounded-xl" />
+                {item === 3 ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Skeleton className="h-[42px] w-full rounded-xl" />
+                    <Skeleton className="h-[42px] w-full rounded-xl" />
+                  </div>
+                ) : (
+                  <Skeleton className="h-[42px] w-full rounded-xl" />
+                )}
               </div>
             ))}
           </div>
@@ -1341,7 +1346,7 @@ function DialogAkun({
           <Field
             label="Username"
             required
-            hint="Dipakai untuk login panel."
+            hint="Untuk login panel."
           >
             <Input
               value={username}
@@ -1352,7 +1357,7 @@ function DialogAkun({
           <Field
             label={baru ? 'Password' : 'Password Baru'}
             required={baru}
-            hint={baru ? 'Minimal 6 karakter.' : 'Kosongkan kalau tidak ingin mengubahnya.'}
+            hint={baru ? 'Minimal 6 karakter.' : 'Kosongkan jika tetap.'}
           >
             <PasswordField
               value={password}
@@ -1386,7 +1391,7 @@ function DialogAkun({
           )}
         </div>
 
-        <Field label="Catatan Admin" hint="Hanya terlihat oleh admin.">
+        <Field label="Catatan Admin">
           <Textarea
             value={catatan}
             onChange={e => setCatatan(e.target.value)}
@@ -1420,8 +1425,7 @@ function DialogAkun({
                 </>
               ) : (
                 <>
-                  Setelah ketiga isian ini disimpan, akun ini <strong>otomatis tersambung ke server
-                  pusat</strong> setiap kali aplikasinya dibuka. Tidak perlu login manual.
+                  Kredensial dipakai untuk login otomatis ke server pusat.
                 </>
               )}
               </p>
@@ -1429,7 +1433,7 @@ function DialogAkun({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="NIP" hint="Dipakai sebagai email saat login server.">
+            <Field label="NIP" hint="Email login server.">
               <Input
                 value={nipServer}
                 onChange={e => setNipServer(e.target.value)}
@@ -1439,7 +1443,7 @@ function DialogAkun({
                 disabled={memuatKredensial}
               />
             </Field>
-            <Field label="IMEI / androidId" hint="Kosongkan kalau tidak terkunci ke satu perangkat.">
+            <Field label="IMEI / androidId" hint="Kosongkan jika tidak dikunci.">
               <Input
                 value={imei}
                 onChange={e => setImei(e.target.value)}
@@ -1454,8 +1458,8 @@ function DialogAkun({
             label="Password Server"
             hint={
               tersimpan?.terbaca
-                ? 'Kosongkan kalau tidak ingin mengubahnya — NIP dan IMEI tetap bisa diubah terpisah.'
-                : 'Wajib diisi untuk kredensial baru. Disimpan terenkripsi di server, tidak pernah bisa dibaca kembali.'
+                ? 'Kosongkan jika tidak diubah.'
+                : 'Wajib untuk kredensial baru.'
             }
           >
             <PasswordField
@@ -1495,8 +1499,7 @@ function DialogAkun({
 
         {role === 'admin' && (
           <Alert tone="amber">
-            Akun admin <strong>tidak pernah dikunci</strong> oleh langganan dan tidak punya masa aktif.
-            Pastikan hanya orang yang benar-benar perlu yang diberi peran ini.
+            Akun admin tidak dibatasi langganan atau masa aktif.
           </Alert>
         )}
       </div>

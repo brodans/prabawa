@@ -239,7 +239,7 @@ export default function ProfilServerModal({ onClose }: { onClose: () => void }) 
         </div>
       }
     >
-      <div className="space-y-4">
+      <div className="min-h-[22rem] space-y-4">
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"

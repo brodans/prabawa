@@ -45,6 +45,14 @@ cek('pakai keyframe CSS masuk', modalSrc.includes('modal-panel-enter'));
 cek('panel punya role=dialog', modalSrc.includes('role="dialog"'));
 cek('fokus pakai preventScroll', modalSrc.includes('preventScroll'));
 cek('kunci gulir pakai refcount', modalSrc.includes('kunciGulir') && modalSrc.includes('bukaGulirHalaman'));
+cek('modal dirender di portal dokumen agar berada di atas menu baris',
+  /typeof document === 'undefined' \? modal : createPortal\(modal, document\.body\)/.test(modalSrc));
+cek('modal tetap bisa dirender oleh server tanpa document',
+  /const modal = \([\s\S]*?return typeof document === 'undefined' \? modal/.test(modalSrc));
+cek('isi modal membatasi scroll chaining dan dapat menyusut di panel flex',
+  /min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y/.test(modalSrc));
+cek('klik di dalam panel tidak dianggap klik backdrop',
+  /event\.target === event\.currentTarget/.test(modalSrc));
 cek(
   'onClose disimpan di ref (efek tidak ulang tiap render)',
   modalSrc.includes('onCloseRef') && /\}, \[open\]\)/.test(modalSrc)
@@ -55,8 +63,8 @@ cek('kolom kanan mengikuti tinggi shell, bukan menambah 100svh di bawah header',
   /flex-1 flex flex-col min-w-0 h-full min-h-0 relative overflow-hidden/.test(appSrc) &&
     !/flex-1 flex flex-col min-w-0 h-\[100svh\] relative overflow-hidden/.test(appSrc));
 cek('scroll vertikal halaman hanya berada pada kontainer konten',
-  /konten-gulir flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto/.test(appSrc) &&
-    /poni-konten flex-1 min-w-0 overflow-x-hidden w-full/.test(appSrc));
+  /konten-gulir flex-1 flex flex-col min-w-0 min-h-0 overflow-y-scroll/.test(appSrc) &&
+    /poni-konten min-h-full flex-none min-w-0 overflow-x-hidden w-full/.test(appSrc));
 cek('padding halaman tidak mendorong scrollbar dari tepi viewport',
   /padding-left:\s*max\(1rem, var\(--poni-kiri\)\)/.test(cssSrc) &&
     /padding-right:\s*max\(1rem, var\(--poni-kanan\)\)/.test(cssSrc));
@@ -67,12 +75,25 @@ cek('satu aturan global scrollbar, tanpa deklarasi yang saling menimpa',
 console.log('\n=== Overlay lain');
 cek('App: overlay menu mobile tanpa blur', !/fixed inset-0 bg-slate-900\/60 backdrop-blur/.test(appSrc));
 cek('App: konten utama tidak di-blur', !/isMobileMenuOpen \? 'blur-sm/.test(appSrc));
+cek('skeleton Web mengikuti status sesi dan tidak menampilkan tab sebelum login',
+  /webPresensiState\.sudahLogin[\s\S]*?login;/.test(appSrc));
+cek('skeleton Web mengikuti tab aktif setelah login',
+  /switch \(webPresensiState\.tab\)[\s\S]*?case 'imei'[\s\S]*?case 'kehadiran'[\s\S]*?case 'detail'[\s\S]*?case 'perizinan'/.test(appSrc));
+cek('skeleton Perizinan mengikuti formulir dan tabel pengajuan',
+  /pageId === 'tabPerizinan'[\s\S]*?filterFields\(2\)[\s\S]*?SkeletonTable columns=\{6\} rows=\{5\}/.test(appSrc));
+cek('skeleton Lokasi Absen memuat peta, titik pengguna, dan titik server',
+  /pageId === 'tabLokasiAbsen'[\s\S]*?h-\[min\(480px,65vh\)\][\s\S]*?w-44[\s\S]*?SkeletonList rows=\{3\}/.test(appSrc));
+cek('pemeriksaan sesi menampilkan shell workspace tanpa blur latar belakang',
+  /GROUP_ORDER\.map\(group =>[\s\S]*?PageLoading pageId=\{pageId\}/.test(appSrc) &&
+    !/Menyiapkan ruang kerja Anda/.test(appSrc));
 
 console.log('\n=== SettingAkunModal');
 cek('shell modal tanpa motion.div', !/<motion\.div[^>]*className="modal-layer/.test(akunKode));
 cek('shell modal tanpa backdrop-blur', !/modal-layer[^"]*backdrop-blur/.test(akunKode));
 cek('pakai keyframe CSS yang sama', akunSrc.includes('modal-panel-enter'));
 cek('punya role=dialog', akunSrc.includes('role="dialog"'));
+cek('tinggi minimum Pengaturan PRABAWA proporsional',
+  akunSrc.includes('min-h-[min(32rem,calc(100dvh-2rem))]'));
 
 // ── 2. CSS build ─────────────────────────────────────────────────────
 const distAssets = join(root, 'dist/assets');

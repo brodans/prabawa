@@ -796,15 +796,6 @@ export function SkeletonList({ rows = 4 }: { rows?: number }) {
   );
 }
 
-export function LoadingBlock({ label = 'Memuat data...' }: { label?: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <Loader2 className="w-6 h-6 text-blue-500 animate-spin mb-3" />
-      <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════════════
 //  Tabel
 // ═══════════════════════════════════════════════════════════════════════

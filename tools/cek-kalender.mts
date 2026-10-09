@@ -238,8 +238,8 @@ console.log('\n=== Laporan: tiga format unduhan, semuanya benar-benar jalan');
     !/label="CSV"[\s\S]{0,80}ActionButton/.test(laporan),
     'format yang punya tombol sendiri lagi berarti tombol keempat di baris aksi');
   cek('aksi Laporan mati saat tabel kosong',
-    (laporan.match(/disabled=\{visible\.length === 0\}/g) ?? []).length === 2,
-    'Cetak dan Ekspor punya syarat yang sama — nol baris tidak bisa dicetak');
+    (laporan.match(/disabled=\{visible\.length === 0\}/g) ?? []).length === 1,
+    'Ekspor dinonaktifkan saat tidak ada baris; tombol Cetak sudah dihapus');
   cek('tidak ada lagi dropdown "Format Unduhan" yang menggantung',
     !/aria-label="Format unduhan"/.test(laporan) && !/patch\(\{ format/.test(laporan));
   cek('kepala tabel didefinisikan sekali lalu dipakai berdua',

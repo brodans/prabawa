@@ -55,7 +55,7 @@ console.log('\n=== 1. Aksi baris tabel Langganan');
  * dibebaskan kembali ke kolom yang butuh.
  */
 const kolomAksi = [...langganan.matchAll(/key: 'aksi'[\s\S]{0,400}?className: '([^']+)'/g)];
-cek('ada dua kolom aksi (monitoring akun + tagihan)', kolomAksi.length === 2,
+cek('tabel tagihan punya satu kolom aksi', kolomAksi.length === 1,
   `${kolomAksi.length} ditemukan`);
 
 for (const m of kolomAksi) {
@@ -65,11 +65,14 @@ for (const m of kolomAksi) {
     'lebar di atas 64 px berarti ada tempat untuk ikon bertumpuk yang tidak muat');
 }
 cek('kolom aksi memakai AksiMenu, bukan tumpukan AksiIcon',
-  (langganan.match(/<AksiMenu/g) ?? []).length >= 2,
+  (langganan.match(/<AksiMenu/g) ?? []).length === 1,
   'AksiIcon dipakai di kolom aksi = tombol akan membungkus');
 cek('AksiMenu punya label aksesibel per baris',
-  /ariaLabel=\{`Aksi untuk \$\{item\.username\}`\}/.test(langganan),
-  'tanpa label, pembaca layar tidak tahu tombol ini untuk akun mana');
+  /ariaLabel=\{`Aksi tagihan \$\{item\.orderId\}`\}/.test(langganan),
+  'tanpa label, pembaca layar tidak tahu tagihan yang dipilih');
+cek('tabel akun menggabungkan aksi langganan ke satu menu per akun',
+  /key: 'aksi'[\s\S]{0,1200}<AksiMenu[\s\S]{0,100}ariaLabel=\{`Kelola langganan \$\{row\.akun\.username\}`\}/.test(manajemen),
+  'aksi langganan harus mengikuti tabel akun gabungan, bukan tabel pantau terpisah');
 cek('item menu punya id stabil untuk React',
   !/items=\{\[[\s\S]{0,200}?id: ['"]\d/.test(langganan),
   'id berbasis index membuat React salah mencocokkan item saat daftar berubah');
@@ -314,49 +317,28 @@ console.log('\n=== 4. Penyaring Laporan & Paket Langganan');
 
 // ═══ 5. Judul konsisten di paling atas ══════════════════════════════
 
-console.log('\n=== 5. Judul Manajemen Akun konsisten di paling atas');
+console.log('\n=== 5. Tab Manajemen Akun terpadu');
 /*
- * Dua-duanya pernah dicoba dan keduanya salah, arahnya berlawanan:
- *
- * - Judul tetap + subjudul "…dan langganan" di kedua tab → menekan tab tidak
- *   mengubah apa pun di kepala.
- * - Judul disembunyikan di tab Langganan → tampilan melompat ke bawah saat tab
- *   berganti, dan yang di atas tabel kehilangan konteks.
- *
- * Yang benar: satu blok judul yang **konsisten di paling atas** dan
- * menjelaskan menu ini apa. Yang berubah saat tab berganti adalah tabnya,
- * bukan posisinya.
+ * Judul halaman dihapus karena nama menu sudah terlihat di top bar. Halaman
+ * langsung dimulai dari tiga tab yang masing-masing menjelaskan isinya.
  */
-cek('PageHeader tidak bergantung pada tab aktif',
-  !/\{tab === 'akun' && \(\s*<PageHeader/.test(manajemen),
-  'menyembunyikan judul saat tab berganti membuat tampilan melompat');
-cek('judul "Manajemen Akun" selalu dirender',
-  /<PageHeader\s+title="Manajemen Akun"/.test(manajemen));
-cek('judul muncul sebelum blok tab, di paling atas',
-  manajemen.indexOf('<PageHeader') < manajemen.indexOf('role="tablist"'),
-  'judul harus mendahului tab supaya posisinya tidak berubah');
-cek('subjudul tidak lagi menyebut langganan',
-  !/Kelola seluruh akun, kredensial server, dan langganan/.test(manajemen));
-/*
- * Nama tab harus **self-describing**, bukan "setengah sesuai" dengan judul
- * halaman — karena halaman itu tidak punya judul lagi: blok judulnya satu,
- * di `ManajemenAkun`, di paling atas, dan berlaku untuk kedua tab.
- *
- * "Langganan" saja menyembunyikan justru bagian yang menjelaskan ada dua
- * tabel di dalamnya. "Langganan & Pembayaran" menutupinya.
- */
-cek('nama tab kedua menyebut kedua isinya',
-  /label: 'Langganan & Pembayaran'/.test(manajemen),
-  '"Langganan" saja menyembunyikan bagian tabel pembayaran');
-cek('halaman Langganan tidak punya judul sendiri',
-  !/title="Langganan & Pembayaran"/.test(langganan),
-  'judul dobel dengan blok judul Manajemen Akun di atasnya');
+cek('judul halaman duplikat tidak dirender',
+  !/<PageHeader/.test(manajemen) && !/<PageHeader/.test(langganan),
+  'nama halaman sudah tersedia di top bar');
+cek('tiga tab menjelaskan isi halaman',
+  /label: 'Manajemen Akun'/.test(manajemen) &&
+    /label: 'Riwayat Pembayaran'/.test(manajemen) &&
+    /label: 'Metode Pembayaran'/.test(manajemen),
+  'daftar akun, riwayat tagihan, dan konfigurasi pembayaran terpisah jelas');
+cek('tablist mendahului isi tab',
+  manajemen.indexOf('role="tablist"') < manajemen.indexOf('<KelolaAkun'),
+  'halaman dimulai dari navigasi tanpa header duplikat');
 cek('ringkasan angka tidak diulang di subjudul',
   !/Pantau \$\{statistik/.test(langganan),
   'angka yang sama sudah ditulis di StatTile tepat di bawahnya');
-cek('tombol aksi Langganan tetap ada setelah judul dihapus',
-  /Muat Ulang/.test(langganan) && /setDialogPengaturan\(true\)/.test(langganan),
-  'hanya judul & subjudul yang dihapus — tombol jangan ikut hilang');
+cek('aksi riwayat pembayaran tetap tersedia',
+  /Muat Ulang/.test(langganan) && /Hapus Semua/.test(langganan),
+  'aksi muat ulang dan hapus semua tetap berada di kartu riwayat pembayaran');
 cek('keterangan "Admin memantau" dihapus dari tab langganan',
   !/Admin memantau/.test(langganan));
 
@@ -631,6 +613,16 @@ console.log('\n=== 10. Grid >=3 kolom tetap di dalam panel sempit');
       kolom: [5],
       alasan:
         'Skeleton siluet QR 5x5, sama seperti di KartuQris: `aria-hidden`, 96 px.',
+    },
+    {
+      berkas: 'src/App.tsx',
+      kolom: [3],
+      alasan: 'Skeleton tab manajemen akun mengikuti tiga tab aktual.',
+    },
+    {
+      berkas: 'src/pages/ManajemenAkun.tsx',
+      kolom: [3],
+      alasan: 'Navigasi tiga tab yang lebarnya sama, dengan teks dapat membungkus.',
     },
   ];
 

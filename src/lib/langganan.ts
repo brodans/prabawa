@@ -113,9 +113,6 @@ export const TEMPLATE_WA_DEFAULT = [
   'Mohon dikonfirmasi. Terima kasih.',
 ].join('\n');
 
-/** Placeholder yang boleh dipakai di template. */
-export const PLACEHOLDER_WA = ['{nama}', '{username}', '{orderId}', '{nominal}', '{paket}', '{tanggal}'] as const;
-
 /**
  * Berapa karakter maksimum pesan WhatsApp.
  *

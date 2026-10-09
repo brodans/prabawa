@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 /**
  * Modal & dialog konfirmasi milik sendiri.
@@ -128,10 +129,12 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
+  const modal = (
     <div
-      className="modal-overlay-enter modal-layer fixed inset-0 z-[95] flex items-center justify-center p-4 sm:p-6 bg-slate-950/70"
-      onClick={onClose}
+      className="modal-overlay-enter modal-layer fixed inset-0 z-[95] flex items-center justify-center overscroll-none p-4 sm:p-6 bg-slate-950/70"
+      onClick={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
     >
       <div
         ref={panelRef}
@@ -142,7 +145,7 @@ export function Modal({
         style={{
           width: 'min(100%, calc(100vw - var(--dev-panel-right-offset, 0px) - 2rem))',
         }}
-        className={`modal-panel-enter w-full ${SIZES[size]} max-h-[calc(100dvh-2rem)] flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-950/30 overflow-hidden outline-none`}
+        className={`modal-panel-enter w-full ${SIZES[size]} max-h-[calc(100dvh-2rem)] flex flex-col bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-950/30 overflow-hidden overscroll-contain outline-none`}
       >
         {title && (
           <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-700 shrink-0">
@@ -163,7 +166,9 @@ export function Modal({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar px-5 py-4">
+          {children}
+        </div>
 
         <div className="shrink-0 px-5 py-3.5 border-t border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/30">
           {footer ?? (
@@ -179,6 +184,8 @@ export function Modal({
       </div>
     </div>
   );
+
+  return typeof document === 'undefined' ? modal : createPortal(modal, document.body);
 }
 
 // ═══════════════════════════════════════════════════════════════════════

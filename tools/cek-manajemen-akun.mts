@@ -16,7 +16,7 @@
  *
  * Dua hal yang diuji di sini:
  *
- * 1. Menu Manajemen Akun. Satu menu, dua tab, dua URL, admin saja.
+ * 1. Menu Manajemen Akun. Satu menu, tiga tab, satu URL, admin saja.
  * 2. **Tidak adanya lokasi.** Dulu modul ini menguji `lokasiTersimpan.ts`:
  *    namespace per-akun, kunci lama yang dihapus, data rusak yang disaring.
  *    Semuanya tidak ada lagi — aplikasi tidak memakai GPS maupun peta, jadi
@@ -306,7 +306,7 @@ cek('tab pembayaran dan metode merender konten terpisah tanpa tabel pemantauan k
     !/Pantau Langganan Akun/.test(langSrc));
 const skeletonAkun = appSrc.split("pageId === 'tabManajemenAkun'")[1]?.split("pageId === 'tabPerizinan'")[0] ?? '';
 cek('loader Manajemen Akun hanya mengikuti tab awal, bukan semua tab sekaligus',
-  /SkeletonTable columns=\{8\} rows=\{6\}/.test(skeletonAkun) &&
+  /SkeletonTable columns=\{8\} rows=\{7\}/.test(skeletonAkun) &&
     !/\[0, 1, 2\]\.map\(section/.test(skeletonAkun));
 cek('loader menu panjang dan halaman memakai satu scrollbar global yang stabil',
   /konten-gulir[^"]*overflow-y-scroll/.test(appSrc) &&
@@ -341,17 +341,16 @@ cek('muat() dipanggil di latar setelah update', /void muat\(\);/.test(langSrc));
 cek('tombol muat ulang memakai menyegarkan', /loading=\{menyegarkan \|\| loading\}/.test(langSrc));
 
 // ═════════════════════════════════════════════════════════════════════
-console.log('\n=== 12. Perpanjang masa aktif: bulan saja');
-cek('opsi harian dihapus dari dialog', !/satuan: 'hari'/.test(langSrc));
+console.log('\n=== 12. Perpanjang masa aktif');
+const perpanjangSrc = langSrc.split('export function PerpanjangModal')[1]?.split('Dialog: setel masa aktif')[0] ?? '';
+cek('opsi perpanjangan hanya satu minggu dan satu bulan',
+  /durasi: 7, satuan: 'hari', label: '1 Minggu'/.test(perpanjangSrc) &&
+    /durasi: 1, satuan: 'bulan', label: '1 Bulan'/.test(perpanjangSrc) &&
+    (perpanjangSrc.match(/label: '1 (?:Minggu|Bulan)'/g) ?? []).length === 2);
 cek('opsi 1 bulan ada', /durasi: 1, satuan: 'bulan', label: '1 Bulan'/.test(langSrc));
-cek('opsi 3 bulan ada', /durasi: 3, satuan: 'bulan', label: '3 Bulan'/.test(langSrc));
-cek('opsi 6 bulan ada', /durasi: 6, satuan: 'bulan', label: '6 Bulan'/.test(langSrc));
-cek('opsi 12 bulan ada', /durasi: 12, satuan: 'bulan', label: '1 Tahun'/.test(langSrc));
-const libSrc = baca('../src/lib/langganan.ts');
-cek('perpanjangManual tidak menerima param hari', !/perpanjangManual\(input: \{[^}]*\bhari\?:/.test(libSrc));
-// Komentar, jadi dibaca dari sumber mentah — `kode()` yang dipakai di atas
-// justru menghapus blok komentar.
-cek('penjelasan kenapa harian dihapus ada', /selalu berupa periode/.test(baca('../src/pages/Langganan.tsx')));
+cek('opsi 1 minggu ada', /durasi: 7, satuan: 'hari', label: '1 Minggu'/.test(langSrc));
+const akunFireSrc = baca('../src/lib/akunFirestore.ts');
+cek('perpanjangManual meneruskan satuan hari atau bulan', /satuan\?: string/.test(akunFireSrc));
 
 // ═════════════════════════════════════════════════════════════════════
 console.log('\n=== 13. Status langganan menyatu dengan tabel akun');
@@ -734,7 +733,7 @@ console.log('\n=== 21. Kredensial server diatur dari dialog akun');
 const umSrc = baca('../src/lib/userManager.ts');
 const appSrcAda = baca('../src/App.tsx');
 cek('dialog akun punya bagian Login Server Pusat', /Login Server Pusat/.test(akunSrc));
-cek('NIP bisa diisi dari dialog akun', /<Field label="NIP" hint="Dipakai sebagai email/.test(akunSrc));
+cek('NIP bisa diisi dari dialog akun', /<Field label="NIP" hint="Email login server\."/i.test(akunSrc));
 cek('IMEI bisa diisi dari dialog akun', /<Field label="IMEI \/ androidId"/.test(akunSrc));
 cek('password server bisa diisi dari dialog akun', /<Field[\s\S]{0,80}label="Password Server"/.test(akunSrc));
 cek('penyimpanan memakai API kredensial yang sudah ada',
