@@ -477,6 +477,11 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
     setServerLogoutRequested,
   } = useAppContext();
 
+  React.useEffect(() => {
+    document.documentElement.classList.add('app-shell-active');
+    return () => document.documentElement.classList.remove('app-shell-active');
+  }, []);
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [isAkunModalOpen, setIsAkunModalOpen] = useState(false);

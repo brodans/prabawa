@@ -306,11 +306,12 @@ type ModalProps = {
   onTutup: () => void;
   children: React.ReactNode;
   lebar?: boolean;
+  kotak?: boolean;
   /** Untuk modal gambar/PDF — padding minimal */
   mediaMod?: boolean;
 };
 
-function Modal({ judul, onTutup, children, lebar = false, mediaMod = false }: ModalProps) {
+function Modal({ judul, onTutup, children, lebar = false, kotak = false, mediaMod = false }: ModalProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -332,7 +333,7 @@ function Modal({ judul, onTutup, children, lebar = false, mediaMod = false }: Mo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const maxW = lebar ? 'max-w-4xl' : 'max-w-lg';
+  const maxW = lebar ? 'max-w-4xl' : kotak ? 'max-w-sm' : 'max-w-lg';
 
   return createPortal(
     <div
@@ -448,6 +449,8 @@ function ViewerBerkas({ berkas, onTutup }: { berkas: BerkasState; onTutup: () =>
 
 function Peta({ lat, lng, judul }: { lat: number; lng: number; judul?: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<ReturnType<typeof L.map> | null>(null);
+  const markerRef = useRef<ReturnType<typeof L.circleMarker> | null>(null);
   useEffect(() => {
     if (!ref.current) return;
     const el = ref.current;
@@ -456,10 +459,12 @@ function Peta({ lat, lng, judul }: { lat: number; lng: number; judul?: string })
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
-    L.circleMarker([lat, lng], { radius: 9, color: '#4f46e5', weight: 3, fillColor: '#4f46e5', fillOpacity: 0.5 })
+    const marker = L.circleMarker([lat, lng], { radius: 9, color: '#4f46e5', weight: 3, fillColor: '#4f46e5', fillOpacity: 0.5 })
       .addTo(map)
       .bindPopup(judul || 'Lokasi presensi')
       .openPopup();
+    mapRef.current = map;
+    markerRef.current = marker;
 
     // ResizeObserver memastikan peta resize mengikuti container tanpa animasi glitch
     let rafId: number;
@@ -476,9 +481,19 @@ function Peta({ lat, lng, judul }: { lat: number; lng: number; judul?: string })
       cancelAnimationFrame(rafId);
       ro.disconnect();
       map.remove();
+      mapRef.current = null;
+      markerRef.current = null;
     };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const marker = markerRef.current;
+    if (!map || !marker) return;
+    marker.setLatLng([lat, lng]).bindPopup(judul || 'Lokasi presensi').openPopup();
+    map.setView([lat, lng], map.getZoom(), { animate: false });
   }, [lat, lng, judul]);
-  return <div ref={ref} className="h-72 w-full rounded-b-2xl overflow-hidden" />;
+  return <div ref={ref} className="aspect-square w-full rounded-b-2xl overflow-hidden" />;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1012,18 +1027,18 @@ export default function WebPresensi() {
         </div>
 
         {sudahLogin && (
-          <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/30 sm:flex-row sm:items-center">
-            <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60 sm:flex-row sm:items-center">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-slate-500 dark:text-slate-400" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Berhasil login</p>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Berhasil login</p>
               <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div className="min-w-0 rounded-lg border border-emerald-200/80 bg-white/80 px-3 py-2 dark:border-emerald-900/50 dark:bg-slate-900/60">
+                <div className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Nama</p>
                   <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
                     {hasilImei?.profil?.nama || 'Pegawai'}
                   </p>
                 </div>
-                <div className="min-w-0 rounded-lg border border-emerald-200/80 bg-white/80 px-3 py-2 dark:border-emerald-900/50 dark:bg-slate-900/60">
+                <div className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900/60">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">NIP</p>
                   <p className="break-all text-sm font-medium text-slate-800 dark:text-slate-200">
                     {hasilImei?.profil?.nip || nip.trim() || '—'}
@@ -1074,14 +1089,7 @@ export default function WebPresensi() {
           <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
               <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-captcha">
-                Captcha{' '}
-                {!OCR_LOKAL
-                  ? '(ketik manual)'
-                  : ocrTersedia === true
-                    ? '(otomatis ✓)'
-                    : ocrTersedia === false
-                      ? '(ketik manual)'
-                      : '(memuat...)'}
+                Captcha
               </label>
               <input
                 id="web-captcha" value={captcha} onChange={(e) => simpanCaptcha(e.target.value)}
@@ -1180,7 +1188,7 @@ export default function WebPresensi() {
           {tab === 'imei' && (
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-sm space-y-4">
               <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-indigo-500" />IMEI Kehadiran
+                <Cpu className="w-5 h-5 text-indigo-500" />IMEI Device
               </h2>
               {hasilImei?.imei ? (
                 <div className="flex items-center gap-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-5 py-4">
@@ -1498,15 +1506,15 @@ export default function WebPresensi() {
 
       {/* ─────── MODAL PETA ─────── */}
       {peta && (
-        <Modal judul="Lokasi Presensi" lebar onTutup={() => setPeta(null)} mediaMod={peta.lat != null}>
+        <Modal judul="Lokasi Presensi" kotak onTutup={() => setPeta(null)} mediaMod={peta.lat != null}>
           {peta.err && <div className="p-5"><Pesan tipe="error">{peta.err}</Pesan></div>}
           {peta.lat != null && peta.lng != null && (
             <>
-              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{peta.judul}</p>
                 {peta.alamat && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{peta.alamat}</p>}
               </div>
-              <Peta key={`${peta.lat},${peta.lng}`} lat={peta.lat} lng={peta.lng} judul={peta.judul} />
+              <Peta lat={peta.lat} lng={peta.lng} judul={peta.judul} />
             </>
           )}
           {peta.lat == null && !peta.err && (

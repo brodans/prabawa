@@ -790,6 +790,29 @@ export async function hapusTagihanServer(
   return { ok: true, kode: 200 };
 }
 
+/** Hapus seluruh riwayat tagihan — operasi administratif yang permanen. */
+export async function hapusSemuaTagihanServer(
+  token: AdminToken
+): Promise<{ ok: boolean; kode: number; pesan?: string; jumlah?: number }> {
+  if (!(await dindingAdmin(token)).ok) {
+    return { ok: false, kode: 403, pesan: 'Akses khusus admin.' };
+  }
+
+  const db = await admin();
+  const koleksi = db.collection(COLL_TAGIHAN);
+  let jumlah = 0;
+  while (true) {
+    const snap = await koleksi.limit(450).get();
+    if (snap.empty) break;
+    const batch = db.batch();
+    for (const dokumen of snap.docs) batch.delete(dokumen.ref);
+    await batch.commit();
+    jumlah += snap.size;
+  }
+
+  return { ok: true, kode: 200, jumlah };
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 //  Pembacaan untuk peramban
 //

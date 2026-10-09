@@ -208,17 +208,17 @@ export default function ProfilServerModal({ onClose }: { onClose: () => void }) 
     <Modal
       open
       onClose={onClose}
-      size="md"
+      size="sm"
       title="Profil Server"
       icon={<ShieldCheck className="w-5 h-5 text-blue-500" />}
       footer={
-        <div className="flex gap-2">
-          <ActionButton variant="ghost" block onClick={onClose}>
+        <div className="flex items-center gap-2">
+          <ActionButton variant="ghost" size="sm" onClick={onClose}>
             Tutup
           </ActionButton>
           {mode === 'password' ? (
             <ActionButton
-              block
+              className="flex-1"
               loading={gantiSibuk}
               onClick={() => void handleGantiPassword()}
               icon={<KeyRound className="w-4 h-4" />}
@@ -227,7 +227,7 @@ export default function ProfilServerModal({ onClose }: { onClose: () => void }) 
             </ActionButton>
           ) : (
             <ActionButton
-              block
+              className="flex-1"
               loading={unggahSibuk}
               disabled={!fotoBerkas}
               onClick={() => void handleUnggahFoto()}
@@ -272,7 +272,7 @@ export default function ProfilServerModal({ onClose }: { onClose: () => void }) 
             {gantiError && <Alert tone="rose">{gantiError}</Alert>}
             <Field
               label="Password Lama"
-              hint="Dikirim sebagai `password_lama`. Salah akan dijawab server dengan 'password lama tidak sesuai'."
+              hint="Masukkan password yang sedang digunakan."
             >
               <PasswordField
                 value={passwordLama}
@@ -282,7 +282,7 @@ export default function ProfilServerModal({ onClose }: { onClose: () => void }) 
             </Field>
             <Field
               label="Password Baru"
-              hint="Minimal 8 karakter, harus ada huruf besar, angka, dan karakter spesial."
+              hint="Min. 8 karakter, huruf besar, angka, dan simbol."
             >
               <PasswordField
                 value={passwordBaru}
@@ -292,7 +292,6 @@ export default function ProfilServerModal({ onClose }: { onClose: () => void }) 
             </Field>
             <Field
               label="Ulangi Password Baru"
-              hint="Hanya dibandingkan di sini — tidak dikirim ke server."
             >
               <PasswordField
                 value={konfirmasi}

@@ -714,7 +714,9 @@ cek('urutan nama pakai locale id', /localeCompare\(\s*b\.akun\.namaLengkap \|\| 
 cek('ada deteksi filter aktif', /const adaFilter = cari\.trim\(\) !== '' \|\| filterPeran !== 'semua' \|\| urut !== 'nama';/.test(akunSrc));
 cek('ada tombol reset filter', /Reset filter/.test(akunSrc));
 cek('reset mengembalikan semua ke bawaan', /setFilterPeran\('semua'\);\s*\n\s*setUrut\('nama'\);/.test(akunSrc));
-cek('jumlah akun yang tampil/howah terlihat', /\{tersaring\.length\} dari \{baris\.length\} akun/.test(akunSrc));
+cek('jumlah akun tidak diulang sebagai ringkasan di luar tabel',
+  !/Menampilkan seluruh \{baris\.length\} akun/.test(akunSrc) &&
+  !/\{tersaring\.length\} dari \{baris\.length\} akun/.test(akunSrc));
 
 // Izin: penanda bawaan + tombol kembali ke bawaan.
 cek('editor izin menandai masih-bawaan atau berubah', /samaDefault \? 'Semua izin masih bawaan' : 'Beberapa izin sudah diubah dari bawaan'/.test(izinSrc));
@@ -748,8 +750,8 @@ console.log('\n=== 20. Alert: satu ikon per kotak, sesuai nada');
  * Yang dijaga di sini:
  *   1. `Alert` memilih ikon dari `tone`.
  *   2. Tidak ada pemanggil yang menaruh ikon di dalam `children` lagi.
- *   3. Pesan jam kerja memakai `emerald` saat di dalam rentang, `amber`
- *      saat di luar — bukan warna peringatan di kedua sisi.
+ *   3. Presensi tidak menampilkan pesan waktu/jadwal yang mengganggu
+ *      di atas tombol absen.
  */
 const surfaceSrc = baca('../src/components/ui/Surface.tsx');
 cek('Alert punya peta ikon per nada', /const bawaan = \{[\s\S]*?amber:[\s\S]*?rose:[\s\S]*?blue:[\s\S]*?emerald:/.test(surfaceSrc));
@@ -779,11 +781,10 @@ for (const f of semuaBerkas) {
 }
 cek('tidak ada ikon di dalam children Alert', dobel.length === 0, dobel.join(' | '));
 
-// 3. Nada pesan jam kerja.
+// 3. Pesan jam kerja dihilangkan dari formulir agar tetap ringkas.
 const presensiSrc = baca('../src/pages/Presensi.tsx');
-cek('di dalam rentang jam = emerald (bukan peringatan)',
-  /<Alert tone={dalamRentangJam \? 'emerald' : 'amber'}>/.test(presensiSrc),
-  "kalau kembali ke 'blue' atau 'amber', setiap absensi normal terlihat bermasalah");
+cek('pesan waktu dan rentang jam kerja tidak ditampilkan',
+  !/Waktu sekarang|dalamRentangJam|rentangJam/.test(presensiSrc));
 cek('halaman Presensi tidak pernah putting ikon Info/AlertTriangle sendiri di Alert',
   !/<Alert\b[\s\S]{0,400}?<Info className="w-3\.5/.test(presensiSrc) &&
   !/<Alert\b[\s\S]{0,400}?<AlertTriangle className="w-3\.5/.test(presensiSrc));
@@ -843,9 +844,15 @@ cek('hapus kredensial tersedia kalau sudah tersimpan',
  * admin dan tidak pernah ke miliknya. Dicegah server dengan memakai nama
  * target; yang diuji di sini adalah pemanggilnya konsisten.
  */
-cek('dialog edit mengirim username akun yang diedit',
-  /simpanKredensialServerJikaDiisi\(akun\.username\)/.test(akunSrc),
-  'kredensial user yang masuk ke dokumen admin = auto-login tidak pernah berhasil');
+cek('dialog edit memindahkan kredensial ke username baru',
+  /simpanKredensialServerJikaDiisi\(usernameTujuan\)/.test(akunSrc),
+  'kredensial harus mengikuti akun saat username diganti');
+cek('username pada dialog edit dapat diubah',
+  /<Input\s+value=\{username\}\s+onChange=\{e => setUsername\(e\.target\.value\)\}\s+placeholder="budi\.santoso"/.test(akunSrc),
+  'input username harus aktif pada mode edit');
+cek('dialog edit mengirim usernameBaru ke server',
+  /usernameTujuan !== akun\.username \? \{ usernameBaru: usernameTujuan \} : \{\}/.test(akunSrc),
+  'server harus menerima nama baru hanya saat ada perubahan');
 cek('dialog akun baru mengirim username yang baru dibuat',
   /simpanKredensialServerJikaDiisi\(username\.trim\(\)\)/.test(akunSrc),
   'akun baru tanpa kredensial tidak akan pernah bisa auto-login');
@@ -979,11 +986,8 @@ cek('lebar dropdown ditetapkan, bukan mengikuti isi',
 cek('lebar kolom dropdown tidak melebihi isinya',
   !/sm:grid-cols-\[minmax\(0,1fr\)_(9\.5rem|10\.5rem|12rem)/.test(akunSrc),
   '8rem/9rem cukup untuk "Semua" dan "Masa Aktif"; sisa lebar untuk pencarian');
-cek('ringkasan filter tidak lagi membuat baris melompat',
-  /min-h-\[26px\]/.test(akunSrc),
-  'blok kondisional di tengah baris mendorong tombol ke bawah');
-cek('ringkasan tetap dibaca saat tidak ada filter',
-  /Menampilkan seluruh \{baris\.length\} akun/.test(akunSrc));
+cek('jumlah seluruh akun tidak ditampilkan sebagai ringkasan',
+  !/Menampilkan seluruh \{baris\.length\} akun/.test(akunSrc));
 
 // ═════════════════════════════════════════════════════════════════════
 console.log('\n=== 24. Kegagalan status kredensial tidak lagi senyap');

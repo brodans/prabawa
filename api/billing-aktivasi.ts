@@ -463,6 +463,7 @@ function akunAman(doc, fallbackUsername) {
   );
   return {
     username: sanitizeString(doc.username ?? fallbackUsername, 32) || fallbackUsername,
+    usernameSebelumnya: Array.isArray(doc.usernameSebelumnya) ? doc.usernameSebelumnya.filter((nama) => typeof nama === "string").map((nama) => sanitizeString(nama, 32)).filter(Boolean).slice(-20) : void 0,
     role,
     permissions,
     createdAt: typeof doc.createdAt === "string" ? doc.createdAt : "",
@@ -820,6 +821,104 @@ async function ubahAkun(token, username, isi) {
   if (isi.nip !== void 0) patch.nip = sanitizeString(isi.nip, 32);
   if (isi.catatan !== void 0) patch.catatan = sanitizeString(isi.catatan, 500);
   if (isi.nonaktif !== void 0) patch.nonaktif = Boolean(isi.nonaktif);
+  const usernameBaru = isi.usernameBaru === void 0 ? nama : String(isi.usernameBaru).trim().toLowerCase();
+  const galatUsername = validateUsername(usernameBaru);
+  if (galatUsername) return { ok: false, kode: 400, pesan: galatUsername };
+  const gantiUsername = kunciAkun(nama) !== kunciAkun(usernameBaru);
+  if (gantiUsername) {
+    const kunciBaru = kunciAkun(usernameBaru);
+    if (usernameBaru === await namaAdmin()) {
+      return { ok: false, kode: 409, pesan: "Username tersebut dipakai admin bawaan." };
+    }
+    const refAkunBaru = db.collection(COLL_PENGGUNA).doc(kunciBaru);
+    const refLanggananLama = db.collection(COLL_LANGGANAN).doc(nama);
+    const refLanggananBaru = db.collection(COLL_LANGGANAN).doc(usernameBaru);
+    const refKredensialLama = db.collection(COLL_PENGATURAN).doc(dokKredensial(nama));
+    const refKredensialBaru = db.collection(COLL_PENGATURAN).doc(dokKredensial(usernameBaru));
+    const idMigrasi = `rename_akun__${kunciAkun(nama)}`;
+    const refMigrasi = db.collection(COLL_PENGATURAN).doc(idMigrasi);
+    const [akunBaru, langgananBaru, kredensialBaru, migrasi, tagihanNamaBaru] = await Promise.all([
+      refAkunBaru.get(),
+      refLanggananBaru.get(),
+      refKredensialBaru.get(),
+      refMigrasi.get(),
+      db.collection(COLL_TAGIHAN).where("username", "==", usernameBaru).get()
+    ]);
+    const dataMigrasi = migrasi.exists ? migrasi.data() : null;
+    if (migrasi.exists && (dataMigrasi?.dari !== nama || dataMigrasi?.ke !== usernameBaru)) {
+      return { ok: false, kode: 409, pesan: "Migrasi username akun lain sedang berlangsung." };
+    }
+    if (!migrasi.exists && (akunBaru.exists || langgananBaru.exists || kredensialBaru.exists || tagihanNamaBaru.docs.length > 0)) {
+      return { ok: false, kode: 409, pesan: "Username baru sudah digunakan atau memiliki data." };
+    }
+    if (!migrasi.exists) {
+      await refMigrasi.set({
+        dari: nama,
+        ke: usernameBaru,
+        dibuatPada: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
+    const tagihanLama = await db.collection(COLL_TAGIHAN).where("username", "==", nama).get();
+    for (let mulai = 0; mulai < tagihanLama.docs.length; mulai += 400) {
+      const batch2 = db.batch();
+      for (const tagihan of tagihanLama.docs.slice(mulai, mulai + 400)) {
+        const data = tagihan.data();
+        batch2.set(
+          db.collection(COLL_TAGIHAN).doc(tagihan.id),
+          {
+            ...data,
+            username: usernameBaru,
+            ...data.usernameLabel === nama ? { usernameLabel: usernameBaru } : {}
+          },
+          { merge: true }
+        );
+      }
+      await batch2.commit();
+    }
+    const [akunTujuan, langgananAsal, kredensialAsal] = await Promise.all([
+      refAkunBaru.get(),
+      refLanggananLama.get(),
+      refKredensialLama.get()
+    ]);
+    if (akunTujuan.exists) {
+      await refMigrasi.delete();
+      return { ok: false, kode: 409, pesan: "Username baru sudah digunakan akun lain." };
+    }
+    const batch = db.batch();
+    batch.set(
+      refAkunBaru,
+      bersihkanUndefined({
+        ...sekarang,
+        ...patch,
+        username: usernameBaru,
+        usernameSebelumnya: [
+          .../* @__PURE__ */ new Set([
+            ...Array.isArray(sekarang.usernameSebelumnya) ? sekarang.usernameSebelumnya.filter((nama2) => typeof nama2 === "string") : [],
+            nama
+          ])
+        ].slice(-20)
+      })
+    );
+    batch.delete(ref);
+    if (langgananAsal.exists) {
+      batch.set(refLanggananBaru, {
+        ...langgananAsal.data(),
+        username: usernameBaru
+      });
+      batch.delete(refLanggananLama);
+    }
+    if (kredensialAsal.exists) {
+      batch.set(refKredensialBaru, kredensialAsal.data());
+      batch.delete(refKredensialLama);
+    }
+    batch.delete(refMigrasi);
+    await batch.commit();
+    return {
+      ok: true,
+      kode: 200,
+      pesan: "Username dan data akun berhasil dipindahkan."
+    };
+  }
   await ref.set(bersihkanUndefined({ ...sekarang, ...patch }), { merge: true });
   return { ok: true, kode: 200 };
 }
@@ -1050,7 +1149,7 @@ async function gantiPasswordSendiri(token, isi) {
   );
   return { ok: true, kode: 200, pesan: "Password berhasil diperbarui." };
 }
-var COLL_PENGGUNA, COLL_PENGATURAN, BATAS_AKUN_PANEL, DOC_AUTH, TOKEN_TTL_MS, PERBARU_BILA_SISA_MS, TOKEN_V, NAMA_ADMIN_BAWAAN, GATEWAY_BAWAAN, BATAS_PER_IP, BATAS_PER_AKUN, JENDALA_MS, percobaanIp, percobaanAkun, BATAS_ENTRI_PEMBATAS, pesanGagal, OPENSSL_SALTED_MAGIC;
+var COLL_PENGGUNA, COLL_PENGATURAN, COLL_LANGGANAN, COLL_TAGIHAN, BATAS_AKUN_PANEL, DOC_AUTH, TOKEN_TTL_MS, PERBARU_BILA_SISA_MS, TOKEN_V, NAMA_ADMIN_BAWAAN, GATEWAY_BAWAAN, BATAS_PER_IP, BATAS_PER_AKUN, JENDALA_MS, percobaanIp, percobaanAkun, BATAS_ENTRI_PEMBATAS, pesanGagal, OPENSSL_SALTED_MAGIC;
 var init_panelServer = __esm({
   "src/lib/panelServer.ts"() {
     "use strict";
@@ -1061,6 +1160,8 @@ var init_panelServer = __esm({
     init_userManager();
     COLL_PENGGUNA = "jatim_pengguna";
     COLL_PENGATURAN = "jatim_pengaturan";
+    COLL_LANGGANAN = "jatim_langganan";
+    COLL_TAGIHAN = "jatim_tagihan";
     BATAS_AKUN_PANEL = 1e3;
     DOC_AUTH = "auth";
     TOKEN_TTL_MS = 30 * 60 * 1e3;
@@ -1154,8 +1255,8 @@ function midtransProduksi() {
 
 // src/lib/serverBilling.ts
 var COLL_PENGATURAN2 = "jatim_pengaturan";
-var COLL_LANGGANAN = "jatim_langganan";
-var COLL_TAGIHAN = "jatim_tagihan";
+var COLL_LANGGANAN2 = "jatim_langganan";
+var COLL_TAGIHAN2 = "jatim_tagihan";
 var DOC_BILLING = "billing";
 async function bacaPaket() {
   const snap = await (await admin()).collection(COLL_PENGATURAN2).doc(DOC_BILLING).get();
@@ -1233,8 +1334,8 @@ async function aktifkanLangganan(token, permintaan) {
     return { ok: false, pesan: "orderId atau username tidak valid.", kode: 400 };
   }
   const db = await admin();
-  const refLangganan = db.collection(COLL_LANGGANAN).doc(username);
-  const refTagihan = db.collection(COLL_TAGIHAN).doc(orderId);
+  const refLangganan = db.collection(COLL_LANGGANAN2).doc(username);
+  const refTagihan = db.collection(COLL_TAGIHAN2).doc(orderId);
   const tagihanAda = await refTagihan.get();
   if (tagihanAda.exists) {
     const lama = tagihanAda.data();

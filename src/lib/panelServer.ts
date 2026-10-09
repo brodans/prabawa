@@ -77,6 +77,8 @@ import {
 /** Koleksi & dokumen — sama dengan `lib/firebase.ts` tapi di sisi server. */
 const COLL_PENGGUNA = 'jatim_pengguna';
 const COLL_PENGATURAN = 'jatim_pengaturan';
+const COLL_LANGGANAN = 'jatim_langganan';
+const COLL_TAGIHAN = 'jatim_tagihan';
 
 /**
  * Batas jumlah akun panel yang boleh dipindai penuh.
@@ -292,6 +294,13 @@ function akunAman(doc: Record<string, any>, fallbackUsername: string): UserAccou
         );
   return {
     username: sanitizeString(doc.username ?? fallbackUsername, 32) || fallbackUsername,
+    usernameSebelumnya: Array.isArray(doc.usernameSebelumnya)
+      ? doc.usernameSebelumnya
+          .filter((nama: unknown): nama is string => typeof nama === 'string')
+          .map((nama: string) => sanitizeString(nama, 32))
+          .filter(Boolean)
+          .slice(-20)
+      : undefined,
     role,
     permissions,
     createdAt: typeof doc.createdAt === 'string' ? doc.createdAt : '',
@@ -1015,6 +1024,7 @@ export async function ubahAkun(
   token: string | undefined | null,
   username: string,
   isi: {
+    usernameBaru?: string;
     password?: string;
     role?: UserRole;
     permissions?: Partial<TabPermissions>;
@@ -1041,33 +1051,13 @@ export async function ubahAkun(
   /*
    * Admin terakhir tidak boleh mengunci dirinya sendiri.
    *
-   * Menonaktifkan atau menurunkan admin terakhir mengunci seluruh panel: tidak
-   * ada yang bisa membuka Manajemen Akun lagi, dan satu-satunya jalan adalah
-   * mengedit Firestore dari konsol. Kesalahan sekali klik dengan biaya
-   * perbaikan yang tidak proporsional, jadi ditolak di server — bukan
-   * diserahkan ke UI saja.
+   * Admin yang terakhir menurunkan peran atau dinonaktifkan akan mengunci
+   * seluruh panel, jadi pemeriksaan harus selesai sebelum migrasi username
+   * mulai menulis data.
    */
   const kehilanganAdmin =
     sekarang.role === 'admin' && (roleBaru !== 'admin' || isi.nonaktif === true);
   if (kehilanganAdmin) {
-    /*
-     * Query terarah, bukan pindai seluruh koleksi.
-     *
-     * Semula `db.collection(COLL_PENGGUNA).get()` lalu cari admin lain di
-     * hasilnya. Yang dibutuhkan sebenarnya cuma satu informasi: "masih ada
-     * admin selain ini?" — dan itu bisa dijawab langsung oleh Firestore.
-     *
-     * `where('role','==','admin')` memakai indeks satu kolom bawaan, jadi
-     * tidak butuh indeks komposit, dan `limit(2)` karena yang perlu dilihat
-     * paling banyak dua dokumen: akun yang sedang diubah, dan satu admin lain.
-     * Kalau memang ada dua admin, `limit(2)` pasti memuat keduanya — dokumen
-     * unik, jadi satu slot tidak mungkin terisi dua kali oleh akun ini.
-     * Kalau hanya ada satu admin (yang sedang diubah), hasilnya satu dokumen
-     * dan pemeriksaan di bawah tetap menolak dengan benar.
-     *
-     * Bentuk lama membaca seluruh akun — jadi satu penurunan admin terakhir
-     * bisa membaca ratusan dokumen yang sama sekali tidak relevan.
-     */
     const adminLain = await db
       .collection(COLL_PENGGUNA)
       .where('role', '==', 'admin')
@@ -1085,7 +1075,6 @@ export async function ubahAkun(
   }
 
   const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
-
   if (isi.password) {
     const galat = validatePassword(isi.password);
     if (galat) return { ok: false, kode: 400, pesan: galat };
@@ -1096,9 +1085,6 @@ export async function ubahAkun(
     if (isi.role === 'admin') patch.permissions = { ...DEFAULT_ADMIN_PERMISSIONS };
   }
   if (isi.permissions) {
-    // Role ikut diperhitungkan: `normalizeUserPermissions` selalu memaksa izin
-    // khusus admin menjadi `false`, jadi untuk admin nilainya harus dipulihkan
-    // lewat `batasiIzin`.
     patch.permissions = batasiIzin(
       normalizeUserPermissions({ ...sekarang.permissions, ...isi.permissions }),
       roleBaru
@@ -1112,6 +1098,124 @@ export async function ubahAkun(
   if (isi.nip !== undefined) patch.nip = sanitizeString(isi.nip, 32);
   if (isi.catatan !== undefined) patch.catatan = sanitizeString(isi.catatan, 500);
   if (isi.nonaktif !== undefined) patch.nonaktif = Boolean(isi.nonaktif);
+
+  const usernameBaru =
+    isi.usernameBaru === undefined ? nama : String(isi.usernameBaru).trim().toLowerCase();
+  const galatUsername = validateUsername(usernameBaru);
+  if (galatUsername) return { ok: false, kode: 400, pesan: galatUsername };
+  const gantiUsername = kunciAkun(nama) !== kunciAkun(usernameBaru);
+  if (gantiUsername) {
+    const kunciBaru = kunciAkun(usernameBaru);
+    if (usernameBaru === (await namaAdmin())) {
+      return { ok: false, kode: 409, pesan: 'Username tersebut dipakai admin bawaan.' };
+    }
+    const refAkunBaru = db.collection(COLL_PENGGUNA).doc(kunciBaru);
+    const refLanggananLama = db.collection(COLL_LANGGANAN).doc(nama);
+    const refLanggananBaru = db.collection(COLL_LANGGANAN).doc(usernameBaru);
+    const refKredensialLama = db.collection(COLL_PENGATURAN).doc(dokKredensial(nama));
+    const refKredensialBaru = db.collection(COLL_PENGATURAN).doc(dokKredensial(usernameBaru));
+    const idMigrasi = `rename_akun__${kunciAkun(nama)}`;
+    const refMigrasi = db.collection(COLL_PENGATURAN).doc(idMigrasi);
+    const [akunBaru, langgananBaru, kredensialBaru, migrasi, tagihanNamaBaru] =
+      await Promise.all([
+        refAkunBaru.get(),
+        refLanggananBaru.get(),
+        refKredensialBaru.get(),
+        refMigrasi.get(),
+        db.collection(COLL_TAGIHAN).where('username', '==', usernameBaru).get(),
+      ]);
+    const dataMigrasi = migrasi.exists ? (migrasi.data() as Record<string, unknown>) : null;
+    if (
+      migrasi.exists &&
+      (dataMigrasi?.dari !== nama || dataMigrasi?.ke !== usernameBaru)
+    ) {
+      return { ok: false, kode: 409, pesan: 'Migrasi username akun lain sedang berlangsung.' };
+    }
+    if (
+      !migrasi.exists &&
+      (akunBaru.exists ||
+        langgananBaru.exists ||
+        kredensialBaru.exists ||
+        tagihanNamaBaru.docs.length > 0)
+    ) {
+      return { ok: false, kode: 409, pesan: 'Username baru sudah digunakan atau memiliki data.' };
+    }
+
+    if (!migrasi.exists) {
+      await refMigrasi.set({
+        dari: nama,
+        ke: usernameBaru,
+        dibuatPada: new Date().toISOString(),
+      });
+    }
+
+    const tagihanLama = await db
+      .collection(COLL_TAGIHAN)
+      .where('username', '==', nama)
+      .get();
+    for (let mulai = 0; mulai < tagihanLama.docs.length; mulai += 400) {
+      const batch = db.batch();
+      for (const tagihan of tagihanLama.docs.slice(mulai, mulai + 400)) {
+        const data = tagihan.data() as Record<string, unknown>;
+        batch.set(
+          db.collection(COLL_TAGIHAN).doc(tagihan.id),
+          {
+            ...data,
+            username: usernameBaru,
+            ...(data.usernameLabel === nama ? { usernameLabel: usernameBaru } : {}),
+          },
+          { merge: true }
+        );
+      }
+      await batch.commit();
+    }
+
+    const [akunTujuan, langgananAsal, kredensialAsal] = await Promise.all([
+      refAkunBaru.get(),
+      refLanggananLama.get(),
+      refKredensialLama.get(),
+    ]);
+    if (akunTujuan.exists) {
+      await refMigrasi.delete();
+      return { ok: false, kode: 409, pesan: 'Username baru sudah digunakan akun lain.' };
+    }
+    const batch = db.batch();
+    batch.set(
+      refAkunBaru,
+      bersihkanUndefined({
+        ...sekarang,
+        ...patch,
+        username: usernameBaru,
+        usernameSebelumnya: [
+          ...new Set([
+            ...(Array.isArray(sekarang.usernameSebelumnya)
+              ? sekarang.usernameSebelumnya.filter((nama: unknown): nama is string => typeof nama === 'string')
+              : []),
+            nama,
+          ]),
+        ].slice(-20),
+      })
+    );
+    batch.delete(ref);
+    if (langgananAsal.exists) {
+      batch.set(refLanggananBaru, {
+        ...(langgananAsal.data() as Record<string, unknown>),
+        username: usernameBaru,
+      });
+      batch.delete(refLanggananLama);
+    }
+    if (kredensialAsal.exists) {
+      batch.set(refKredensialBaru, kredensialAsal.data() as Record<string, unknown>);
+      batch.delete(refKredensialLama);
+    }
+    batch.delete(refMigrasi);
+    await batch.commit();
+    return {
+      ok: true,
+      kode: 200,
+      pesan: 'Username dan data akun berhasil dipindahkan.',
+    };
+  }
 
   await ref.set(bersihkanUndefined({ ...sekarang, ...patch }), { merge: true });
   return { ok: true, kode: 200 };

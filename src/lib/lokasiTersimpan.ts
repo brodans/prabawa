@@ -76,6 +76,34 @@ function kunciTitikAktif(username: string): string {
   return `epresensi_jatim_lokasi_aktif__${kunciAkun(username)}`;
 }
 
+/** Pindahkan titik-titik lokal lama saat akun berganti username. */
+export function migrasiTitikUsernameLokal(usernameBaru: string, usernameSebelumnya: string[]): void {
+  if (!isBrowser() || !usernameBaru || !Array.isArray(usernameSebelumnya)) return;
+  const tujuan = kunciTitik(usernameBaru);
+  const tujuanAktif = kunciTitikAktif(usernameBaru);
+  try {
+    for (const usernameLama of usernameSebelumnya) {
+      if (!usernameLama || usernameLama === usernameBaru) continue;
+      const asal = kunciTitik(usernameLama);
+      const asalAktif = kunciTitikAktif(usernameLama);
+      const daftarLama = localStorage.getItem(asal);
+      if (!daftarLama) continue;
+      if (localStorage.getItem(tujuan)) continue;
+      localStorage.setItem(tujuan, daftarLama);
+      if (localStorage.getItem(tujuan) !== daftarLama) continue;
+      if (!localStorage.getItem(tujuanAktif)) {
+        const aktifLama = localStorage.getItem(asalAktif);
+        if (aktifLama) localStorage.setItem(tujuanAktif, aktifLama);
+      }
+      localStorage.removeItem(asal);
+      localStorage.removeItem(asalAktif);
+    }
+  } catch {
+    // Kegagalan storage lokal tidak boleh menggagalkan login; data asal tetap
+    // dipertahankan jika penyalinan ke kunci baru gagal.
+  }
+}
+
 /**
  * Guard untuk pemanggil tanpa akun.
  *

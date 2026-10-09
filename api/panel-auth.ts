@@ -463,6 +463,7 @@ function akunAman(doc, fallbackUsername) {
   );
   return {
     username: sanitizeString(doc.username ?? fallbackUsername, 32) || fallbackUsername,
+    usernameSebelumnya: Array.isArray(doc.usernameSebelumnya) ? doc.usernameSebelumnya.filter((nama) => typeof nama === "string").map((nama) => sanitizeString(nama, 32)).filter(Boolean).slice(-20) : void 0,
     role,
     permissions,
     createdAt: typeof doc.createdAt === "string" ? doc.createdAt : "",
@@ -820,6 +821,104 @@ async function ubahAkun(token, username, isi) {
   if (isi.nip !== void 0) patch.nip = sanitizeString(isi.nip, 32);
   if (isi.catatan !== void 0) patch.catatan = sanitizeString(isi.catatan, 500);
   if (isi.nonaktif !== void 0) patch.nonaktif = Boolean(isi.nonaktif);
+  const usernameBaru = isi.usernameBaru === void 0 ? nama : String(isi.usernameBaru).trim().toLowerCase();
+  const galatUsername = validateUsername(usernameBaru);
+  if (galatUsername) return { ok: false, kode: 400, pesan: galatUsername };
+  const gantiUsername = kunciAkun(nama) !== kunciAkun(usernameBaru);
+  if (gantiUsername) {
+    const kunciBaru = kunciAkun(usernameBaru);
+    if (usernameBaru === await namaAdmin()) {
+      return { ok: false, kode: 409, pesan: "Username tersebut dipakai admin bawaan." };
+    }
+    const refAkunBaru = db.collection(COLL_PENGGUNA).doc(kunciBaru);
+    const refLanggananLama = db.collection(COLL_LANGGANAN).doc(nama);
+    const refLanggananBaru = db.collection(COLL_LANGGANAN).doc(usernameBaru);
+    const refKredensialLama = db.collection(COLL_PENGATURAN).doc(dokKredensial(nama));
+    const refKredensialBaru = db.collection(COLL_PENGATURAN).doc(dokKredensial(usernameBaru));
+    const idMigrasi = `rename_akun__${kunciAkun(nama)}`;
+    const refMigrasi = db.collection(COLL_PENGATURAN).doc(idMigrasi);
+    const [akunBaru, langgananBaru, kredensialBaru, migrasi, tagihanNamaBaru] = await Promise.all([
+      refAkunBaru.get(),
+      refLanggananBaru.get(),
+      refKredensialBaru.get(),
+      refMigrasi.get(),
+      db.collection(COLL_TAGIHAN).where("username", "==", usernameBaru).get()
+    ]);
+    const dataMigrasi = migrasi.exists ? migrasi.data() : null;
+    if (migrasi.exists && (dataMigrasi?.dari !== nama || dataMigrasi?.ke !== usernameBaru)) {
+      return { ok: false, kode: 409, pesan: "Migrasi username akun lain sedang berlangsung." };
+    }
+    if (!migrasi.exists && (akunBaru.exists || langgananBaru.exists || kredensialBaru.exists || tagihanNamaBaru.docs.length > 0)) {
+      return { ok: false, kode: 409, pesan: "Username baru sudah digunakan atau memiliki data." };
+    }
+    if (!migrasi.exists) {
+      await refMigrasi.set({
+        dari: nama,
+        ke: usernameBaru,
+        dibuatPada: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
+    const tagihanLama = await db.collection(COLL_TAGIHAN).where("username", "==", nama).get();
+    for (let mulai = 0; mulai < tagihanLama.docs.length; mulai += 400) {
+      const batch2 = db.batch();
+      for (const tagihan of tagihanLama.docs.slice(mulai, mulai + 400)) {
+        const data = tagihan.data();
+        batch2.set(
+          db.collection(COLL_TAGIHAN).doc(tagihan.id),
+          {
+            ...data,
+            username: usernameBaru,
+            ...data.usernameLabel === nama ? { usernameLabel: usernameBaru } : {}
+          },
+          { merge: true }
+        );
+      }
+      await batch2.commit();
+    }
+    const [akunTujuan, langgananAsal, kredensialAsal] = await Promise.all([
+      refAkunBaru.get(),
+      refLanggananLama.get(),
+      refKredensialLama.get()
+    ]);
+    if (akunTujuan.exists) {
+      await refMigrasi.delete();
+      return { ok: false, kode: 409, pesan: "Username baru sudah digunakan akun lain." };
+    }
+    const batch = db.batch();
+    batch.set(
+      refAkunBaru,
+      bersihkanUndefined({
+        ...sekarang,
+        ...patch,
+        username: usernameBaru,
+        usernameSebelumnya: [
+          .../* @__PURE__ */ new Set([
+            ...Array.isArray(sekarang.usernameSebelumnya) ? sekarang.usernameSebelumnya.filter((nama2) => typeof nama2 === "string") : [],
+            nama
+          ])
+        ].slice(-20)
+      })
+    );
+    batch.delete(ref);
+    if (langgananAsal.exists) {
+      batch.set(refLanggananBaru, {
+        ...langgananAsal.data(),
+        username: usernameBaru
+      });
+      batch.delete(refLanggananLama);
+    }
+    if (kredensialAsal.exists) {
+      batch.set(refKredensialBaru, kredensialAsal.data());
+      batch.delete(refKredensialLama);
+    }
+    batch.delete(refMigrasi);
+    await batch.commit();
+    return {
+      ok: true,
+      kode: 200,
+      pesan: "Username dan data akun berhasil dipindahkan."
+    };
+  }
   await ref.set(bersihkanUndefined({ ...sekarang, ...patch }), { merge: true });
   return { ok: true, kode: 200 };
 }
@@ -1050,7 +1149,7 @@ async function gantiPasswordSendiri(token, isi) {
   );
   return { ok: true, kode: 200, pesan: "Password berhasil diperbarui." };
 }
-var COLL_PENGGUNA, COLL_PENGATURAN, BATAS_AKUN_PANEL, DOC_AUTH, TOKEN_TTL_MS, PERBARU_BILA_SISA_MS, TOKEN_V, NAMA_ADMIN_BAWAAN, GATEWAY_BAWAAN, BATAS_PER_IP, BATAS_PER_AKUN, JENDALA_MS, percobaanIp, percobaanAkun, BATAS_ENTRI_PEMBATAS, pesanGagal, OPENSSL_SALTED_MAGIC;
+var COLL_PENGGUNA, COLL_PENGATURAN, COLL_LANGGANAN, COLL_TAGIHAN, BATAS_AKUN_PANEL, DOC_AUTH, TOKEN_TTL_MS, PERBARU_BILA_SISA_MS, TOKEN_V, NAMA_ADMIN_BAWAAN, GATEWAY_BAWAAN, BATAS_PER_IP, BATAS_PER_AKUN, JENDALA_MS, percobaanIp, percobaanAkun, BATAS_ENTRI_PEMBATAS, pesanGagal, OPENSSL_SALTED_MAGIC;
 var init_panelServer = __esm({
   "src/lib/panelServer.ts"() {
     "use strict";
@@ -1061,6 +1160,8 @@ var init_panelServer = __esm({
     init_userManager();
     COLL_PENGGUNA = "jatim_pengguna";
     COLL_PENGATURAN = "jatim_pengaturan";
+    COLL_LANGGANAN = "jatim_langganan";
+    COLL_TAGIHAN = "jatim_tagihan";
     BATAS_AKUN_PANEL = 1e3;
     DOC_AUTH = "auth";
     TOKEN_TTL_MS = 30 * 60 * 1e3;
@@ -1170,6 +1271,7 @@ __export(serverBilling_exports, {
   bacaSemuaTagihan: () => bacaSemuaTagihan,
   bacaTagihanSaya: () => bacaTagihanSaya,
   buatTagihanServer: () => buatTagihanServer,
+  hapusSemuaTagihanServer: () => hapusSemuaTagihanServer,
   hapusTagihanServer: () => hapusTagihanServer,
   perpanjangManualServer: () => perpanjangManualServer,
   setGratisServer: () => setGratisServer,
@@ -1270,7 +1372,7 @@ async function perpanjangManualServer(_token, input) {
   }
   const db = await admin();
   const sekarang = /* @__PURE__ */ new Date();
-  const ref = db.collection(COLL_LANGGANAN).doc(username.trim());
+  const ref = db.collection(COLL_LANGGANAN2).doc(username.trim());
   const snap = await ref.get();
   const lama = snap.data() ?? {};
   const sisa = sisaHari(lama.masaAkhir, sekarang);
@@ -1305,7 +1407,7 @@ async function setMasaAkhirServer(_token, input) {
   if (!Number.isFinite(waktu.getTime())) {
     return { ok: false, kode: 400, pesan: "Tanggal tidak valid." };
   }
-  await (await admin()).collection(COLL_LANGGANAN).doc(username.trim()).set(
+  await (await admin()).collection(COLL_LANGGANAN2).doc(username.trim()).set(
     { username: username.trim(), masaAkhir: waktu.toISOString(), updatedAt: (/* @__PURE__ */ new Date()).toISOString() },
     { merge: true }
   );
@@ -1318,7 +1420,7 @@ async function setGratisServer(_token, input) {
   const { username } = input;
   if (!usernameValid(username)) return { ok: false, kode: 400, pesan: "Username tidak valid." };
   const gratis = Boolean(input.gratis);
-  await (await admin()).collection(COLL_LANGGANAN).doc(username.trim()).set(
+  await (await admin()).collection(COLL_LANGGANAN2).doc(username.trim()).set(
     bersihkanUndefined({
       username: username.trim(),
       gratis,
@@ -1359,7 +1461,7 @@ async function buatTagihanServer(token, input) {
       pesan: "Paket yang dipilih tidak lagi sama dengan harga yang berlaku. Muat ulang halaman."
     };
   }
-  const snap = await (await admin()).collection(COLL_TAGIHAN).where("username", "==", username).limit(BACA_TAGIHAN_BATAS).get();
+  const snap = await (await admin()).collection(COLL_TAGIHAN2).where("username", "==", username).limit(BACA_TAGIHAN_BATAS).get();
   const tagihanMenunggu = snap.docs.find(
     (doc) => String(doc.data().status ?? "") === "menunggu"
   );
@@ -1378,7 +1480,7 @@ async function buatTagihanServer(token, input) {
     return { ok: false, kode: 500, pesan: "Batas tagihan tidak dikonfigurasi dengan benar." };
   }
   const label = typeof input.usernameLabel === "string" ? input.usernameLabel.slice(0, 120) : "";
-  await (await admin()).collection(COLL_TAGIHAN).doc(orderId).set(
+  await (await admin()).collection(COLL_TAGIHAN2).doc(orderId).set(
     bersihkanUndefined({
       orderId,
       username,
@@ -1410,7 +1512,7 @@ async function setStatusTagihanServer(token, input) {
     if (!orderId2 || orderId2.length > 80 || /[\\/]/.test(orderId2)) {
       return { ok: false, kode: 400, pesan: "orderId tidak valid." };
     }
-    const snap = await (await admin()).collection(COLL_TAGIHAN).doc(orderId2).get();
+    const snap = await (await admin()).collection(COLL_TAGIHAN2).doc(orderId2).get();
     if (!snap.exists) {
       return { ok: false, kode: 404, pesan: "Tagihan tidak ditemukan." };
     }
@@ -1425,7 +1527,7 @@ async function setStatusTagihanServer(token, input) {
         pesan: "Tagihan ini sudah tidak menunggu pembayaran, jadi tidak bisa dibatalkan di sini."
       };
     }
-    await (await admin()).collection(COLL_TAGIHAN).doc(orderId2).set(
+    await (await admin()).collection(COLL_TAGIHAN2).doc(orderId2).set(
       {
         status: "batal",
         batalOleh: "pemilik",
@@ -1443,7 +1545,7 @@ async function setStatusTagihanServer(token, input) {
     return { ok: false, kode: 400, pesan: "orderId tidak valid." };
   }
   const status = input.status === "lunas" || input.status === "batal" ? input.status : "menunggu";
-  await (await admin()).collection(COLL_TAGIHAN).doc(orderId).set({ status, catatan: input.catatan ?? "", updatedAt: (/* @__PURE__ */ new Date()).toISOString() }, { merge: true });
+  await (await admin()).collection(COLL_TAGIHAN2).doc(orderId).set({ status, catatan: input.catatan ?? "", updatedAt: (/* @__PURE__ */ new Date()).toISOString() }, { merge: true });
   return { ok: true, kode: 200 };
 }
 async function hapusTagihanServer(_token, orderId) {
@@ -1453,13 +1555,30 @@ async function hapusTagihanServer(_token, orderId) {
   if (!orderId || orderId.length > 80 || /[\\/]/.test(orderId)) {
     return { ok: false, kode: 400, pesan: "orderId tidak valid." };
   }
-  await (await admin()).collection(COLL_TAGIHAN).doc(orderId).delete();
+  await (await admin()).collection(COLL_TAGIHAN2).doc(orderId).delete();
   return { ok: true, kode: 200 };
+}
+async function hapusSemuaTagihanServer(token) {
+  if (!(await dindingAdmin(token)).ok) {
+    return { ok: false, kode: 403, pesan: "Akses khusus admin." };
+  }
+  const db = await admin();
+  const koleksi = db.collection(COLL_TAGIHAN2);
+  let jumlah = 0;
+  while (true) {
+    const snap = await koleksi.limit(450).get();
+    if (snap.empty) break;
+    const batch = db.batch();
+    for (const dokumen of snap.docs) batch.delete(dokumen.ref);
+    await batch.commit();
+    jumlah += snap.size;
+  }
+  return { ok: true, kode: 200, jumlah };
 }
 async function bacaLanggananSaya(token) {
   const pemanggil = await akunPemanggil(token);
   if (!pemanggil) return { ok: false, kode: 401, pesan: "Sesi tidak valid." };
-  const snap = await (await admin()).collection(COLL_LANGGANAN).doc(pemanggil.username.trim()).get();
+  const snap = await (await admin()).collection(COLL_LANGGANAN2).doc(pemanggil.username.trim()).get();
   if (!snap.exists) return { ok: true, kode: 200 };
   const data = snap.data();
   return {
@@ -1473,7 +1592,7 @@ async function bacaTagihanSaya(token, batas = 20) {
   if (!pemanggil) return { ok: false, kode: 401, pesan: "Sesi tidak valid." };
   const db = await admin();
   const batasAman = Math.min(Math.max(Number(batas) || 20, 1), 200);
-  const snap = await db.collection(COLL_TAGIHAN).where("username", "==", pemanggil.username).limit(Math.min(batasAman * 3, 200)).get();
+  const snap = await db.collection(COLL_TAGIHAN2).where("username", "==", pemanggil.username).limit(Math.min(batasAman * 3, 200)).get();
   const tagihan = snap.docs.map((d) => d.data()).sort((a, b) => {
     const selisih = String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
     return selisih !== 0 ? selisih : String(b.orderId ?? "").localeCompare(String(a.orderId ?? ""));
@@ -1484,7 +1603,7 @@ async function bacaSemuaLangganan(token) {
   if (!(await dindingAdmin(token)).ok) {
     return { ok: false, kode: 403, pesan: "Akses khusus admin." };
   }
-  const snap = await (await admin()).collection(COLL_LANGGANAN).limit(500).get();
+  const snap = await (await admin()).collection(COLL_LANGGANAN2).limit(500).get();
   return {
     ok: true,
     kode: 200,
@@ -1495,7 +1614,7 @@ async function bacaSemuaTagihan(token) {
   if (!(await dindingAdmin(token)).ok) {
     return { ok: false, kode: 403, pesan: "Akses khusus admin." };
   }
-  const snap = await (await admin()).collection(COLL_TAGIHAN).limit(200).get();
+  const snap = await (await admin()).collection(COLL_TAGIHAN2).limit(200).get();
   const tagihan = snap.docs.map((d) => d.data()).sort((a, b) => {
     const selisih = String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
     return selisih !== 0 ? selisih : String(b.orderId ?? "").localeCompare(String(a.orderId ?? ""));
@@ -1572,8 +1691,8 @@ async function aktifkanLangganan(token, permintaan) {
     return { ok: false, pesan: "orderId atau username tidak valid.", kode: 400 };
   }
   const db = await admin();
-  const refLangganan = db.collection(COLL_LANGGANAN).doc(username);
-  const refTagihan = db.collection(COLL_TAGIHAN).doc(orderId);
+  const refLangganan = db.collection(COLL_LANGGANAN2).doc(username);
+  const refTagihan = db.collection(COLL_TAGIHAN2).doc(orderId);
   const tagihanAda = await refTagihan.get();
   if (tagihanAda.exists) {
     const lama = tagihanAda.data();
@@ -1708,7 +1827,7 @@ async function aktifkanLangganan(token, permintaan) {
     };
   });
 }
-var COLL_PENGATURAN2, COLL_LANGGANAN, COLL_TAGIHAN, DOC_BILLING, BATAS_TAGIHAN_MENUNGGU, BACA_TAGIHAN_BATAS;
+var COLL_PENGATURAN2, COLL_LANGGANAN2, COLL_TAGIHAN2, DOC_BILLING, BATAS_TAGIHAN_MENUNGGU, BACA_TAGIHAN_BATAS;
 var init_serverBilling = __esm({
   "src/lib/serverBilling.ts"() {
     "use strict";
@@ -1717,8 +1836,8 @@ var init_serverBilling = __esm({
     init_firestoreAdmin();
     init_midtransEnv();
     COLL_PENGATURAN2 = "jatim_pengaturan";
-    COLL_LANGGANAN = "jatim_langganan";
-    COLL_TAGIHAN = "jatim_tagihan";
+    COLL_LANGGANAN2 = "jatim_langganan";
+    COLL_TAGIHAN2 = "jatim_tagihan";
     DOC_BILLING = "billing";
     BATAS_TAGIHAN_MENUNGGU = 1;
     BACA_TAGIHAN_BATAS = 20;
@@ -1905,6 +2024,7 @@ async function tanganiPanelAuth(req, res) {
       }
       case "akun:ubah": {
         const hasil = await ubahAkun(token, str(body.username), {
+          usernameBaru: body.usernameBaru === void 0 ? void 0 : str(body.usernameBaru),
           password: str(body.password) || void 0,
           role: body.role === "admin" || body.role === "user" ? body.role : void 0,
           permissions: body.permissions,
@@ -2084,6 +2204,11 @@ async function tanganiPanelAuth(req, res) {
       case "tagihan:hapus": {
         const { hapusTagihanServer: hapusTagihanServer2 } = await muatBilling();
         const hasil = await hapusTagihanServer2(token, str(body.orderId));
+        return res.status(hasil.kode).json(hasil);
+      }
+      case "tagihan:hapus-semua": {
+        const { hapusSemuaTagihanServer: hapusSemuaTagihanServer2 } = await muatBilling();
+        const hasil = await hapusSemuaTagihanServer2(token);
         return res.status(hasil.kode).json(hasil);
       }
       case "billing:simpan": {

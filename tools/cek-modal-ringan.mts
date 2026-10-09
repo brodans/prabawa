@@ -7,7 +7,7 @@
  *  3. Tidak ada `scale` di animasi modal (scale memicu hitung ulang isi).
  *  4. Animasi keluar sudah dihapus (tidak ada element yang ditahan di DOM).
  *  5. `Modal` tidak mengimpor `motion/react` lagi.
- *  6. `scrollbar-gutter: stable` ada, supaya halaman tidak meleser.
+ *  6. Hanya area konten aplikasi yang menggulir; dokumen tidak punya scroll kedua.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -23,6 +23,7 @@ const cek = (nama: string, ok: unknown, detail = ''): void => {
 const modalSrc = readFileSync(join(root, 'src/components/ui/Modal.tsx'), 'utf8');
 const appSrc = readFileSync(join(root, 'src/App.tsx'), 'utf8');
 const akunSrc = readFileSync(join(root, 'src/components/SettingAkunModal.tsx'), 'utf8');
+const cssSrc = readFileSync(join(root, 'src/index.css'), 'utf8');
 
 /**
  * Buang komentar lebih dulu sebelum memeriksa.
@@ -48,7 +49,8 @@ cek(
   'onClose disimpan di ref (efek tidak ulang tiap render)',
   modalSrc.includes('onCloseRef') && /\}, \[open\]\)/.test(modalSrc)
 );
-cek('halaman melompat lagi? tidak — scrollbar-gutter di CSS', true);
+cek('shell mengunci gulir dokumen', /app-shell-active/.test(appSrc) && /html\.app-shell-active body[\s\S]*?overflow:\s*hidden/.test(cssSrc));
+cek('tidak ada gutter scrollbar permanen', !/scrollbar-gutter:\s*stable/.test(cssSrc));
 
 console.log('\n=== Overlay lain');
 cek('App: overlay menu mobile tanpa blur', !/fixed inset-0 bg-slate-900\/60 backdrop-blur/.test(appSrc));
@@ -110,7 +112,7 @@ if (!cssFile) {
     );
   }
 
-  cek('scrollbar-gutter: stable ada', /scrollbar-gutter:\s*stable/.test(css));
+  cek('tidak ada gutter scrollbar permanen', !/scrollbar-gutter:\s*stable/.test(css));
   cek('dukungan prefers-reduced-motion ada', /prefers-reduced-motion/.test(css));
   cek('durasi animasi pendek (<= 200ms)', /\.modal-panel-enter\{animation:\.16s/.test(css), '.16s');
 }

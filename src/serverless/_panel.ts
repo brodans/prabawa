@@ -331,6 +331,7 @@ export async function tanganiPanelAuth(
       }
       case 'akun:ubah': {
         const hasil = await ubahAkun(token, str(body.username), {
+          usernameBaru: body.usernameBaru === undefined ? undefined : str(body.usernameBaru),
           password: str(body.password) || undefined,
           role: body.role === 'admin' || body.role === 'user' ? (body.role as UserRole) : undefined,
           permissions: body.permissions as Partial<TabPermissions> | undefined,
@@ -514,6 +515,11 @@ export async function tanganiPanelAuth(
       case 'tagihan:hapus': {
         const { hapusTagihanServer } = await muatBilling();
         const hasil = await hapusTagihanServer(token, str(body.orderId));
+        return res.status(hasil.kode).json(hasil);
+      }
+      case 'tagihan:hapus-semua': {
+        const { hapusSemuaTagihanServer } = await muatBilling();
+        const hasil = await hapusSemuaTagihanServer(token);
         return res.status(hasil.kode).json(hasil);
       }
       case 'billing:simpan': {

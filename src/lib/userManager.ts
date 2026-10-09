@@ -228,6 +228,8 @@ export interface UserAccount {
   /** Id dokumen Firestore — sama dengan `username` setelah disanitasi. */
   id?: string;
   username: string;
+  /** Nama akun sebelum rename, untuk migrasi data lokal per-perangkat. */
+  usernameSebelumnya?: string[];
   passwordHash: string;
   role: UserRole;
   permissions: TabPermissions;
@@ -298,4 +300,3 @@ export function validatePassword(password: string): string | null {
   if (password.length > 128) return 'Password terlalu panjang.';
   return null;
 }
-

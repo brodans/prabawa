@@ -49,6 +49,7 @@ interface HasilPanel {
   kode: number;
   pesan?: string;
   terkunci?: number;
+  jumlah?: number;
   token?: string;
   akun?: UserAccountSafe;
   daftar?: UserAccount[];
@@ -334,6 +335,7 @@ export async function createUserAccount(input: {
 export async function updateUserAccount(
   username: string,
   updates: {
+    usernameBaru?: string;
     password?: string;
     role?: UserRole;
     permissions?: Partial<TabPermissions>;
@@ -601,6 +603,15 @@ export async function batalkanTagihan(orderId: string): Promise<void> {
 /** Hapus tagihan yang batal atau salah input. */
 export async function hapusTagihan(orderId: string): Promise<void> {
   await langganan('tagihan:hapus', { orderId });
+}
+
+/** Hapus seluruh riwayat tagihan — khusus admin. */
+export async function hapusSemuaTagihan(): Promise<number> {
+  const hasil = await langganan('tagihan:hapus-semua', {});
+  if (typeof hasil.jumlah !== 'number') {
+    throw new PanelAuthError('Server tidak mengembalikan jumlah tagihan yang dihapus.', hasil.kode);
+  }
+  return hasil.jumlah;
 }
 
 /** Simpan pengaturan billing: paket, QRIS, rekening, nomor WA. */

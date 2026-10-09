@@ -73,10 +73,6 @@ export default function IzinAkun({ nilai, role, onUbah, readonly }: IzinAkunProp
           <Lock className="w-3.5 h-3.5" />
           Akun admin tidak punya batasan izin
         </p>
-        <p className="text-[11px] text-violet-600/90 dark:text-violet-400/80 mt-1 leading-relaxed">
-          Admin memakai semua menu dan tidak pernah dikunci oleh langganan. Menonaktifkan atau
-          menurunkan akun admin dilakukan dari daftar akun.
-        </p>
       </div>
     );
   }

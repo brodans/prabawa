@@ -533,6 +533,7 @@ for (const nama of [
   'buatTagihanServer',
   'setStatusTagihanServer',
   'hapusTagihanServer',
+  'hapusSemuaTagihanServer',
   'simpanBillingServer',
 ]) {
   cek(`server punya ${nama}`, new RegExp(`export async function ${nama}\\b`).test(serverBillingSrc));
@@ -541,6 +542,10 @@ cek(
   'fungsi serverBilling menerima token dan memverifikasinya',
   /_token: AdminToken/.test(serverBillingSrc) && /adalahAdminToken/.test(serverBillingSrc),
   'tanpa ini, pemindahan ke server hanya memindahkan masalahnya'
+);
+cek(
+  'hapusSemuaTagihanServer memeriksa hak admin',
+  /hapusSemuaTagihanServer[\s\S]*?dindingAdmin\(token\)/.test(serverBillingSrc),
 );
 cek(
   'Aksi langganan di endpoint memakai helper yang sama',

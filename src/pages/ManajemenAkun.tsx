@@ -895,37 +895,18 @@ function KelolaAkun({ toast, setSubPath }: {
           </div>
         </div>
 
-        {/*
-         * Ringkasan filter di baris sendiri, dengan tinggi yang selalu ada.
-         *
-         * Semula blok ini hanya dirender saat `adaFilter`, jadi baris ikut
-         * melompat dan tombol terdorong saat filter pertama kali aktif. Baris
-         * kosong yang tetap ada membuat sudut pandang tidak berubah.
-         */}
-        <div className="mt-2.5 flex items-center justify-between gap-2 min-h-[26px]">
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-            {adaFilter ? (
-              <>
-                {tersaring.length} dari {baris.length} akun
-                {cari.trim() ? ` untuk "${cari.trim()}"` : ''}
-              </>
-            ) : (
-              <span className="text-slate-400 dark:text-slate-500">
-                Menampilkan seluruh {baris.length} akun
-              </span>
-            )}
-          </p>
-          {adaFilter && (
+        {adaFilter && (
+          <div className="mt-2.5 flex justify-end">
             <button
               type="button"
               onClick={bersihkanFilter}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors shrink-0"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
             >
               <X className="w-3 h-3" />
               Reset filter
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/*
          * Status kredensial **tidak diketahui** — bukan "belum diatur".
@@ -1201,6 +1182,7 @@ function DialogAkun({
     const sandi = passwordServer.trim();
     const nips = nipServer.trim();
     if (!sandi && !nips && !imei.trim()) return;
+    if (!sandi && !tersimpan?.terbaca) return;
     if (!nips) {
       throw new Error('NIP wajib diisi sebelum kredensial server disimpan.');
     }
@@ -1237,7 +1219,9 @@ function DialogAkun({
         await simpanKredensialServerJikaDiisi(username.trim());
         await onSelesai(`Akun ${username.trim()} dibuat.`);
       } else {
+        const usernameTujuan = username.trim().toLowerCase();
         await updateUserAccount(akun.username, {
+          ...(usernameTujuan !== akun.username ? { usernameBaru: usernameTujuan } : {}),
           ...(password ? { password } : {}),
           role,
           permissions: izin,
@@ -1246,8 +1230,12 @@ function DialogAkun({
           catatan: catatan.trim(),
           nonaktif,
         });
-        await simpanKredensialServerJikaDiisi(akun.username);
-        await onSelesai(`Akun ${akun.username} diperbarui.`);
+        await simpanKredensialServerJikaDiisi(usernameTujuan);
+        await onSelesai(
+          usernameTujuan !== akun.username
+            ? `Username akun dipindahkan dari ${akun.username} ke ${usernameTujuan}. Pengguna perlu login ulang.`
+            : `Akun ${akun.username} diperbarui.`
+        );
       }
     } catch (err: any) {
       const pesan = err?.message ?? 'Gagal menyimpan akun.';
@@ -1295,13 +1283,11 @@ function DialogAkun({
           <Field
             label="Username"
             required
-            hint={baru ? 'Dipakai untuk login panel. Tidak bisa diubah nanti.' : 'Tidak bisa diubah'}
+            hint="Dipakai untuk login panel."
           >
             <Input
               value={username}
               onChange={e => setUsername(e.target.value)}
-              disabled={!baru}
-              className={!baru ? 'opacity-60' : ''}
               placeholder="budi.santoso"
             />
           </Field>
@@ -1368,13 +1354,9 @@ function DialogAkun({
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Login Server Pusat
             </p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-              {tersimpan?.terbaca ? (
-                <>
-                  Kredensial tersimpan dan bisa dipakai auto-login. Isi ulang password hanya perlu
-                  kalau password server berubah.
-                </>
-              ) : tersimpan ? (
+            {(!tersimpan || !tersimpan.terbaca) && (
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                {tersimpan ? (
                 <>
                   Dokumen kredensial versi lama — <strong>{tersimpan.pesan}</strong>
                 </>
@@ -1384,7 +1366,8 @@ function DialogAkun({
                   pusat</strong> setiap kali aplikasinya dibuka. Tidak perlu login manual.
                 </>
               )}
-            </p>
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

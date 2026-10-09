@@ -144,6 +144,7 @@ function Collection(koleksi: string): any {
     doc(id: string) {
       return {
         id,
+        koleksi,
         get: async () => {
           const data = dokumen.get(`${koleksi}/${id}`);
           return data
@@ -229,7 +230,37 @@ async function getAll(...refs: Array<{ id: string }>): Promise<unknown[]> {
   });
 }
 
-const firestoreTiruan = { collection: Collection, getAll } as unknown as Parameters<
+const firestoreTiruan = {
+  collection: Collection,
+  getAll,
+  batch() {
+    const writes: Array<
+      | { kind: 'set'; ref: { koleksi: string; id: string }; data: Record<string, unknown>; merge: boolean }
+      | { kind: 'delete'; ref: { koleksi: string; id: string } }
+    > = [];
+    return {
+      set(ref: { koleksi: string; id: string }, data: Record<string, unknown>, opsi?: { merge?: boolean }) {
+        writes.push({ kind: 'set', ref, data, merge: Boolean(opsi?.merge) });
+        return this;
+      },
+      delete(ref: { koleksi: string; id: string }) {
+        writes.push({ kind: 'delete', ref });
+        return this;
+      },
+      async commit() {
+        for (const write of writes) {
+          const key = `${write.ref.koleksi}/${write.ref.id}`;
+          if (write.kind === 'delete') {
+            dokumen.delete(key);
+          } else {
+            const lama = write.merge ? (dokumen.get(key) ?? {}) : {};
+            dokumen.set(key, { ...lama, ...write.data });
+          }
+        }
+      },
+    };
+  },
+} as unknown as Parameters<
   typeof adminModulLater['__setFirestoreTiruan']
 >[0];
 
@@ -1120,6 +1151,7 @@ const langgananOperasi = [
   ['langganan:set-gratis', { username: 'budi', gratis: true }],
   ['tagihan:status', { orderId: 'PRABAWA-BULANAN-1', status: 'lunas' }],
   ['tagihan:hapus', { orderId: 'PRABAWA-BULANAN-1' }],
+  ['tagihan:hapus-semua', {}],
   [
     'billing:simpan',
     {
@@ -2129,6 +2161,57 @@ console.log('\n=== 13. Peta pembatas dan pindai akun tidak tumbuh tanpa batas');
       /\.collection\(COLL_PENGGUNA\)\.limit\(BATAS_AKUN_PANEL \+ 1\)/.test(polos) &&
       /kode: 409/.test(polos),
     'memotong daftar membuat admin melihat tabel yang tampak lengkap padahal tidak');
+}
+
+// ═════════════════════════════════════════════════════════════════════
+console.log('\n=== Rename username memindahkan seluruh data akun');
+{
+  dokumen.set('jatim_langganan/budi', {
+    username: 'budi',
+    masaAkhir: '2027-05-01T00:00:00.000Z',
+    totalBayar: 100_000,
+  });
+  dokumen.set('jatim_tagihan/ORDER-BUDI-1', {
+    orderId: 'ORDER-BUDI-1',
+    username: 'budi',
+    usernameLabel: 'budi',
+    status: 'lunas',
+  });
+  dokumen.set('jatim_tagihan/ORDER-BUDI-2', {
+    orderId: 'ORDER-BUDI-2',
+    username: 'budi',
+    usernameLabel: 'Budi Santoso',
+    status: 'menunggu',
+  });
+  dokumen.set(KUNCI.pengaturan('kredensial_server__budi'), {
+    nip: '200308062025101001',
+    passwordEncrypted: 'v2.stub.stub.stub',
+    imei: 'IMEI-BUDI',
+  });
+
+  const hasil = await P.ubahAkun(tokenAdmin, 'budi', { usernameBaru: 'budi.baru' });
+  cek('rename akun berhasil', hasil.ok, hasil.pesan ?? '');
+  cek('dokumen akun memakai username baru dan akun lama dihapus',
+    dokumen.get(KUNCI.pengguna('budi.baru'))?.username === 'budi.baru' &&
+      !dokumen.has(KUNCI.pengguna('budi')));
+  cek('kredensial server ikut dipindahkan',
+    dokumen.get(KUNCI.pengaturan('kredensial_server__budi.baru'))?.nip === '200308062025101001' &&
+      !dokumen.has(KUNCI.pengaturan('kredensial_server__budi')));
+  cek('masa aktif dipindahkan tanpa mengubah nilainya',
+    dokumen.get('jatim_langganan/budi.baru')?.masaAkhir === '2027-05-01T00:00:00.000Z' &&
+      !dokumen.has('jatim_langganan/budi'));
+  cek('semua tagihan ikut ke username baru',
+    dokumen.get('jatim_tagihan/ORDER-BUDI-1')?.username === 'budi.baru' &&
+      dokumen.get('jatim_tagihan/ORDER-BUDI-1')?.usernameLabel === 'budi.baru' &&
+      dokumen.get('jatim_tagihan/ORDER-BUDI-2')?.username === 'budi.baru' &&
+      dokumen.get('jatim_tagihan/ORDER-BUDI-2')?.usernameLabel === 'Budi Santoso');
+  cek('token dengan username lama tidak lagi berlaku',
+    !(await P.verifikasiToken(tokenUser)).ok);
+  const sesiBaru = await P.verifikasiToken(P.terbitkanToken('budi.baru', 'user', izinUser));
+  cek('token username baru mengembalikan alias username lama',
+    sesiBaru.ok && sesiBaru.akun?.usernameSebelumnya?.includes('budi') === true);
+  cek('hasil migrasi tidak meninggalkan marker',
+    !dokumen.has(KUNCI.pengaturan('rename_akun__budi')));
 }
 
 // ═════════════════════════════════════════════════════════════════════

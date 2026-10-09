@@ -214,5 +214,42 @@ console.log('\n=== 4. Absensi tetap mensyaratkan titik');
     /Jarak ke Titik Server/.test(baca('src/pages/Presensi.tsx')));
 }
 
+console.log('\n=== 5. Titik lokal ikut username setelah akun di-rename');
+{
+  const lokasiStore = new Map<string, string>();
+  const lokasiStorage: Storage = {
+    getItem: k => lokasiStore.get(k) ?? null,
+    setItem: (k, v) => void lokasiStore.set(k, String(v)),
+    removeItem: k => void lokasiStore.delete(k),
+    clear: () => lokasiStore.clear(),
+    key: i => [...lokasiStore.keys()][i] ?? null,
+    get length() { return lokasiStore.size; },
+  };
+  globalThis.localStorage = lokasiStorage;
+  globalThis.window = { localStorage: lokasiStorage } as unknown as Window & typeof globalThis;
+  const { migrasiTitikUsernameLokal } = await import('../src/lib/lokasiTersimpan.ts');
+  const lama = 'epresensi_jatim_lokasi__nama-lama';
+  const lamaAktif = 'epresensi_jatim_lokasi_aktif__nama-lama';
+  const baru = 'epresensi_jatim_lokasi__nama-baru';
+  const baruAktif = 'epresensi_jatim_lokasi_aktif__nama-baru';
+  const dataTitik = JSON.stringify([
+    { id: 'kantor', nama: 'Kantor', latitude: -7.2, longitude: 112.7, dipakai: true, dibuatPada: 1 },
+  ]);
+  lokasiStore.set(lama, dataTitik);
+  lokasiStore.set(lamaAktif, 'kantor');
+  migrasiTitikUsernameLokal('nama-baru', ['nama-lama']);
+  cek('daftar titik disalin ke username baru', lokasiStore.get(baru) === dataTitik);
+  cek('titik aktif ikut dipindahkan', lokasiStore.get(baruAktif) === 'kantor');
+  cek('kunci lokal username lama dibersihkan setelah tersalin',
+    !lokasiStore.has(lama) && !lokasiStore.has(lamaAktif));
+
+  lokasiStore.set(lama, dataTitik);
+  lokasiStore.set(baru, 'daftar-yang-sudah-ada');
+  migrasiTitikUsernameLokal('nama-baru', ['nama-lama']);
+  cek('data sumber dipertahankan bila kunci tujuan sudah ada',
+    lokasiStore.get(lama) === dataTitik);
+  lokasiStore.delete(baru);
+}
+
 console.log(fail === 0 ? '\nSEMUA LULUS' : `\n${fail} KEGAGALAN`);
 if (fail > 0) process.exitCode = 1;

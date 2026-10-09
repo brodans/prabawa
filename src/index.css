@@ -51,20 +51,20 @@
     outline-offset: 2px;
   }
 
-  /**
-   * `scrollbar-gutter: stable` dipasang di elemen scroll dalam (div konten),
-   * bukan di html/body — karena scroll utama ada di dalam div flex, bukan
-   * di body. Kalau dipasang di html, ia menyisakan ruang scrollbar di kanan
-   * meskipun body tidak pernah scroll, sehingga konten terlihat tidak mentok
-   * ke tepi kanan layar.
-   */
-
   /* Root container full viewport */
   #root {
     min-height: 100vh;
     min-height: -webkit-fill-available;
     width: 100%;
     overflow-x: hidden;
+  }
+
+  html.app-shell-active,
+  html.app-shell-active body,
+  html.app-shell-active #root {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   @supports (min-height: 100svh) {
@@ -98,53 +98,34 @@
   }
 }
 
-/* ─── Padding yang memperhitungkan safe area ──────────────────────────
- *
- * Semua nilai dibungkus `max(padding biasa, safe area)`. Di perangkat tanpa
- * notch hasilnya **persis sama** dengan utility yang digantikannya — `max()`
- * memilih yang lebih besar, dan `0px` tidak pernah mengalahkan `1rem`.
- * Yang berubah hanya perangkat yang memang punya area tepi terpakai.
- *
- * Skala paddingnya mengikuti utility yang digantikan, breakpoint demi
- * breakpoint, supaya jarak isi tetap sama seperti sebelumnya.
- */
+/* Safe-area inset dipertahankan; padding luar biasa dihilangkan agar halaman
+   dan kontrol header mencapai tepi viewport. */
 @layer components {
-  /* Konten halaman — menggantikan `p-4 sm:p-6 lg:p-8`. */
+  /* Konten halaman tidak menambahkan gutter horizontal. */
   .poni-konten {
     padding-top: 1.25rem;
-    padding-left: max(1rem, var(--poni-kiri));
-    padding-right: max(1rem, var(--poni-kanan));
+    padding-left: var(--poni-kiri);
+    padding-right: var(--poni-kanan);
     padding-bottom: max(1rem, var(--poni-bawah));
   }
   @media (min-width: 640px) {
     .poni-konten {
       padding-top: 1.5rem;
-      padding-left: max(1.5rem, var(--poni-kiri));
-      padding-right: max(1.5rem, var(--poni-kanan));
       padding-bottom: max(1.5rem, var(--poni-bawah));
     }
   }
   @media (min-width: 1024px) {
     .poni-konten {
       padding-top: 1.75rem;
-      padding-left: max(2rem, var(--poni-kiri));
-      padding-right: max(2rem, var(--poni-kanan));
       padding-bottom: max(2rem, var(--poni-bawah));
     }
   }
 
-  /* Top bar — menggantikan `px-4 sm:px-8`. */
+  /* Top bar merapat ke tepi; safe-area inset tetap dihormati. */
   .poni-header {
-    padding-left: max(1rem, var(--poni-kiri));
-    padding-right: max(1rem, var(--poni-kanan));
+    padding-left: var(--poni-kiri);
+    padding-right: var(--poni-kanan);
   }
-  @media (min-width: 640px) {
-    .poni-header {
-      padding-left: max(2rem, var(--poni-kiri));
-      padding-right: max(1rem, var(--poni-kanan));
-    }
-  }
-
   /* Sidebar — tepi kiri & bawah, karena di HP sidebar menumpuk di atas konten. */
   .poni-sidebar {
     padding-left: var(--poni-kiri);
@@ -226,26 +207,8 @@
   scrollbar-color: #475569 transparent;
 }
 
-/*
- * Kolom konten — satu-satunya elemen yang benar-benar menggulir vertikal.
- *
- * `scrollbar-gutter: stable` menyisakan ruang untuk scrollbar **walaupun
- * scrollbar-nya sedang tidak muncul**. Tanpa itu, mengunci gulir saat modal
- * terbuka membuat ruang scrollbar hilang, lebar halaman bertambah, dan
- * seluruh konten meleser ke kanan satuophor lalu kembali — layout shift yang
- * persis terasa di perangkat kecil.
- *
- * Ditaruh di sini, bukan di `html`/`body`: scroll utama berada di dalam div
- * flex ini. Memasangnya di `html` menyisakan ruang kosong di tepi kanan
- * meski `body` tidak pernah menggulir, sehingga konten terlihat tidak
- * mentok ke tepi layar.
- *
- * ⚠️ Bukan inline `style={{ scrollbarGutter: 'stable' }}` di `App.tsx`.
- * Aturan ini hanya berlaku kalau ada di CSS hasil build — yang diperiksa
- * `cek-modal-ringan.ts`.
- */
+/* Kolom konten adalah satu-satunya area gulir utama, tanpa gutter permanen. */
 .konten-gulir {
-  scrollbar-gutter: stable;
   min-height: 0;
 }
 
@@ -327,10 +290,9 @@
  *    menghitung ulang seluruh isi panel tiap frame (bukan cuma
  *    memindahkan bitmap seperti `translate`). Diganti `translateY` saja,
  *    yang murni operasi compositor.
- * 3. **Perubahan `overflow` pada `<body>`.** Menghilangkan scrollbar
- *    mengubah lebar halaman sehingga seluruh konten meleser
- *    (layout shift). Diperbaiki dengan kompensasi lebar scrollbar lewat
- *    properti `scrollbar-gutter`, bukan padding yang dihitung JS.
+ * 3. **Perubahan `overflow` pada `<body>`.** Shell aplikasi mengunci gulir
+ *    dokumen dan memakai kolom konten sebagai satu-satunya area scroll,
+ *    jadi modal tidak menambah atau menghilangkan scrollbar halaman kedua.
  *
  * Semua animasi ini hanya menyentuh `opacity` dan `transform`, jadi
  * berjalan di thread compositor tanpa memicu layout maupun paint isi.

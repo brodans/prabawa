@@ -25,6 +25,7 @@ import {
 import { resetAutoLogin } from '../lib/serverAutoLogin';
 import { bacaStorage, tulisStorage } from '../lib/storageAman';
 import { verifikasiSesiPanel } from '../lib/akunFirestore';
+import { migrasiTitikUsernameLokal } from '../lib/lokasiTersimpan';
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Profil pegawai hasil login ke server pusat
@@ -403,6 +404,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         // Peran & izin datang dari server, bukan dari storage.
         const izinServer = batasiIzin(hasil.akun.permissions, hasil.akun.role);
+        migrasiTitikUsernameLokal(hasil.akun.username, hasil.akun.usernameSebelumnya ?? []);
         setCurrentUserState(hasil.akun);
         setTabPermissionsState(izinServer);
         // Perpanjangan token disimpan tanpa mengganti akun.
@@ -513,6 +515,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    migrasiTitikUsernameLokal(user.username, user.usernameSebelumnya ?? []);
     setCurrentUserState(user);
     setTabPermissionsState(permissions);
     saveSession(user, permissions, token);

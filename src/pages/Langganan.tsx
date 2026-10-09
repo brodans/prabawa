@@ -65,7 +65,6 @@ import {
   validasiKodeBank,
   tautanWa,
   TEMPLATE_WA_DEFAULT,
-  PLACEHOLDER_WA,
   BATAS_PESAN_WA,
   formatRuang as formatRuangWa,
   ringkasanLangganan,
@@ -98,6 +97,7 @@ import {
  */
 import {
   hapusTagihan,
+  hapusSemuaTagihan,
   perpanjangManual,
   savePengaturanBilling,
   setGratis,
@@ -234,6 +234,9 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
   const [dialogPengaturan, setDialogPengaturan] = useState(false);
   const [dialogRekening, setDialogRekening] = useState<RekeningBank | null>(null);
   const [konfirmasiHapus, setKonfirmasiHapus] = useState<string | null>(null);
+  const [konfirmasiHapusSemua, setKonfirmasiHapusSemua] = useState(false);
+  const [menghapusSemua, setMenghapusSemua] = useState(false);
+  const [menghapusTagihanId, setMenghapusTagihanId] = useState<string | null>(null);
 
   // ── Muat data ─────────────────────────────────────────────────────
   /**
@@ -389,6 +392,7 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
    * dan total pendapatan ikut benar. Sifatnya "mengejar", bukan "menunggu".
    */
   const aksiHapusTagihan = async (orderId: string) => {
+    setMenghapusTagihanId(orderId);
     try {
       await hapusTagihan(orderId);
       setTagihan(prev => prev.filter(item => item.orderId !== orderId));
@@ -397,6 +401,23 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
       void muat();
     } catch (err: any) {
       toast.error(err?.message ?? 'Gagal menghapus tagihan.');
+    } finally {
+      setMenghapusTagihanId(null);
+    }
+  };
+
+  const aksiHapusSemuaTagihan = async () => {
+    setMenghapusSemua(true);
+    try {
+      const jumlah = await hapusSemuaTagihan();
+      setTagihan([]);
+      setKonfirmasiHapusSemua(false);
+      toast.success(jumlah > 0 ? `${jumlah} tagihan dihapus.` : 'Tidak ada tagihan untuk dihapus.');
+      void muat();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Gagal menghapus seluruh riwayat pembayaran.');
+    } finally {
+      setMenghapusSemua(false);
     }
   };
 
@@ -854,7 +875,6 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
             </div>
           </div>
 
-          <CardTitle action={<Badge tone="blue">{terfilter.length} akun</Badge>}>Monitoring Akun</CardTitle>
           {terfilter.length === 0 ? (
             <EmptyState message="Tidak ada akun pada filter ini." hint="Ubah filter atau kata kunci pencarian." />
           ) : (
@@ -867,7 +887,17 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
         </Card>
       ) : tab === 'pembayaran' ? (
         <Card padded={false} className="p-5 sm:p-6">
-          <CardTitle action={<Badge tone="blue">{tagihan.length} tagihan</Badge>}>Riwayat Pembayaran</CardTitle>
+          <CardTitle action={
+            <ActionButton
+              size="sm"
+              variant="danger"
+              disabled={tagihan.length === 0 || menghapusSemua}
+              onClick={() => setKonfirmasiHapusSemua(true)}
+              icon={<Trash2 className="h-4 w-4" />}
+            >
+              Hapus Semua
+            </ActionButton>
+          }>Riwayat Pembayaran</CardTitle>
           {tagihan.length === 0 ? (
             <EmptyState message="Belum ada tagihan." hint="Tagihan dibuat otomatis saat pengguna memilih paket." />
           ) : (
@@ -992,8 +1022,19 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
         message={`Tagihan ${konfirmasiHapus} akan dihapus permanen. Riwayat pembayaran yang sudah tercatat di akun pengguna tidak ikut terhapus.`}
         confirmLabel="Ya, Hapus"
         tone="danger"
+        loading={menghapusTagihanId === konfirmasiHapus}
         onConfirm={() => void aksiHapusTagihan(konfirmasiHapus ?? '')}
         onCancel={() => setKonfirmasiHapus(null)}
+      />
+      <ConfirmDialog
+        open={konfirmasiHapusSemua}
+        title="Hapus Semua Riwayat Pembayaran?"
+        message="Seluruh tagihan akan dihapus permanen, termasuk yang sudah lunas. Masa aktif akun yang sudah diberikan tidak berubah."
+        confirmLabel="Ya, Hapus Semua"
+        tone="danger"
+        loading={menghapusSemua}
+        onConfirm={() => void aksiHapusSemuaTagihan()}
+        onCancel={() => setKonfirmasiHapusSemua(false)}
       />
     </div>
   );
@@ -1252,11 +1293,6 @@ function PengaturanBillingForm({
             className="ml-6.5 mt-2"
           />
 
-          <p className="text-[11px] text-slate-400 dark:text-slate-500 ml-6.5">
-            Midtrans membaca <code className="font-mono">MIDTRANS_SERVER_KEY</code> di server. Kalau key belum
-            diisi, metode ini otomatis disembunyikan dari pengguna.
-          </p>
-
           <Checkbox
             checked={draft.izinkanGratis}
             onChange={izinkanGratis => setDraft(prev => ({ ...prev, izinkanGratis }))}
@@ -1328,11 +1364,6 @@ function PengaturanBillingForm({
         >
           Konfirmasi WhatsApp
         </CardTitle>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-          Setelah membayar lewat QRIS atau transfer, pengguna bisa menekan tombol konfirmasi yang membuka
-          WhatsApp dengan pesan yang sudah terisi. Kosongkan nomornya untuk menyembunyikan tombol tersebut.
-        </p>
-
         <div>
           <Field
             label="Nomor WhatsApp"
@@ -1353,10 +1384,7 @@ function PengaturanBillingForm({
         </div>
 
         <div className="mt-4">
-          <Field
-            label="Template Pesan"
-            hint={`Placeholder: ${PLACEHOLDER_WA.join(' ')} — maksimal ${formatRuangWa(BATAS_PESAN_WA)} karakter`}
-          >
+          <Field label="Template Pesan">
             <Textarea
               value={draft.templateWa}
               onChange={event => setDraft(prev => ({ ...prev, templateWa: event.target.value }))}
@@ -1473,10 +1501,6 @@ function PengaturanBillingForm({
         >
           Paket Langganan
         </CardTitle>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 leading-relaxed">
-          Durasi memakai <strong>kalender</strong>, bukan jumlah hari. Paket "1 Bulan" yang dibayar 31 Januari
-          berakhir 28 Februari — bukan 2 Maret seperti bila dijumlah 30 hari.
-        </p>
         <div className="space-y-3">
           {draft.paket.map(item => (
             <div
