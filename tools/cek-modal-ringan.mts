@@ -51,6 +51,18 @@ cek(
 );
 cek('shell mengunci gulir dokumen', /app-shell-active/.test(appSrc) && /html\.app-shell-active body[\s\S]*?overflow:\s*hidden/.test(cssSrc));
 cek('tidak ada gutter scrollbar permanen', !/scrollbar-gutter:\s*stable/.test(cssSrc));
+cek('kolom kanan mengikuti tinggi shell, bukan menambah 100svh di bawah header',
+  /flex-1 flex flex-col min-w-0 h-full min-h-0 relative overflow-hidden/.test(appSrc) &&
+    !/flex-1 flex flex-col min-w-0 h-\[100svh\] relative overflow-hidden/.test(appSrc));
+cek('scroll vertikal halaman hanya berada pada kontainer konten',
+  /konten-gulir flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto/.test(appSrc) &&
+    /poni-konten flex-1 min-w-0 overflow-x-hidden w-full/.test(appSrc));
+cek('padding halaman tidak mendorong scrollbar dari tepi viewport',
+  /padding-left:\s*max\(1rem, var\(--poni-kiri\)\)/.test(cssSrc) &&
+    /padding-right:\s*max\(1rem, var\(--poni-kanan\)\)/.test(cssSrc));
+cek('satu aturan global scrollbar, tanpa deklarasi yang saling menimpa',
+  (cssSrc.match(/\*::-webkit-scrollbar\s*\{/g) ?? []).length === 1 &&
+    (cssSrc.match(/^\s*::-webkit-scrollbar\s*\{/gm) ?? []).length === 0);
 
 console.log('\n=== Overlay lain');
 cek('App: overlay menu mobile tanpa blur', !/fixed inset-0 bg-slate-900\/60 backdrop-blur/.test(appSrc));

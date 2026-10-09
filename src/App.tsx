@@ -948,7 +948,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
         sama tanpa biaya render.
       */}
       <div
-            className={`flex-1 flex flex-col min-w-0 h-[100svh] relative overflow-hidden ${
+        className={`flex-1 flex flex-col min-w-0 h-full min-h-0 relative overflow-hidden ${
           isMobileMenuOpen ? 'pointer-events-none lg:pointer-events-auto' : ''
         }`}
       >
@@ -1082,7 +1082,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
         <BannerKontrakServer />
         <BannerServerPusat />
 
-        {/* `konten-gulir` memberi `scrollbar-gutter: stable` — lihat `index.css`. */}
+        {/* Satu-satunya area scroll halaman; scrollbar tetap di tepi shell. */}
         <div className="konten-gulir flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto custom-scrollbar relative">
           <main className="poni-konten flex-1 min-w-0 overflow-x-hidden w-full">
             <div className="min-w-0 w-full">
