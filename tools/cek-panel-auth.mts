@@ -1618,6 +1618,8 @@ cek('setCurrentUser menolak tanpa token', /setCurrentUser tanpa token/.test(appC
 cek('saveSession dipanggil dengan token', /saveSession\(user,\s*permissions,\s*token\)/.test(appCtx));
 
 const appSrc = kode('src/App.tsx');
+const gateSrc = kode('src/components/GerbangLangganan.tsx');
+const ctxSrc = kode('src/context/AppContext.tsx');
 /*
  * `memeriksaSesi` memang boleh membaca `loadSession()` — itu hanya membandingkan
  * "ada token atau tidak", bukan mempercayai isinya. Yang dilarang adalah memakai
@@ -1633,10 +1635,22 @@ cek('isAuthenticated dimulai false, bukan dari storage',
 cek('tidak ada setIsAuthenticated yang membaca storage',
   !/setIsAuthenticated\(\s*\(\)\s*=>\s*!!loadSession/.test(appSrc));
 cek('layar tunggu mengikuti status verifikasi dari AppContext',
-  /const memeriksaSesi = cekingSesi/.test(appSrc) &&
+  /const memulihkan = adaSesiSaatMuat/.test(appSrc) &&
   /if \(cekingSesi\) return;\s*setIsAuthenticated\(currentUser !== null\)/.test(appSrc),
   'verifikasi sukses membuka aplikasi; sesi yang ditolak tetap tidak terautentikasi');
-cek('App menunda render saat memeriksa sesi', /memeriksaSesi|LayarMemeriksaSesi/.test(appSrc));
+cek('pemulihan sesi menampilkan placeholder halaman terakhir tanpa akses',
+  /cekingSesi \? \(\s*fallbackPemeriksaan/.test(appSrc) &&
+    /function LayarMemulihkanSesi/.test(appSrc) &&
+    /adaSesiSaatMuat/.test(ctxSrc));
+cek('pemeriksaan langganan memakai fallback yang sama selama pemulihan',
+  /fallbackLoading=\{fallbackPemeriksaan\}/.test(appSrc) &&
+    /fallbackLoading\) return <>\{fallbackLoading\}<\/>/.test(gateSrc));
+cek('login awal memakai label status yang sama dan fixed viewport',
+  /fixed inset-0 flex flex-col items-center justify-center/.test(appSrc) &&
+    /Memeriksa sesi…/.test(appSrc) &&
+    !/Memeriksa langganan…/.test(gateSrc));
+cek('shell mengunci dokumen sebelum first paint untuk mencegah scrollbar ganda',
+  /React\.useLayoutEffect\(\(\) => \{\s*document\.documentElement\.classList\.add\('app-shell-active'\)/.test(appSrc));
 cek('request panel-auth punya timeout dan AbortSignal',
   /PANEL_AUTH_TIMEOUT_MS = 15_000/.test(akunSrc) &&
   /setTimeout\(\(\) => controller\.abort\(\), PANEL_AUTH_TIMEOUT_MS\)/.test(akunSrc) &&

@@ -248,6 +248,8 @@ interface AppContextType {
    * "refresh" tidak pernah menjadi jalan masuk dengan hak lama.
    */
   cekingSesi: boolean;
+  /** Penanda sesi tersimpan saat load, hanya untuk menampilkan placeholder inert. */
+  adaSesiSaatMuat: boolean;
   /*
    * ⚠️ `autoLoginTrigger` **dihapus**.
    *
@@ -355,6 +357,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
    * milik provider dan tidak perlu tahu apa pun soal render.
    */
   const [sesiTersimpan] = useState(() => loadSession());
+  const adaSesiSaatMuat = sesiTersimpan !== null;
 
   /*
    * Selama verifikasi berjalan, **tidak ada hak akses sama sekali**.
@@ -715,13 +718,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       userRole,
       tabPermissions,
       cekingSesi,
+      adaSesiSaatMuat,
     }),
     [
       // State
       pegawai, serverConnected, serverLoginError, serverLogoutRequested,
       loginForm, developerMode, config, activePage,
       pathname, laporanLogState, riwayatIzinState, webPresensiState, currentUser, userRole,
-      tabPermissions, cekingSesi,
+      tabPermissions, cekingSesi, adaSesiSaatMuat,
       // Setter
       setDeveloperMode, setActivePage, setSubPath, setCurrentUser,
       // Dispatcher useState — stabil, tapi didaftarkan agar lengkap.

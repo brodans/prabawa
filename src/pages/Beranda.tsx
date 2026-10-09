@@ -294,7 +294,7 @@ export default function Beranda() {
 
               <Field
                 label="IMEI"
-                hint="Faktor ketiga untuk login server. Dikosongkan, panel memakai tech mark stabil akun ini — tapi akun yang terkunci ke satu perangkat hanya menerima IMEI perangkat aslinya."
+                hint="IMEI perangkat terdaftar, jika diwajibkan."
               >
                 <Input
                   value={loginForm.imei}
@@ -324,10 +324,7 @@ export default function Beranda() {
               </ActionButton>
 
               <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">
-                NIP, password, dan IMEI disimpan terenkripsi lalu dipakai otomatis setiap kali
-                aplikasi dibuka. Untuk memutus sambungan dan mematikannya, gunakan{' '}
-                <span className="font-semibold">Keluar dari Server</span> pada kartu akun di
-                atas.
+                Kredensial tersimpan terenkripsi untuk login otomatis.
               </p>
             </form>
           </Card>

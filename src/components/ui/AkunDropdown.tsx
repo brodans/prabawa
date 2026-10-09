@@ -243,11 +243,7 @@ export default function AkunDropdown({
                   <span className="mt-0.5 shrink-0">{item.icon}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-xs font-bold">{item.label}</span>
-                    {/*
-                      `break-words` untuk yang sama seperti di atas: hint
-                      seperti "update_profil · update_foto di server pusat"
-                      tidak boleh terpotong di tengah kata.
-                    */}
+                    {/* Hint panjang tidak boleh terpotong di tengah kata. */}
                     {item.hint && (
                       <span className="block text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 break-words leading-snug">
                         {item.hint}

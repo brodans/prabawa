@@ -477,7 +477,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
     setServerLogoutRequested,
   } = useAppContext();
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     document.documentElement.classList.add('app-shell-active');
     return () => document.documentElement.classList.remove('app-shell-active');
   }, []);
@@ -1032,8 +1032,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
                   // tidak pernah terpanggil. Sekarang membuka modal yang
                   // benar-benar memanggil server pusat.
                   id: 'password',
-                  label: 'Profil & Password Server',
-                  hint: 'update_profil · update_foto di server pusat',
+                  label: 'Ubah profil & password di server',
                   icon: <KeyRound className="w-4 h-4 text-blue-500" />,
                   onClick: () => setIsProfilServerOpen(true),
                 },
@@ -1179,12 +1178,42 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
 function LayarMemeriksaSesi() {
   return (
     <div
-      className="min-h-[100svh] flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-[#0a0f1c]"
+      className="fixed inset-0 flex flex-col items-center justify-center gap-3 overflow-hidden bg-slate-50 dark:bg-[#0a0f1c]"
       role="status"
       aria-live="polite"
     >
       <div className="w-8 h-8 border-[2.5px] border-slate-200 dark:border-slate-700 border-t-indigo-500 dark:border-t-indigo-400 rounded-full animate-spin" />
       <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Memeriksa sesi…</p>
+    </div>
+  );
+}
+
+function LayarMemulihkanSesi({ pageId }: { pageId: string }) {
+  const halaman = PAGES.find(page => pageMenutup(page, pageId));
+  return (
+    <div className="fixed inset-0 flex h-[100svh] overflow-hidden bg-slate-50 dark:bg-[#0B1120]" aria-busy="true">
+      <aside className="hidden w-64 shrink-0 flex-col gap-6 border-r border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950 lg:flex">
+        <Skeleton className="h-9 w-36 rounded-xl" />
+        <div className="space-y-3">
+          {Array.from({ length: 7 }, (_, index) => (
+            <Skeleton key={index} className="h-10 w-full rounded-xl" />
+          ))}
+        </div>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-950 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <Skeleton className="h-5 w-5 rounded-md lg:hidden" />
+            <span className="truncate text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {halaman?.label ?? 'Memuat aplikasi'}
+            </span>
+          </div>
+          <Skeleton className="h-8 w-28 rounded-xl" />
+        </header>
+        <main className="min-h-0 flex-1 overflow-hidden p-4 sm:p-6">
+          <PageLoading pageId={pageId} />
+        </main>
+      </div>
     </div>
   );
 }
@@ -1201,7 +1230,13 @@ export default function App() {
 }
 
 function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleDarkMode: () => void }) {
-  const { cekingSesi, currentUser, setCurrentUser } = useAppContext();
+  const {
+    cekingSesi,
+    currentUser,
+    setCurrentUser,
+    adaSesiSaatMuat,
+    activePage,
+  } = useAppContext();
   /*
    * `isAuthenticated` TIDAK lagi berarti "ada JSON di sessionStorage".
    *
@@ -1226,7 +1261,10 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
    * membuatnya jadi beberapa frame, bukan satu.
    */
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const memeriksaSesi = cekingSesi;
+  const memulihkan = adaSesiSaatMuat;
+  const fallbackPemeriksaan = memulihkan
+    ? <LayarMemulihkanSesi pageId={activePage} />
+    : <LayarMemeriksaSesi />;
 
   React.useEffect(() => {
     if (cekingSesi) return;
@@ -1351,19 +1389,13 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
   return (
     <>
       {/*
-          ⚠️ `cekingSesi` diperiksa **sebelum** `isAuthenticated`.
-
-          Urutan ini yang menutup celah "refresh". Selama verifikasi berjalan,
-          yang dirender hanya `LayarMemeriksaSesi` — tidak ada sidebar, tidak
-          ada tombol, tidak ada halaman. Nilainya di state React sudah ada, tapi
-          belum ada yang boleh bergantung pada isinya sebelum server mengonfirmasi.
-
-          `memeriksaSesi` berasal dari `AppContext`, jadi layar ini selalu
-          mengikuti request verifikasi yang sebenarnya. Kalau tidak ada token,
-          provider langsung melepas status memeriksa dan layar login tampil.
+          `cekingSesi` diperiksa sebelum aplikasi dibuka, tanpa mempercayai
+          role dari storage. Saat memulihkan sesi, placeholder halaman terakhir
+          dipertahankan tanpa interaksi; pada login awal, status pemeriksaan
+          tampil di atas viewport yang tetap terisi.
       */}
-      {memeriksaSesi ? (
-        <LayarMemeriksaSesi />
+      {cekingSesi ? (
+        fallbackPemeriksaan
       ) : !isAuthenticated ? (
         <motion.div
           initial={{ opacity: 0 }}
@@ -1378,7 +1410,7 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.4, ease: 'easeInOut' }}
-          style={{ minHeight: '100svh' }}
+          className="h-[100svh] overflow-hidden"
         >
           {/*
             ⚠️ Gerbang langganan membungkus SELURUH aplikasi, termasuk
@@ -1387,7 +1419,10 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
             "wajib bayar" tidak benar-benar wajib. Pengecualian hanya dua:
             akun admin, dan akun yang ditandai gratis oleh admin.
           */}
-          <GerbangLangganan onKeluar={handleLogout}>
+          <GerbangLangganan
+            onKeluar={handleLogout}
+            fallbackLoading={fallbackPemeriksaan}
+          >
             <MainApp onLogout={handleLogout} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
           </GerbangLangganan>
         </motion.div>

@@ -493,8 +493,7 @@ export default function Presensi() {
                   </div>
                   {koordinat && !geofence.withinRadius && (
                     <p className="text-amber-600 dark:text-amber-400">
-                      Titik ini di luar radius ({geofence.radius} m). Server tetap mungkin
-                      menerima, tetapi jarak akan tercatat pada riwayat.
+                      Di luar radius {geofence.radius} m; keputusan tetap ditentukan server.
                     </p>
                   )}
                 </div>
