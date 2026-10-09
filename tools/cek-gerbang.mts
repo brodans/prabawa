@@ -122,8 +122,9 @@ cek('halaman menolak non-admin sendiri', /currentUser\?\.role !== 'admin'/.test(
 cek('pesan akses ditolak ditampilkan', akunSrc.includes('Akses Ditolak'));
 cek('tabManajemenAkun di bawah PERMISSION_KHUSUS_ADMIN', /PERMISSION_KHUSUS_ADMIN[\s\S]{0,80}tabManajemenAkun/.test(userSrc));
 
-cek('billing dirender di halaman Manajemen Akun', /<Langganan \/>/.test(akunSrc));
-cek('tidak ada navigasi tab billing tersendiri', !/setSubPath\(item\.path\)|tabDariPath\(pathname\)/.test(akunSrc));
+cek('Manajemen Akun memuat tiga tab di satu menu', /role="tablist"/.test(akunSrc) &&
+  /Manajemen Akun/.test(akunSrc) && /Riwayat Pembayaran/.test(akunSrc) && /Metode Pembayaran/.test(akunSrc));
+cek('halaman akun menampilkan billing sebagai tab lokal', /<Langganan section=\{tabAktif\} \/>/.test(akunSrc));
 cek('menu administrasi dipisah dari Menu Utama', /admin: 'Administrasi'/.test(appKode));
 cek('batasiIzin memaksa nilainya false', /for \(const key of PERMISSION_KHUSUS_ADMIN\) base\[key\] = false;/.test(userSrc));
 cek('halaman di-filter juga oleh tabPermissions', /tabPermissions as unknown as Record<string, boolean>\)\[page\.id\] === true/.test(appKode));
@@ -199,10 +200,10 @@ cek('admin tidak mengimpor modal pembayaran', !adminSrc.includes('BayarLangganan
 cek('tidak ada aksi setDialogBayar', !/setDialogBayar/.test(adminSrc));
 cek('tidak ada label Catat Pembayaran', !/Catat Pembayaran|Catat pembayaran/.test(adminSrc));
 // Tapi alat administrasi tetap ada.
-cek('toggle gratis tersedia', /tandai gratis|Batalkan gratis/i.test(adminSrc));
-cek('perpanjangan manual tersedia', /Perpanjang masa aktif/.test(adminSrc));
-cek('koreksi tanggal tersedia', /Koreksi tanggal/.test(adminSrc));
-cek('kredensial server untuk auto-login tersedia', /KredensialServerModal/.test(adminSrc));
+cek('toggle gratis tersedia pada baris akun', /Tandai gratis|Batalkan status gratis/i.test(akunSrc));
+cek('perpanjangan manual tersedia pada baris akun', /Perpanjang masa aktif/.test(akunSrc));
+cek('koreksi tanggal tersedia pada baris akun', /Koreksi tanggal/.test(akunSrc));
+cek('kredensial server tetap dikelola dari form akun admin', /saveServerCredential/.test(akunSrc));
 /*
  * ⚠️ Alert "Admin memantau, pengguna yang membayar" **dihapus** atas permintaan
  * pengguna.

@@ -4,9 +4,6 @@ import {
   BadgeCheck,
   CheckCircle2,
   Clock,
-  Gift,
-  History,
-  KeyRound,
   Landmark,
   LoaderCircle,
   Pencil,
@@ -17,8 +14,6 @@ import {
   ShieldCheck,
   Smartphone,
   Trash2,
-  TrendingUp,
-  Users,
   XCircle,
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -40,7 +35,6 @@ import {
   Skeleton,
   SkeletonList,
   SkeletonTable,
-  StatTile,
   Textarea,
   type Column,
 } from '../components/ui/Surface';
@@ -48,11 +42,8 @@ import Dropdown from '../components/ui/Dropdown';
 import { AksiMenu } from '../components/ui/AksiMenu';
 import DatePicker from '../components/ui/DatePicker';
 import { ConfirmDialog, Modal } from '../components/ui/Modal';
-import KredensialServerModal from '../components/KredensialServerModal';
 import {
   BILLING_DEFAULT,
-  STATUS_LABEL,
-  STATUS_TONE,
   formatRuang,
   formatRupiah,
   paketById,
@@ -68,8 +59,6 @@ import {
   TEMPLATE_WA_DEFAULT,
   BATAS_PESAN_WA,
   formatRuang as formatRuangWa,
-  ringkasanLangganan,
-  type DokumenLangganan,
   type DokumenTagihan,
   type MetodePembayaran,
   type PaketLangganan,
@@ -82,7 +71,6 @@ import {
   loadPengaturanBilling,
   loadSemuaTagihan,
   loadTagihan,
-  mapLangganan,
 } from '../lib/langgananFirestore';
 /*
  * ⚠️ Operasi tulis langganan datang dari `akunFirestore`, bukan
@@ -99,33 +87,12 @@ import {
 import {
   hapusTagihan,
   hapusSemuaTagihan,
-  perpanjangManual,
   savePengaturanBilling,
-  setGratis,
-  setMasaAkhir,
   setStatusTagihan,
 } from '../lib/akunFirestore';
 import { ringkasQRIS, validateQRIS } from '../lib/qris';
-import {
-  type UserAccount,
-} from '../lib/userManager';
-import {
-  fetchAllUsers,
-  ringkasanKredensial,
-} from '../lib/akunFirestore';
 import { getTodayWIB, getTodayWIBWithDaysOffset } from '../lib/dateFormatter';
-import { formatTanggalLokal, formatTanggalWaktuLokal } from '../lib/tanggal';
-
-/** Filter status di tab Akun. */
-type FilterStatus = 'semua' | 'aktif' | 'gratis' | 'kadaluarsa' | 'belum';
-
-const FILTER_STATUS: { value: FilterStatus; label: string }[] = [
-  { value: 'semua', label: 'Semua' },
-  { value: 'aktif', label: 'Aktif' },
-  { value: 'gratis', label: 'Gratis' },
-  { value: 'belum', label: 'Belum Bayar' },
-  { value: 'kadaluarsa', label: 'Kedaluwarsa' },
-];
+import { formatTanggalLokal } from '../lib/tanggal';
 
 /** Label metode pembayaran untuk ditampilkan. */
 const METODE_LABEL: Record<MetodePembayaran, string> = {
@@ -140,7 +107,9 @@ const METODE_ICON: Record<MetodePembayaran, typeof QrCode> = {
   transfer: Landmark,
 };
 
-export default function Langganan() {
+export type LanggananSection = 'pembayaran' | 'metode';
+
+export default function Langganan({ section }: { section: LanggananSection }) {
   const { currentUser, cekingSesi } = useAppContext();
   const toast = useToast();
 
@@ -174,30 +143,25 @@ export default function Langganan() {
     );
   }
 
-  return <LanggananInner toast={toast} />;
+  return <LanggananInner toast={toast} section={section} />;
 }
 
 /** Isi halaman — dipisah supaya aturan admin dievaluasi sekali di awal render. */
-function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
+function LanggananInner({
+  toast,
+  section,
+}: {
+  toast: ReturnType<typeof useToast>;
+  section: LanggananSection;
+}) {
   const [loading, setLoading] = useState(true);
   /** Muat ulang diam-diam setelah data pertama sampai — lihat `muat()`. */
   const [menyegarkan, setMenyegarkan] = useState(false);
   const sudahPernahMuat = useRef(false);
-  const [akun, setAkun] = useState<UserAccount[]>([]);
-  const [langgananMap, setLanggananMap] = useState<Map<string, DokumenLangganan>>(new Map());
   const [tagihan, setTagihan] = useState<DokumenTagihan[]>([]);
   const [pengaturan, setPengaturan] = useState<PengaturanBilling>(BILLING_DEFAULT);
-  const [filter, setFilter] = useState<FilterStatus>('semua');
-  const [cari, setCari] = useState('');
 
   // ── Dialog ────────────────────────────────────────────────────────
-  const [dialogGratis, setDialogGratis] = useState<{ ringkasan: RingkasanLangganan; nilai: boolean } | null>(
-    null
-  );
-  const [dialogPerpanjang, setDialogPerpanjang] = useState<RingkasanLangganan | null>(null);
-  const [dialogMasa, setDialogMasa] = useState<RingkasanLangganan | null>(null);
-  const [dialogRiwayat, setDialogRiwayat] = useState<RingkasanLangganan | null>(null);
-  const [dialogKredensial, setDialogKredensial] = useState<string | null>(null);
   const [dialogRekening, setDialogRekening] = useState<RekeningBank | null>(null);
   const [konfirmasiHapus, setKonfirmasiHapus] = useState<string | null>(null);
   const [konfirmasiHapusSemua, setKonfirmasiHapusSemua] = useState(false);
@@ -229,14 +193,10 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
     if (!sudahPernahMuat.current) setLoading(true);
     else setMenyegarkan(true);
     try {
-      const [daftar, peta, semuaTagihan,setting] = await Promise.all([
-        fetchAllUsers(),
-        mapLangganan(),
+      const [semuaTagihan, setting] = await Promise.all([
         loadSemuaTagihan(),
         loadPengaturanBilling(),
       ]);
-      setAkun(daftar);
-      setLanggananMap(peta);
       setTagihan(semuaTagihan);
       setPengaturan(setting);
     } catch (err: any) {
@@ -253,97 +213,6 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
   }, [muat]);
 
   const paket = useMemo(() => paketEfektif(pengaturan), [pengaturan]);
-
-  // ── Ringkasan per akun ────────────────────────────────────────────
-  const ringkasan = useMemo(
-    () =>
-      akun.map(item => {
-        const doc = langgananMap.get(item.username) ?? null;
-        return ringkasanLangganan(item.username, doc, paket, item.role);
-      }),
-    [akun, langgananMap, paket]
-  );
-
-  const terfilter = useMemo(() => {
-    const kunci = cari.trim().toLowerCase();
-    return ringkasan.filter(item => {
-      if (filter !== 'semua' && item.status !== filter) return false;
-      if (!kunci) return true;
-      return item.username.toLowerCase().includes(kunci);
-    });
-  }, [ringkasan, filter, cari]);
-
-  // ── Statistik ─────────────────────────────────────────────────────
-  const statistik = useMemo(() => {
-    const belum = ringkasan.filter(item => item.status === 'belum' || item.status === 'kadaluarsa');
-    const aktif = ringkasan.filter(item => item.status === 'aktif');
-    const gratis = ringkasan.filter(item => item.status === 'gratis');
-    // ⚠️ Admin dikeluarkan di sini, bukan hanya di tampilan. `ringkasanLangganan`
-    // memaksa status admin jadi 'aktif' supaya `bolehMasuk` mengizinkan,
-    // tapi `sisaHari`-nya tetap negatif. Kalau ikut diurutkan di sini,
-    // admin selalu jadi "terdekat" dan peringatan berbunyi untuk akun yang
-    // memang tidak pernah dikunci.
-    const terdekat = [...aktif]
-      .filter(item => item.role !== 'admin')
-      .sort((a, b) => a.sisaHari - b.sisaHari)[0];
-    const lunasBulanIni = tagihan.filter(
-      item => item.status === 'lunas' && item.waktuBayar?.slice(0, 7) === getTodayWIB().slice(0, 7)
-    );
-    return {
-      total: ringkasan.length,
-      aktif: aktif.length,
-      belumBayar: belum.length,
-      gratis: gratis.length,
-      totalBayar: tagihan
-        .filter(item => item.status === 'lunas')
-        .reduce((sum, item) => sum + (item.nominal || 0), 0),
-      lunasBulanIni: lunasBulanIni.length,
-      terdekat,
-    };
-  }, [ringkasan, tagihan]);
-
-  // ── Aksi ──────────────────────────────────────────────────────────
-  const aksiGratis = async (nilai: boolean) => {
-    if (!dialogGratis) return;
-    try {
-      await setGratis(dialogGratis.ringkasan.username, nilai, nilai ? 'Ditandai gratis oleh admin' : '');
-      toast.success(
-        nilai
-          ? `${dialogGratis.ringkasan.username} sekarang gratis — tidak perlu bayar.`
-          : `${dialogGratis.ringkasan.username} kembali wajib berlangganan.`
-      );
-      setDialogGratis(null);
-      await muat();
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Gagal mengubah status gratis.');
-    }
-  };
-
-  const aksiPerpanjang = async (durasi: number, satuan: SatuanDurasi) => {
-    if (!dialogPerpanjang) return;
-    try {
-      const doc = await perpanjangManual({ username: dialogPerpanjang.username, durasi, satuan });
-      toast.success(
-        `Masa aktif ${dialogPerpanjang.username} diperpanjang ${deskripsiDurasi(durasi, satuan)} (sampai ${formatTanggalLokal(doc.masaAkhir)}).`
-      );
-      setDialogPerpanjang(null);
-      await muat();
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Gagal memperpanjang masa aktif.');
-    }
-  };
-
-  const aksiSetMasa = async (iso: string) => {
-    if (!dialogMasa) return;
-    try {
-      await setMasaAkhir(dialogMasa.username, iso);
-      toast.success(`Masa aktif ${dialogMasa.username} disetel ke ${formatTanggalLokal(iso)}.`);
-      setDialogMasa(null);
-      await muat();
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Gagal menyetel masa aktif.');
-    }
-  };
 
   /*
    * Aksi tagihan diperbarui **di tempat**, bukan dengan `muat()`.
@@ -399,126 +268,6 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
       toast.error(err?.message ?? 'Gagal mengubah status tagihan.');
     }
   };
-
-  // ── Kolom tabel akun ──────────────────────────────────────────────
-  const kolomAkun: Column<RingkasanLangganan>[] = [
-    {
-      key: 'akun',
-      header: 'Akun',
-      // `truncate` tanpa plafon `max-width` tidak memotong apa pun: di
-      // `table-layout: auto` min-content sel tetap sebesar teks penuhnya.
-      // Lihat catatan panjang di `DataTable`.
-      className: 'max-w-[220px]',
-      render: item => (
-        <div className="min-w-0">
-          <p className="font-semibold text-slate-700 dark:text-slate-200 truncate">{item.username}</p>
-          {item.paketLabel !== '—' && (
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{item.paketLabel}</p>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      className: 'w-[132px]',
-      render: item => <Badge tone={STATUS_TONE[item.status]}>{STATUS_LABEL[item.status]}</Badge>,
-    },
-    {
-      key: 'masa',
-      header: 'Masa Aktif',
-      className: 'w-[190px]',
-      render: item =>
-        // Admin tidak berlangganan. Menampilkan tanggal berakhirnya —
-        // yang pasti sudah lewat — membuat tabel berbohong tentangnya.
-        item.role === 'admin' ? (
-          <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">Tidak berlaku</span>
-        ) : item.status === 'gratis' ? (
-          <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">Tidak terbatas</span>
-        ) : item.masaAkhir ? (
-          <div className="min-w-0 text-[11px] leading-tight">
-            <p className="font-semibold text-slate-700 dark:text-slate-200 font-mono">
-              {formatTanggalLokal(item.masaAkhir)}
-            </p>
-            <p
-              className={`font-mono ${
-                item.sisaHari <= 3 ? 'text-rose-500' : 'text-slate-400 dark:text-slate-500'
-              }`}
-            >
-              {item.sisaHari < 0 ? ' sudah lewat' : ` ${item.sisaHari} hari lagi`}
-            </p>
-          </div>
-        ) : (
-          <span className="text-[11px] text-amber-500">Belum pernah bayar</span>
-        ),
-    },
-    {
-      key: 'pembayaran',
-      header: 'Pembayaran',
-      className: 'w-[150px]',
-      render: item =>
-        item.langganan?.pembayaranTerakhir ? (
-          <div className="min-w-0 text-[11px] leading-tight">
-            <p className="font-mono text-slate-600 dark:text-slate-300">
-              {formatRupiah(item.langganan.pembayaranTerakhir.nominal)}
-            </p>
-            <p className="text-slate-400 dark:text-slate-500">
-              {METODE_LABEL[item.langganan.pembayaranTerakhir.metode]} ·{' '}
-              {formatTanggalWaktuLokal(item.langganan.pembayaranTerakhir.waktu)}
-            </p>
-          </div>
-        ) : (
-          <span className="text-[11px] text-slate-400 dark:text-slate-500">—</span>
-        ),
-    },
-    {
-      key: 'kredensial',
-      header: 'Auto-login',
-      className: 'w-[130px]',
-      render: item => <StatusKredensial username={item.username} onUbah={setDialogKredensial} />,
-    },
-    {
-      key: 'aksi',
-      header: '',
-      className: 'w-[56px]',
-      render: item => (
-        <AksiMenu
-          ariaLabel={`Aksi untuk ${item.username}`}
-          items={[
-            {
-              id: 'perpanjang',
-              label: 'Perpanjang masa aktif',
-              icon: Clock,
-              onClick: () => setDialogPerpanjang(item),
-            },
-            {
-              id: 'koreksi',
-              label: 'Koreksi tanggal',
-              icon: Pencil,
-              onClick: () => setDialogMasa(item),
-            },
-            ...(pengaturan.izinkanGratis
-              ? [
-                  {
-                    id: 'gratis',
-                    label: item.gratis ? 'Batalkan status gratis' : 'Tandai gratis',
-                    icon: Gift,
-                    onClick: () => setDialogGratis({ ringkasan: item, nilai: !item.gratis }),
-                  },
-                ]
-              : []),
-            {
-              id: 'riwayat',
-              label: 'Lihat riwayat',
-              icon: History,
-              onClick: () => setDialogRiwayat(item),
-              pemisah: true,
-            },
-          ]}
-        />
-      ),
-    },
-  ];
 
   const kolomTagihan: Column<DokumenTagihan>[] = [
     {
@@ -635,196 +384,49 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
   ];
 
   return (
-    <div className="space-y-6">
-      {/*
-       * ⚠️ `PageHeader` **dihapus** dari halaman ini.
-       *
-       * Tiga alasan, dan ketiganya independen:
-       *
-       * 1. **Judulnya dobel.** `ManajemenAkun` sudah punya blok judul yang
-       *    permanen di paling atas — "Manajemen Akun / Kelola seluruh akun dan
-       *    kredensial server" — dan halaman ini adalah tab di dalamnya. Dua
-       *    judul bertumpuk hanya memberi jawaban "kamu sedang di mana" dua
-       *    kali, dengan kata yang berbeda.
-       *
-       * 2. **Subjudulnya dobel angka.** "Pantau 2 akun · 1 aktif · 1 belum
-       *    bayar" mengulang persis apa yang sudah ditulis di empat `StatTile`
-       *    tepat di bawahnya, lengkap dengan label yang lebih jelas. Angka
-       *    yang sama dalam dua bentuk berbeda hanya membingungkan saat salah
-       *    satu tidak ikut ter-update.
-       *
-       * 3. **Menu ini sudah punya namanya.** Tab "Langganan & Pembayaran" di
-       *    atas memberi tahu apa isinya; judul kedua di bawahnya mengulang hal
-       *    yang sama untuk ketiga kalinya.
-       *
-       * Yang tersisa dari `PageHeader` hanyalah `action`-nya, jadi blok itu
-       * diganti baris tombol biasa — bukan `PageHeader` kosong yang judulnya
-       * sudah dihapus, karena `title` itu wajib dan mengisinya dengan teks
-       * sementara hanya mengembalikan masalah yang sama.
-       */}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {/*
-          Indikator penyegaran.
-
-          `loading` sengaja TIDAK dipakai di sini: setelah pemuatan pertama ia
-          selalu `false` (lihat `muat()`), jadi tombolnya akan terlihat tidak
-          pernah bekerja. `menyegarkan` yang menggantikannya — data sedang
-          mengambil diperbarui tanpa tabel dibongkar.
-        */}
+    <div className="space-y-4">
+      <div className="flex justify-end">
         <ActionButton
           variant="ghost"
           size="sm"
           onClick={() => void muat()}
           loading={menyegarkan || loading}
-          icon={<RefreshCw className="w-4 h-4" />}
+          icon={<RefreshCw className="h-4 w-4" />}
         >
           Muat Ulang
         </ActionButton>
       </div>
 
-      {/* ── Statistik ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile
-          label="Total Akun"
-          value={statistik.total}
-          tone="blue"
-          icon={<Users className="w-4 h-4" />}
-          hint={`${statistik.gratis} akun gratis`}
-        />
-        <StatTile label="Aktif" value={statistik.aktif} tone="emerald" hint="Masa aktif & tidak kedaluwarsa" />
-        <StatTile
-          label="Belum Bayar"
-          value={statistik.belumBayar}
-          tone="rose"
-          hint="Tidak bisa masuk aplikasi"
-        />
-        <StatTile
-          label="Pendapatan"
-          value={formatRupiah(statistik.totalBayar)}
-          tone="violet"
-          icon={<TrendingUp className="w-4 h-4" />}
-          hint={`${statistik.lunasBulanIni} lunas bulan ini`}
-        />
-      </div>
-
-      {/*
-        Peringatan kedaluwarsa.
-
-        ⚠️ Hanya untuk akun **non-admin**. Akun admin punya `status: 'gratis'`
-        dan tidak masuk ke `aktif`, tapi `sisaHari` tetap dihitung dari
-        `masaAkhir` yang bisa saja sudah lewat. Kalau ikut dihitung, layar ini
-        menampilkan "Masa aktif admin tinggal -1 hari" — peringatan atas
-        sesuatu yang tidak akan pernah terjadi, karena admin memang tidak
-        pernah dikunci. Peringatan yang salah lebih merusak daripada tidak ada.
-      */}
-      {statistik.terdekat &&
-        statistik.terdekat.sisaHari >= 0 &&
-        statistik.terdekat.sisaHari <= 3 && (
-          <Alert tone="amber">
-            Masa aktif <strong>{statistik.terdekat.username}</strong> tinggal{' '}
-            <strong>{statistik.terdekat.sisaHari} hari</strong>. Akun akan terkunci otomatis setelah
-            tanggal tersebut.
-          </Alert>
-        )}
-
       {loading ? (
-        <div className="space-y-6" role="status" aria-label="Memuat data langganan">
-          <div>
-            <Card padded={false} className="p-5 sm:p-6">
-              <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div className="flex flex-wrap gap-1.5">
-                  {FILTER_STATUS.map(item => <Skeleton key={item.value} className="h-8 w-24 rounded-lg" />)}
+        section === 'pembayaran' ? (
+          <div role="status" aria-label="Memuat riwayat pembayaran">
+            <Card padded={false} className="p-4 sm:p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-8 w-24 rounded-lg" />
+            </div>
+            <SkeletonTable columns={kolomTagihan.length} rows={6} />
+            </Card>
+          </div>
+        ) : (
+          <div className="space-y-5" role="status" aria-label="Memuat metode pembayaran">
+            {[0, 1, 2].map(sectionIndex => (
+              <Card key={sectionIndex}>
+                <Skeleton className="mb-4 h-4 w-40" />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {[0, 1, 2, 3].map(field => (
+                    <div key={field} className="space-y-2">
+                      <Skeleton className="h-3 w-1/3" />
+                      <Skeleton className="h-10 w-full rounded-xl" />
+                    </div>
+                  ))}
                 </div>
-                <Skeleton className="h-10 w-full rounded-xl sm:w-64" />
-              </div>
-              <div className="mb-4 flex items-center justify-between">
-                <Skeleton className="h-4 w-36" />
-                <Skeleton className="h-6 w-20 rounded-full" />
-              </div>
-              <SkeletonTable columns={kolomAkun.length} rows={6} />
-            </Card>
+              </Card>
+            ))}
           </div>
-          <div>
-            <Card padded={false} className="p-5 sm:p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-6 w-24 rounded-full" />
-              </div>
-              <SkeletonTable columns={kolomTagihan.length} rows={6} />
-            </Card>
-          </div>
-          <div className="space-y-6">
-              {[0, 1, 2].map(section => (
-                <Card key={section}>
-                  <Skeleton className="mb-4 h-4 w-40" />
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {[0, 1, 2, 3].map(field => (
-                      <div key={field} className="space-y-2">
-                        <Skeleton className="h-3 w-1/3" />
-                        <Skeleton className="h-10 w-full rounded-xl" />
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              ))}
-          </div>
-          <span className="sr-only">Memuat data langganan...</span>
-        </div>
-      ) : (
-        <>
-        <Card padded={false} className="p-5 sm:p-6">
-          <CardTitle>Pantau Langganan Akun</CardTitle>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-4">
-            <div className="flex flex-wrap gap-1.5">
-              {FILTER_STATUS.map(item => {
-                const jumlah = ringkasan.filter(r =>
-                  item.value === 'semua' ? true : r.status === item.value
-                ).length;
-                return (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setFilter(item.value)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors border ${
-                      filter === item.value
-                        ? 'bg-blue-600 border-blue-600 text-white'
-                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    {item.label}
-                    <span
-                      className={`rounded-md px-1.5 py-px text-[10px] font-mono ${
-                        filter === item.value ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-700'
-                      }`}
-                    >
-                      {jumlah}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="sm:w-64">
-              <Input
-                value={cari}
-                onChange={event => setCari(event.target.value)}
-                placeholder="Cari username..."
-                className="text-sm"
-              />
-            </div>
-          </div>
-
-          {terfilter.length === 0 ? (
-            <EmptyState message="Tidak ada akun pada filter ini." hint="Ubah filter atau kata kunci pencarian." />
-          ) : (
-            <DataTable
-              columns={kolomAkun}
-              rows={terfilter}
-              keyOf={item => item.username}
-            />
-          )}
-        </Card>
-        <div id="panel-riwayat-pembayaran" className="scroll-mt-5">
-        <Card padded={false} className="p-5 sm:p-6">
+        )
+      ) : section === 'pembayaran' ? (
+        <Card padded={false} className="p-4 sm:p-5">
           <CardTitle action={
             <ActionButton
               size="sm"
@@ -835,74 +437,27 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
             >
               Hapus Semua
             </ActionButton>
-          }>Riwayat Pembayaran</CardTitle>
+          }>
+            Riwayat Pembayaran Akun
+          </CardTitle>
           {tagihan.length === 0 ? (
             <EmptyState message="Belum ada tagihan." hint="Tagihan dibuat otomatis saat pengguna memilih paket." />
           ) : (
             <DataTable columns={kolomTagihan} rows={tagihan} keyOf={item => item.orderId} />
           )}
         </Card>
-        </div>
-        <div id="panel-metode-paket" className="scroll-mt-5">
+      ) : (
         <PengaturanPaket
           pengaturan={pengaturan}
           onSimpan={async nilai => {
             await savePengaturanBilling(nilai);
             setPengaturan(nilai);
-            toast.success('Pengaturan langganan disimpan.');
+            toast.success('Pengaturan pembayaran disimpan.');
             await muat();
           }}
           onEditRekening={rek => setDialogRekening(rek)}
         />
-        </div>
-        </>
       )}
-
-      {/* ── Dialog: toggle gratis ───────────────────────────────────── */}
-      <ConfirmDialog
-        open={Boolean(dialogGratis)}
-        title={dialogGratis?.nilai ? 'Tandai Akun Gratis?' : 'Batalkan Status Gratis?'}
-        message={
-          dialogGratis ? (
-            <>
-              {dialogGratis.nilai ? (
-                <>
-                  Akun <strong>{dialogGratis.ringkasan.username}</strong> akan tidak perlu membayar lagi. Masa
-                  aktifnya tidak diubah — status gratis yang berlaku selamanya sampai dibatalkan.
-                </>
-              ) : (
-                <>
-                  Akun <strong>{dialogGratis.ringkasan.username}</strong> akan kembali wajib berlangganan.
-                  Kalau masa aktifnya sudah lewat, akun akan terkunci sampai pembayaran masuk.
-                </>
-              )}
-            </>
-          ) : (
-            ''
-          )
-        }
-        confirmLabel={dialogGratis?.nilai ? 'Ya, Tandai Gratis' : 'Ya, Kembalikan ke Wajib Bayar'}
-        tone={dialogGratis?.nilai ? 'default' : 'warning'}
-        onConfirm={() => void aksiGratis(dialogGratis?.nilai ?? false)}
-        onCancel={() => setDialogGratis(null)}
-      />
-
-      {/* ── Dialog: perpanjang ──────────────────────────────────────── */}
-      <PerpanjangModal
-        ringkasan={dialogPerpanjang}
-        onClose={() => setDialogPerpanjang(null)}
-        onPilih={(durasi, satuan) => void aksiPerpanjang(durasi, satuan)}
-      />
-
-      {/* ── Dialog: setel masa aktif ────────────────────────────────── */}
-      <SetMasaModal
-        ringkasan={dialogMasa}
-        onClose={() => setDialogMasa(null)}
-        onSimpan={iso => void aksiSetMasa(iso)}
-      />
-
-      {/* ── Dialog: riwayat pembayaran satu akun ────────────────────── */}
-      <RiwayatModal ringkasan={dialogRiwayat} onClose={() => setDialogRiwayat(null)} />
 
       <RekeningModal
         rekening={dialogRekening}
@@ -919,13 +474,6 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
           toast.success('Rekening disimpan.');
         }}
       />
-
-      <KredensialServerModal
-        username={dialogKredensial}
-        onClose={() => setDialogKredensial(null)}
-        onTersimpan={muat}
-      />
-
       <ConfirmDialog
         open={Boolean(konfirmasiHapus)}
         title="Hapus Tagihan?"
@@ -1729,7 +1277,7 @@ function RekeningModal({
 //  Dialog: perpanjang manual
 // ═══════════════════════════════════════════════════════════════════════
 
-function PerpanjangModal({
+export function PerpanjangModal({
   ringkasan,
   onClose,
   onPilih,
@@ -1811,7 +1359,7 @@ function PerpanjangModal({
 //  Dialog: setel masa aktif
 // ═══════════════════════════════════════════════════════════════════════
 
-function SetMasaModal({
+export function SetMasaModal({
   ringkasan,
   onClose,
   onSimpan,
@@ -1911,7 +1459,7 @@ function SetMasaModal({
 //  Dialog: riwayat pembayaran satu akun
 // ═══════════════════════════════════════════════════════════════════════
 
-function RiwayatModal({
+export function RiwayatModal({
   ringkasan,
   onClose,
 }: {
@@ -1982,89 +1530,5 @@ function RiwayatModal({
         </div>
       )}
     </Modal>
-  );
-}
-
-/**
- * Status kredensial server untuk satu akun — apakah auto-login akan jalan.
- *
- * Membaca dokumen kredensial sekali per akun. Ini satu request per baris,
- * jadi hanya dilakukan untuk tab yang sedang terlihat; tab lain menunggu
- * sampai dibuka.
- */
-function StatusKredensial({
-  username,
-  onUbah,
-}: {
-  username: string;
-  onUbah: (username: string) => void;
-}) {
-  const [ada, setAda] = useState<boolean | null>(null);
-  const [imei, setImei] = useState('');
-
-  /*
-   * ⚠️ Hanya metadata yang dibaca — `terbaca`, bukan isi dokumennya.
-   *
-   * `loadServerCredential()` versi lama mengembalikan `passwordEncrypted` yang
-   * bisa didekripsi di peramban. Sekarang server yang mendekripsi, dan yang
-   * sampai ke sini cuma "¿password-nya masih bisa dipakai?".
-   *
-   * Badge "Perlu Perbarui" membedakan dua keadaan yang tadinya tercampur:
-   * kredensial belum diisi, dan kredensial diisi tapi format lamanya tidak
-   * bisa dibuka server. Keduanya butuh tindakan berbeda, jadi keduanya
-   * ditunjukkan berbeda.
-   */
-  const [perluPerbarui, setPerluPerbarui] = useState(false);
-
-  useEffect(() => {
-    let hidup = true;
-    void ringkasanKredensial(username)
-      .then(data => {
-        if (!hidup) return;
-        setAda(data ? data.terbaca : false);
-        setPerluPerbarui(Boolean(data && !data.terbaca));
-        setImei(data?.imei ?? '');
-      })
-      .catch(() => {
-        if (!hidup) return;
-        setAda(false);
-        setPerluPerbarui(false);
-      });
-    return () => {
-      hidup = false;
-    };
-  }, [username]);
-
-  if (ada === null) {
-    return <span className="text-[11px] text-slate-400 dark:text-slate-500">Memeriksa…</span>;
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={() => onUbah(username)}
-      className="inline-flex items-center gap-1.5 text-[11px] font-bold hover:underline"
-      title={
-        perluPerbarui
-          ? 'Kredensial tersimpan dalam format lama. Simpan ulang password server pusat agar auto-login bisa jalan.'
-          : ada
-            ? imei
-              ? `Kredensial tersimpan (IMEI terkunci ke perangkat). Klik untuk mengubah.`
-              : 'Kredensial tersimpan. Klik untuk mengubah.'
-            : 'Belum ada kredensial — akun ini harus login manual sekali. Klik untuk mengisinya.'
-      }
-    >
-      {perluPerbarui ? (
-        <Badge tone="amber">
-          <KeyRound className="w-2.5 h-2.5" /> Perlu Perbarui
-        </Badge>
-      ) : ada ? (
-        <Badge tone="emerald">
-          <KeyRound className="w-2.5 h-2.5" /> Siap
-        </Badge>
-      ) : (
-        <Badge tone="amber">Belum diisi</Badge>
-      )}
-    </button>
   );
 }

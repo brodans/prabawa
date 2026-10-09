@@ -293,15 +293,25 @@ cek(
   'filter di luar harus menutup semua halaman, bukan hanya memfilter'
 );
 cek('satu route untuk Manajemen Akun', /tabManajemenAkun: '\/manajemen-akun'/.test(ctxSrc) && !/tabLangganan:/.test(ctxSrc));
-cek('Manajemen Akun dan Langganan ditampilkan pada halaman yang sama',
-  /<KelolaAkun[\s\S]*?<Langganan \/>/.test(akunSrc));
-cek('tidak ada tab navigasi terpisah untuk Langganan & Pembayaran',
-  !/Langganan & Pembayaran|role="tablist"|PATH_TAB_AKUN/.test(akunSrc));
-cek('pantau akun, pembayaran, dan metode tampil tanpa tab',
-  !/PATH_TAB_LANGGANAN|role="tablist"/.test(langSrc) &&
-    /Pantau Langganan Akun/.test(langSrc) &&
-    /Riwayat Pembayaran/.test(langSrc) &&
-    /<PengaturanPaket/.test(langSrc));
+cek('Manajemen Akun memiliki tepat tiga tab', (akunSrc.match(/role="tab"/g) ?? []).length === 1 &&
+  /Manajemen Akun/.test(akunSrc) && /Riwayat Pembayaran/.test(akunSrc) && /Metode Pembayaran/.test(akunSrc));
+cek('tab pertama menggabungkan akun dan status langganan dalam tabel yang sama',
+  /key: 'status'[\s\S]{0,120}header: 'Status Langganan'/.test(akunSrc) &&
+    /key: 'masa'[\s\S]{0,100}header: 'Masa Aktif'/.test(akunSrc) &&
+    /key: 'bayar'[\s\S]{0,100}header: 'Total Bayar'/.test(akunSrc));
+cek('tab pembayaran dan metode merender konten terpisah tanpa tabel pemantauan kedua',
+  /<Langganan section=\{tabAktif\} \/>/.test(akunSrc) &&
+    /Riwayat Pembayaran Akun/.test(langSrc) &&
+    /<PengaturanPaket/.test(langSrc) &&
+    !/Pantau Langganan Akun/.test(langSrc));
+const skeletonAkun = appSrc.split("pageId === 'tabManajemenAkun'")[1]?.split("pageId === 'tabPerizinan'")[0] ?? '';
+cek('loader Manajemen Akun hanya mengikuti tab awal, bukan semua tab sekaligus',
+  /SkeletonTable columns=\{8\} rows=\{6\}/.test(skeletonAkun) &&
+    !/\[0, 1, 2\]\.map\(section/.test(skeletonAkun));
+cek('loader menu panjang dan halaman memakai satu scrollbar global yang stabil',
+  /konten-gulir[^"]*overflow-y-scroll/.test(appSrc) &&
+    /poni-konten min-h-full flex-none/.test(appSrc) &&
+    !/konten-gulir[^"]*overflow-y-auto/.test(appSrc));
 cek('halaman menolak non-admin sendiri', /currentUser\?\.role !== 'admin'/.test(akunSrc));
 cek(
   'URL lama langganan diarahkan ke halaman terpadu',
@@ -344,10 +354,10 @@ cek('perpanjangManual tidak menerima param hari', !/perpanjangManual\(input: \{[
 cek('penjelasan kenapa harian dihapus ada', /selalu berupa periode/.test(baca('../src/pages/Langganan.tsx')));
 
 // ═════════════════════════════════════════════════════════════════════
-console.log('\n=== 13. Peringatan masa aktif tidak untuk admin');
-cek('filter stat "terdekat" membuang admin', /\.filter\(item => item\.role !== 'admin'\)/.test(langSrc));
-cek('peringatan menolak sisaHari negatif', /statistik\.terdekat\.sisaHari >= 0 &&/.test(langSrc));
-cek('kolom Masa Aktif admin = "Tidak berlaku"', /Tidak berlaku/.test(langSrc));
+console.log('\n=== 13. Status langganan menyatu dengan tabel akun');
+cek('tabel gabungan menampilkan masa aktif admin sebagai tidak berlaku', /row\.akun\.role === 'admin'[\s\S]{0,160}Tidak berlaku/.test(akunSrc));
+cek('tabel gabungan membedakan aktif, gratis, belum bayar, dan kedaluwarsa',
+  /STATUS_LABEL\[row\.status\]/.test(akunSrc) && /STATUS_TONE\[row\.status\]/.test(akunSrc));
 cek('RingkasanLangganan punya role', /role: 'admin' \| 'user';/.test(baca('../src/lib/langganan.ts')));
 cek('paketLabel admin = Administrator', /'Administrator'/.test(baca('../src/lib/langganan.ts')));
 cek('tidak ada teks "Masa aktif admin"', !/Masa aktif\s*<strong>\{statistik\.terdekat\.username\}<\/strong>\s*tinggal\s*<strong>\{statistik\.terdekat\.sisaHari\}/.test(langSrc.replace(/\s+/g, ' ')) || true);
@@ -425,7 +435,8 @@ cek('tidak ada field jabatan di form', !/setJabatan|jabatan:/.test(akunSrc));
 cek('tidak ada kolom Langganan khusus karena halaman sudah terpadu', !/header: 'Langganan'/.test(akunSrc));
 cek('UserAccount tidak lagi punya nomorWa', !/nomorWa\?: string/.test(baca('../src/lib/userManager.ts')));
 cek('UserAccount tidak lagi punya jabatan', !/jabatan\?: string/.test(baca('../src/lib/userManager.ts')));
-cek('Masa Aktif menavigasi ke panel langganan pada halaman yang sama', /kePanelLangganan/.test(akunSrc));
+cek('aksi langganan tersedia pada baris akun gabungan',
+  /Perpanjang masa aktif/.test(akunSrc) && /Koreksi tanggal/.test(akunSrc) && /Lihat riwayat pembayaran/.test(akunSrc));
 cek('kolom NIP/IMEI menampilkan kredensial', /row\.kredensial\?\.nip/.test(akunSrc));
 cek('status auto-login terlihat', /Auto-login siap/.test(akunSrc));
 cek('password tidak pernah ditampilkan', !/passwordHash/.test(akunSrc));

@@ -267,34 +267,30 @@ function PageLoading({ pageId }: { pageId: string }) {
     );
   } else if (pageId === 'tabManajemenAkun') {
     content = (
-      <div className="space-y-6">
-        <div className="rounded-2xl border border-slate-200/70 bg-white p-4 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <Skeleton className="h-4 w-36" />
-            <Skeleton className="h-9 w-32 rounded-xl" />
+      <div className="space-y-4">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white dark:border-slate-700/60 dark:bg-slate-800/60">
+          <div className="flex gap-2 border-b border-slate-200/70 p-3 dark:border-slate-700/60 sm:p-4">
+            {[0, 1, 2].map(tab => (
+              <Skeleton key={tab} className="h-10 flex-1 rounded-lg" />
+            ))}
           </div>
-          {filters(4)}
-          <SkeletonTable columns={7} rows={6} />
         </div>
-        {stats(4)}
         <div className="rounded-2xl border border-slate-200/70 bg-white p-4 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-5">
-          {filters(5)}
-          <SkeletonTable columns={8} rows={6} />
-        </div>
-        <div className="space-y-6">
-          {[0, 1, 2].map(section => (
-            <div key={section} className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60">
-              <Skeleton className="mb-4 h-4 w-40" />
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {[0, 1, 2, 3].map(field => (
-                  <div key={field} className="space-y-2">
-                    <Skeleton className="h-3 w-1/3" />
-                    <Skeleton className="h-10 w-full rounded-xl" />
-                  </div>
-                ))}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[0, 1, 2, 3].map(item => (
+              <div key={item} className="space-y-2">
+                <Skeleton className="h-3 w-3/5" />
+                <Skeleton className="h-6 w-2/5" />
+                <Skeleton className="h-3 w-4/5" />
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-4 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-5">
+          {filters(4)}
+          <div className="mt-4">
+            <SkeletonTable columns={8} rows={6} />
+          </div>
         </div>
       </div>
     );
@@ -1058,8 +1054,8 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
         <BannerServerPusat />
 
         {/* Satu-satunya area scroll halaman; scrollbar tetap di tepi shell. */}
-        <div className="konten-gulir flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto custom-scrollbar relative">
-          <main className="poni-konten flex-1 min-w-0 overflow-x-hidden w-full">
+        <div className="konten-gulir flex-1 flex flex-col min-w-0 min-h-0 overflow-y-scroll custom-scrollbar relative">
+          <main className="poni-konten min-h-full flex-none min-w-0 overflow-x-hidden w-full">
             <div className="min-w-0 w-full">
               <PageErrorBoundary key={activePageData.id} pageId={activePageData.id}>
                 <Suspense fallback={<PageLoading pageId={activePageData.id} />}>

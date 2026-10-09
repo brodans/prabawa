@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Clock,
+  Gift,
+  History,
+  Pencil,
   Plus,
   RefreshCw,
+  CreditCard,
+  ReceiptText,
   Search,
   ShieldCheck,
   Trash2,
@@ -11,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../components/ui/Toast';
+import { AksiMenu } from '../components/ui/AksiMenu';
 import { ringkasanTitik, type RingkasanTitik } from '../lib/lokasiTersimpan';
 import {
   ActionButton,
@@ -26,19 +33,22 @@ import {
   PasswordField,
   Skeleton,
   SkeletonTable,
-  StatTile,
   Textarea,
   type Column,
 } from '../components/ui/Surface';
 import Dropdown from '../components/ui/Dropdown';
 import { ConfirmDialog, Modal } from '../components/ui/Modal';
-import Langganan from './Langganan';
+import Langganan, { PerpanjangModal, RiwayatModal, SetMasaModal } from './Langganan';
 import {
   type StatusLangganan,
+  STATUS_LABEL,
+  STATUS_TONE,
   formatRupiah,
   paketEfektif,
   ringkasanLangganan,
   type DokumenLangganan,
+  type RingkasanLangganan,
+  type SatuanDurasi,
 } from '../lib/langganan';
 import {
   mapLangganan,
@@ -57,6 +67,9 @@ import {
   hapusServerCredential,
   ringkasanKredensial,
   saveServerCredential,
+  perpanjangManual,
+  setGratis,
+  setMasaAkhir,
   semuaRingkasanKredensial,
   updateUserAccount,
   type RingkasanKredensial,
@@ -64,12 +77,10 @@ import {
 import IzinAkun from '../components/IzinAkun';
 import { formatTanggalLokal } from '../lib/tanggal';
 
+type TabManajemenAkun = 'akun' | 'pembayaran' | 'metode';
+
 /**
- * Satu baris tabel.
- *
- * ⚠️ Kolom "Langganan" (badge status) sengaja tidak digandakan di tabel akun.
- * Status dan detail tagihan ditampilkan pada panel billing di halaman yang
- * sama; tabel akun hanya menyediakan tautan ke panel tersebut.
+ * Satu baris tabel gabungan akun dan pemantauan langganan.
  */
 interface BarisAkun {
   akun: UserAccount;
@@ -79,6 +90,7 @@ interface BarisAkun {
   paketLabel: string;
   totalBayar: number;
   jumlahBayar: number;
+  ringkasan: RingkasanLangganan;
   /** Jumlah titik absen yang tersimpan di peramban akun ini. */
   jumlahTitik: number;
   /** Titik yang ditandai dipakai — ini koordinat yang dikirim saat absen. */
@@ -109,6 +121,7 @@ const UKURAN_HALAMAN = 25;
 export default function ManajemenAkun() {
   const { currentUser } = useAppContext();
   const toast = useToast();
+  const [tabAktif, setTabAktif] = useState<TabManajemenAkun>('akun');
 
   /*
    * Gerbang admin.
@@ -146,17 +159,61 @@ export default function ManajemenAkun() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Manajemen Akun"
-        subtitle="Kelola akun, akses, langganan, dan pembayaran"
-        icon={<UserCog className="w-5 h-5" />}
-      />
-      <KelolaAkun
-        toast={toast}
-        kePanelLangganan={() => document.getElementById('panel-langganan')?.scrollIntoView({ behavior: 'smooth' })}
-      />
-      <section id="panel-langganan" className="scroll-mt-5">
-        <Langganan />
+      <section className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm dark:border-slate-700/60 dark:bg-slate-800/60">
+        <div className="p-4 sm:p-5">
+          <PageHeader
+            title="Manajemen Akun"
+            subtitle="Kelola akun, langganan, dan pembayaran"
+            icon={<UserCog className="w-5 h-5" />}
+          />
+        </div>
+        <div className="border-t border-slate-200/70 px-3 py-3 dark:border-slate-700/60 sm:px-5">
+          <div
+            className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-900/70"
+            role="tablist"
+            aria-label="Bagian Manajemen Akun"
+          >
+            {([
+              { id: 'akun', label: 'Manajemen Akun', icon: Users },
+              { id: 'pembayaran', label: 'Riwayat Pembayaran', icon: ReceiptText },
+              { id: 'metode', label: 'Metode Pembayaran', icon: CreditCard },
+            ] as const).map(tab => {
+              const Icon = tab.icon;
+              const aktif = tabAktif === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  id={`tab-manajemen-${tab.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={aktif}
+                  aria-controls="panel-manajemen-akun"
+                  onClick={() => setTabAktif(tab.id)}
+                  className={`flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-center text-[11px] font-bold leading-tight transition-colors sm:gap-2 sm:px-3 sm:text-sm ${
+                    aktif
+                      ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-800 dark:text-blue-300'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+      <section
+        id="panel-manajemen-akun"
+        role="tabpanel"
+        aria-labelledby={`tab-manajemen-${tabAktif}`}
+        className="min-w-0"
+      >
+        {tabAktif === 'akun' ? (
+          <KelolaAkun toast={toast} />
+        ) : (
+          <Langganan section={tabAktif} />
+        )}
       </section>
     </div>
   );
@@ -171,9 +228,8 @@ type SortKey = 'nama' | 'username' | 'status' | 'masaAkhir';
 /** Filter peran. Default `semua` — daftar lengkap yang ditampilkan. */
 type FilterPeran = 'semua' | UserRole;
 
-function KelolaAkun({ toast, kePanelLangganan }: {
+function KelolaAkun({ toast }: {
   toast: ReturnType<typeof useToast>;
-  kePanelLangganan: () => void;
 }) {
   const [akun, setAkun] = useState<UserAccount[]>([]);
   const [langgananMap, setLanggananMap] = useState<Map<string, DokumenLangganan>>(new Map());
@@ -190,6 +246,10 @@ function KelolaAkun({ toast, kePanelLangganan }: {
   const [halaman, setHalaman] = useState(0);
   const [dialog, setDialog] = useState<{ akun: UserAccount | null } | null>(null);
   const [konfirmasiHapus, setKonfirmasiHapus] = useState<UserAccount | null>(null);
+  const [dialogGratis, setDialogGratis] = useState<{ ringkasan: RingkasanLangganan; nilai: boolean } | null>(null);
+  const [dialogPerpanjang, setDialogPerpanjang] = useState<RingkasanLangganan | null>(null);
+  const [dialogMasa, setDialogMasa] = useState<RingkasanLangganan | null>(null);
+  const [dialogRiwayat, setDialogRiwayat] = useState<RingkasanLangganan | null>(null);
   const sudahMuatRef = useRef(false);
   /**
    * `null` = belum ada yang gagal. String = status kredensial **tidak diketahui**,
@@ -255,6 +315,52 @@ function KelolaAkun({ toast, kePanelLangganan }: {
     void muat();
   }, [muat]);
 
+  const aksiGratis = async () => {
+    if (!dialogGratis) return;
+    try {
+      await setGratis(
+        dialogGratis.ringkasan.username,
+        dialogGratis.nilai,
+        dialogGratis.nilai ? 'Ditandai gratis oleh admin' : ''
+      );
+      toast.success(
+        dialogGratis.nilai
+          ? `${dialogGratis.ringkasan.username} sekarang gratis.`
+          : `${dialogGratis.ringkasan.username} kembali wajib berlangganan.`
+      );
+      setDialogGratis(null);
+      await muat();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Gagal mengubah status langganan.');
+    }
+  };
+
+  const aksiPerpanjang = async (durasi: number, satuan: SatuanDurasi) => {
+    if (!dialogPerpanjang) return;
+    try {
+      const hasil = await perpanjangManual({ username: dialogPerpanjang.username, durasi, satuan });
+      toast.success(
+        `Masa aktif ${dialogPerpanjang.username} diperpanjang sampai ${formatTanggalLokal(hasil.masaAkhir)}.`
+      );
+      setDialogPerpanjang(null);
+      await muat();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Gagal memperpanjang masa aktif.');
+    }
+  };
+
+  const aksiSetMasa = async (iso: string) => {
+    if (!dialogMasa) return;
+    try {
+      await setMasaAkhir(dialogMasa.username, iso);
+      toast.success(`Masa aktif ${dialogMasa.username} diperbarui.`);
+      setDialogMasa(null);
+      await muat();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Gagal mengubah masa aktif.');
+    }
+  };
+
   const baris = useMemo<BarisAkun[]>(() => {
     const paket = paketEfektif({
       // `mapLangganan()` sudah membawa dokumennya; paket dipakai hanya untuk
@@ -280,6 +386,7 @@ function KelolaAkun({ toast, kePanelLangganan }: {
           paketLabel: ring.paketLabel,
           totalBayar: ring.totalBayar,
           jumlahBayar: ring.jumlahBayar,
+          ringkasan: ring,
           jumlahTitik: titik.length,
           titikAktif: titik.find(t => t.dipakai) ?? null,
           kredensial: kredensialMap.get(item.username) ?? null,
@@ -360,6 +467,9 @@ function KelolaAkun({ toast, kePanelLangganan }: {
       total: baris.length,
       admin: baris.filter(r => r.akun.role === 'admin').length,
       aktif: baris.filter(r => r.status === 'aktif' || r.status === 'gratis').length,
+      belumBayar: baris.filter(r => r.status === 'belum' || r.status === 'kadaluarsa').length,
+      totalBayar: baris.reduce((sum, row) => sum + row.totalBayar, 0),
+      jumlahBayar: baris.reduce((sum, row) => sum + row.jumlahBayar, 0),
     }),
     [baris]
   );
@@ -403,6 +513,12 @@ function KelolaAkun({ toast, kePanelLangganan }: {
         ) : (
           <Badge tone="slate">User</Badge>
         ),
+    },
+    {
+      key: 'status',
+      header: 'Status Langganan',
+      className: 'w-[140px]',
+      render: row => <Badge tone={STATUS_TONE[row.status]}>{STATUS_LABEL[row.status]}</Badge>,
     },
     {
       /*
@@ -502,14 +618,7 @@ function KelolaAkun({ toast, kePanelLangganan }: {
       ),
     },
     {
-      /*
-       * Masa Aktif & Total Bayar — dua angka yang tidak ada di panel Langganan
-       * dengan bentuk yang bisa dipindai sekilas.
-       *
-       * Keduanya tautan ke panel Langganan. Tanpa itu, menghapus badge status
-       * akan membuat layar ini jadi buntu: admin melihat "terlambat 3 hari"
-       * tapi tidak punya jalan dari sana ke tempat perpanjangan berada.
-       */
+      /* Masa aktif dan total bayar melengkapi status langganan pada baris ini. */
       key: 'masa',
       header: 'Masa Aktif',
       className: 'w-[150px]',
@@ -517,15 +626,10 @@ function KelolaAkun({ toast, kePanelLangganan }: {
         row.akun.role === 'admin' ? (
           <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">Tidak berlaku</span>
         ) : (
-          <button
-            type="button"
-            onClick={kePanelLangganan}
-            title={`Kelola langganan ${row.akun.username}`}
-            className="block w-full text-left min-w-0 text-[11px] leading-tight group"
-          >
+          <div className="min-w-0 text-[11px] leading-tight">
             {row.masaAkhir ? (
               <>
-                <p className="font-mono font-semibold text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <p className="font-mono font-semibold text-slate-700 dark:text-slate-200">
                   {formatTanggalLokal(row.masaAkhir)}
                 </p>
                 <p
@@ -539,7 +643,7 @@ function KelolaAkun({ toast, kePanelLangganan }: {
             ) : (
               <span className="text-amber-500">Belum pernah bayar</span>
             )}
-          </button>
+          </div>
         ),
     },
     {
@@ -547,17 +651,12 @@ function KelolaAkun({ toast, kePanelLangganan }: {
       header: 'Total Bayar',
       className: 'w-[110px]',
       render: row => (
-        <button
-          type="button"
-          onClick={kePanelLangganan}
-          title={`Riwayat pembayaran ${row.akun.username}`}
-          className="block w-full text-left text-[11px] leading-tight group"
-        >
-          <p className="font-mono font-semibold text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+        <div className="text-[11px] leading-tight">
+          <p className="font-mono font-semibold text-slate-700 dark:text-slate-200">
             {formatRupiah(row.totalBayar)}
           </p>
           <p className="text-slate-400 dark:text-slate-500">{row.jumlahBayar}×</p>
-        </button>
+        </div>
       ),
     },
     {
@@ -566,6 +665,36 @@ function KelolaAkun({ toast, kePanelLangganan }: {
       className: 'w-[84px]',
       render: row => (
         <div className="flex items-center gap-1">
+          <AksiMenu
+            ariaLabel={`Kelola langganan ${row.akun.username}`}
+            items={[
+              {
+                id: 'perpanjang',
+                label: 'Perpanjang masa aktif',
+                icon: Clock,
+                onClick: () => setDialogPerpanjang(row.ringkasan),
+              },
+              {
+                id: 'koreksi',
+                label: 'Koreksi tanggal',
+                icon: Pencil,
+                onClick: () => setDialogMasa(row.ringkasan),
+              },
+              {
+                id: 'gratis',
+                label: row.ringkasan.gratis ? 'Batalkan status gratis' : 'Tandai gratis',
+                icon: Gift,
+                onClick: () => setDialogGratis({ ringkasan: row.ringkasan, nilai: !row.ringkasan.gratis }),
+              },
+              {
+                id: 'riwayat',
+                label: 'Lihat riwayat pembayaran',
+                icon: History,
+                onClick: () => setDialogRiwayat(row.ringkasan),
+                pemisah: true,
+              },
+            ]}
+          />
           <AksiIkon
             icon={UserCog}
             label="Ubah akun"
@@ -620,11 +749,28 @@ function KelolaAkun({ toast, kePanelLangganan }: {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile label="Total Akun" value={statistik.total} tone="blue" icon={<Users className="w-4 h-4" />} />
-        <StatTile label="Administrator" value={statistik.admin} tone="violet" icon={<ShieldCheck className="w-4 h-4" />} />
-        <StatTile label="Berlangganan" value={statistik.aktif} tone="emerald" hint="Aktif atau gratis" />
-      </div>
+      <Card padded={false} className="grid grid-cols-2 gap-px overflow-hidden bg-slate-200/70 dark:bg-slate-700/60 sm:grid-cols-4">
+        <div className="bg-white p-4 dark:bg-slate-800/60">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Akun</p>
+          <p className="mt-1 text-xl font-bold text-slate-800 dark:text-slate-100">{statistik.total}</p>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{statistik.admin} administrator</p>
+        </div>
+        <div className="bg-white p-4 dark:bg-slate-800/60">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Aktif / Gratis</p>
+          <p className="mt-1 text-xl font-bold text-emerald-600 dark:text-emerald-400">{statistik.aktif}</p>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Bisa mengakses aplikasi</p>
+        </div>
+        <div className="bg-white p-4 dark:bg-slate-800/60">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Belum Bayar</p>
+          <p className="mt-1 text-xl font-bold text-rose-600 dark:text-rose-400">{statistik.belumBayar}</p>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Termasuk masa kedaluwarsa</p>
+        </div>
+        <div className="bg-white p-4 dark:bg-slate-800/60">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Pembayaran</p>
+          <p className="mt-1 truncate text-xl font-bold text-slate-800 dark:text-slate-100">{formatRupiah(statistik.totalBayar)}</p>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{statistik.jumlahBayar} transaksi lunas</p>
+        </div>
+      </Card>
 
       <Card padded={false} className="p-4 sm:p-5">
         {/*
@@ -913,6 +1059,30 @@ function KelolaAkun({ toast, kePanelLangganan }: {
         }}
         onCancel={() => setKonfirmasiHapus(null)}
       />
+      <ConfirmDialog
+        open={Boolean(dialogGratis)}
+        title={dialogGratis?.nilai ? 'Tandai Akun Gratis?' : 'Batalkan Status Gratis?'}
+        message={
+          dialogGratis?.nilai
+            ? `Akun ${dialogGratis.ringkasan.username} tidak perlu membayar selama status gratis aktif.`
+            : `Akun ${dialogGratis?.ringkasan.username ?? ''} kembali wajib berlangganan.`
+        }
+        confirmLabel={dialogGratis?.nilai ? 'Tandai Gratis' : 'Batalkan Gratis'}
+        tone={dialogGratis?.nilai ? 'default' : 'warning'}
+        onConfirm={() => void aksiGratis()}
+        onCancel={() => setDialogGratis(null)}
+      />
+      <PerpanjangModal
+        ringkasan={dialogPerpanjang}
+        onClose={() => setDialogPerpanjang(null)}
+        onPilih={(durasi, satuan) => void aksiPerpanjang(durasi, satuan)}
+      />
+      <SetMasaModal
+        ringkasan={dialogMasa}
+        onClose={() => setDialogMasa(null)}
+        onSimpan={iso => void aksiSetMasa(iso)}
+      />
+      <RiwayatModal ringkasan={dialogRiwayat} onClose={() => setDialogRiwayat(null)} />
     </div>
   );
 
