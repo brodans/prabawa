@@ -707,8 +707,9 @@ export async function setStatusTagihanServer(
    * hanya admin yang bisa membersihkannya.
    *
    * Syaratnya ketat, dan itu diperiksa di bawah: dokumen harus milik akun
-   * pemanggil **dan** berstatus `menunggu`. Jadi `batal` tidak bisa dipakai
-   * untuk menimpa tagihan yang sudah `lunas` atau `batal` milik orang lain.
+   * pemanggil **dan** berstatus `menunggu`. Tagihan yang memenuhi syarat
+   * dihapus dalam transaksi agar tidak tertinggal di riwayat dan tidak bisa
+   * menghapus tagihan yang sudah diproses menjadi lunas.
    */
   const bolehBatal = input.status === 'batal';
   if (bolehBatal) {
@@ -724,36 +725,30 @@ export async function setStatusTagihanServer(
     if (!orderId || orderId.length > 80 || /[\\/]/.test(orderId)) {
       return { ok: false, kode: 400, pesan: 'orderId tidak valid.' };
     }
-    const snap = await (await admin()).collection(COLL_TAGIHAN).doc(orderId).get();
-    if (!snap.exists) {
-      return { ok: false, kode: 404, pesan: 'Tagihan tidak ditemukan.' };
-    }
-    const data = snap.data() as { username?: string; status?: string };
-    if (String(data.username ?? '') !== pemanggil.username) {
-      // 404, bukan 403: hasil yang sama untuk "tidak ada" dan "bukan milikmu"
-      // supaya `orderId` milik orang lain tidak bisa dipetakan dengan cara
-      // menebak-nebak. 403 hanya untuk admin yang memang tidak punya akses.
-      return { ok: false, kode: 404, pesan: 'Tagihan tidak ditemukan.' };
-    }
-    if (String(data.status ?? '') !== 'menunggu') {
-      return {
-        ok: false,
-        kode: 409,
-        pesan: 'Tagihan ini sudah tidak menunggu pembayaran, jadi tidak bisa dibatalkan di sini.',
-      };
-    }
-    await (await admin())
-      .collection(COLL_TAGIHAN)
-      .doc(orderId)
-      .set(
-        {
-          status: 'batal',
-          batalOleh: 'pemilik',
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-    return { ok: true, kode: 200 };
+    const db = await admin();
+    const refTagihan = db.collection(COLL_TAGIHAN).doc(orderId);
+    return db.runTransaction(async (tx: TransactionDyn) => {
+      const snap = await tx.get(refTagihan);
+      if (!snap.exists) {
+        return { ok: false, kode: 404, pesan: 'Tagihan tidak ditemukan.' };
+      }
+      const data = snap.data() as { username?: string; status?: string };
+      if (String(data.username ?? '') !== pemanggil.username) {
+        // 404, bukan 403: hasil yang sama untuk "tidak ada" dan "bukan milikmu"
+        // supaya `orderId` milik orang lain tidak bisa dipetakan dengan cara
+        // menebak-nebak. 403 hanya untuk admin yang memang tidak punya akses.
+        return { ok: false, kode: 404, pesan: 'Tagihan tidak ditemukan.' };
+      }
+      if (String(data.status ?? '') !== 'menunggu') {
+        return {
+          ok: false,
+          kode: 409,
+          pesan: 'Tagihan ini sudah tidak menunggu pembayaran, jadi tidak bisa dibatalkan di sini.',
+        };
+      }
+      tx.delete(refTagihan);
+      return { ok: true, kode: 200 };
+    });
   }
 
   if (!(await dindingAdmin(token)).ok) {
@@ -873,7 +868,8 @@ export async function bacaLanggananSaya(
 }
 
 /**
- * Tagihan milik pemanggil, terbaru dulu.
+ * Tagihan milik pemanggil, terbaru dulu. Rekaman dengan status `batal` yang
+ * tersisa dari versi lama tidak lagi ditampilkan sebagai riwayat pembayaran.
  *
  * Sama seperti di atas: `username` berasal dari token. `where` + `orderBy`
  * bukan composite index, jadi `where('username', '==', …)` saja — urutan
@@ -897,6 +893,47 @@ export async function bacaTagihanSaya(
 
   const tagihan = snap.docs
     .map(d => d.data() as Record<string, unknown>)
+    .filter(item => item.status !== 'batal')
+    .sort((a, b) => {
+      const selisih = String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''));
+      return selisih !== 0 ? selisih : String(b.orderId ?? '').localeCompare(String(a.orderId ?? ''));
+    })
+    .slice(0, batasAman);
+
+  return { ok: true, kode: 200, tagihan };
+}
+
+/**
+ * Tagihan sebuah akun untuk dialog riwayat admin. Tagihan batal tidak
+ * ditampilkan, termasuk dokumen lama sebelum pembatalan menghapus dokumen.
+ *
+ * Username dari request hanya boleh dipakai setelah otorisasi admin berhasil;
+ * endpoint pengguna biasa tetap memakai `bacaTagihanSaya()` dan identitas
+ * akun yang berasal dari token.
+ */
+export async function bacaTagihanAkunAdmin(
+  token: AdminToken,
+  username: string,
+  batas = 200
+): Promise<{ ok: boolean; kode: number; pesan?: string; tagihan?: Record<string, unknown>[] }> {
+  if (!(await dindingAdmin(token)).ok) {
+    return { ok: false, kode: 403, pesan: 'Akses khusus admin.' };
+  }
+
+  const namaAkun = username.trim();
+  if (!namaAkun || namaAkun.length > 64 || /[\\/]/.test(namaAkun)) {
+    return { ok: false, kode: 400, pesan: 'Username akun tidak valid.' };
+  }
+
+  const batasAman = Math.min(Math.max(Number(batas) || 30, 1), 200);
+  const snap = await (await admin())
+    .collection(COLL_TAGIHAN)
+    .where('username', '==', namaAkun)
+    .limit(Math.min(batasAman * 3, 200))
+    .get();
+  const tagihan = snap.docs
+    .map(d => d.data() as Record<string, unknown>)
+    .filter(item => item.status !== 'batal')
     .sort((a, b) => {
       const selisih = String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''));
       return selisih !== 0 ? selisih : String(b.orderId ?? '').localeCompare(String(a.orderId ?? ''));
@@ -947,6 +984,7 @@ export async function bacaSemuaTagihan(
   const snap = await (await admin()).collection(COLL_TAGIHAN).limit(200).get();
   const tagihan = snap.docs
     .map(d => d.data() as Record<string, unknown>)
+    .filter(item => item.status !== 'batal')
     .sort((a, b) => {
       const selisih = String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''));
       return selisih !== 0 ? selisih : String(b.orderId ?? '').localeCompare(String(a.orderId ?? ''));

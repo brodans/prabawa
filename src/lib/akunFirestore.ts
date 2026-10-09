@@ -592,9 +592,8 @@ export async function setStatusTagihan(
 /**
  * Batalkan tagihan milik sendiri yang masih `menunggu`.
  *
- * Server menolak kalau dokumen bukan milik pemanggil, atau statusnya bukan
- * `menunggu` (mis. sudah `lunas` — penanda lunas harus tetap datang dari
- * verifikasi pembayaran, tidak dari klik pengguna).
+ * Server menghapus dokumen hanya jika masih `menunggu` dan memang milik
+ * pemanggil. Tagihan yang sudah lunas tidak bisa dihapus lewat pembatalan.
  */
 export async function batalkanTagihan(orderId: string): Promise<void> {
   await langganan('tagihan:status', { orderId, status: 'batal' });

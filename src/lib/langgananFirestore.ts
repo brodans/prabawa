@@ -228,6 +228,15 @@ export async function loadTagihan(username: string, batas = 20): Promise<Dokumen
   return hasil?.tagihan ?? [];
 }
 
+/** Tagihan akun tertentu — hanya untuk dialog riwayat yang dipakai admin. */
+export async function loadTagihanAkunAdmin(
+  username: string,
+  batas = 30
+): Promise<DokumenTagihan[]> {
+  const hasil = await minta<{ tagihan?: DokumenTagihan[] }>('tagihan:akun', { username, batas });
+  return hasil?.tagihan ?? [];
+}
+
 /** Semua tagihan, terbaru dulu — untuk rekap di halaman admin. */
 export async function loadSemuaTagihan(batas = 200): Promise<DokumenTagihan[]> {
   const hasil = await minta<{ tagihan?: DokumenTagihan[] }>('tagihan:daftar', { batas });

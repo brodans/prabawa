@@ -856,8 +856,7 @@ export function LayarLanggananHabis({
  * - **Lanjutkan pembayaran** → membuka dialog pembayaran untuk `orderId` yang
  *   sudah ada. Tidak ada dokumen baru, jadi tidak ada duplikat.
  * - **Batalkan** → `tagihan:status` dengan `batal`. Server memverifikasi dokumen
- *   itu milik pemanggil dan masih `menunggu`, jadi penanda `lunas` tidak bisa
- *   dipalsukan lewat tombol ini.
+ *   itu milik pemanggil dan masih `menunggu`, lalu menghapusnya.
  *
  * Setelah batal, daftar dimuat ulang dan tagihan `menunggu` habis — tombol
  * "Lakukan Pembayaran" kembali bekerja seperti biasa.
@@ -913,7 +912,7 @@ function PanelTagihanMenunggu({
     setSibuk(true);
     try {
       await batalkanTagihan(orderId);
-      toast.success('Tagihan dibatalkan. Silakan buat tagihan baru.');
+      toast.success('Tagihan dibatalkan dan dihapus. Silakan buat tagihan baru.');
       await muatUlang();
     } catch (galat) {
       toast.error(

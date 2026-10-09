@@ -233,6 +233,26 @@ async function getAll(...refs: Array<{ id: string }>): Promise<unknown[]> {
 const firestoreTiruan = {
   collection: Collection,
   getAll,
+  async runTransaction(callback: (tx: {
+    get(ref: { koleksi: string; id: string }): Promise<{
+      exists: boolean;
+      data: () => Record<string, unknown> | undefined;
+    }>;
+    delete(ref: { koleksi: string; id: string }): void;
+  }) => Promise<unknown>) {
+    const hapus: Array<{ koleksi: string; id: string }> = [];
+    const hasil = await callback({
+      async get(ref) {
+        const data = dokumen.get(`${ref.koleksi}/${ref.id}`);
+        return { exists: Boolean(data), data: () => data };
+      },
+      delete(ref) {
+        hapus.push(ref);
+      },
+    });
+    for (const ref of hapus) dokumen.delete(`${ref.koleksi}/${ref.id}`);
+    return hasil;
+  },
   batch() {
     const writes: Array<
       | { kind: 'set'; ref: { koleksi: string; id: string }; data: Record<string, unknown>; merge: boolean }
@@ -722,6 +742,24 @@ cek('admin boleh membaca semua tagihan', semuaTagihan.ok, `dapat kode ${semuaTag
 cek('daftar tagihan terurut terbaru dulu',
   String(semuaTagihan.tagihan?.[0]?.createdAt ?? '') >= String(semuaTagihan.tagihan?.[1]?.createdAt ?? ''),
   (semuaTagihan.tagihan ?? []).map(t => t.orderId).join(', '));
+dokumen.set('jatim_tagihan/ORD-BATAL-LEGACY', {
+  orderId: 'ORD-BATAL-LEGACY', username: 'budi', status: 'batal', createdAt: '2026-04-01T00:00:00.000Z',
+});
+cek('riwayat admin tidak menampilkan dokumen tagihan batal lama',
+  !(await B.bacaTagihanAkunAdmin(tokenSitiAdmin, 'budi')).tagihan?.some(t => t.orderId === 'ORD-BATAL-LEGACY'));
+cek('daftar seluruh tagihan admin tidak menampilkan tagihan batal',
+  !(await B.bacaSemuaTagihan(tokenSitiAdmin)).tagihan?.some(t => t.orderId === 'ORD-BATAL-LEGACY'));
+dokumen.delete('jatim_tagihan/ORD-BATAL-LEGACY');
+const riwayatBudiAdmin = await B.bacaTagihanAkunAdmin(tokenSitiAdmin, 'budi', 30);
+cek('admin membaca riwayat akun tertentu', riwayatBudiAdmin.ok, `dapat kode ${riwayatBudiAdmin.kode}`);
+cek('riwayat admin dipersempit ke username yang diminta',
+  riwayatBudiAdmin.tagihan?.length === 2 &&
+    riwayatBudiAdmin.tagihan.every(t => t.username === 'budi'),
+  (riwayatBudiAdmin.tagihan ?? []).map(t => String(t.orderId)).join(', '));
+cek('pengguna biasa tidak dapat membaca riwayat akun lain',
+  (await B.bacaTagihanAkunAdmin(tokenBudi, 'siti')).kode === 403);
+cek('username riwayat yang tidak valid ditolak',
+  (await B.bacaTagihanAkunAdmin(tokenSitiAdmin, '../siti')).kode === 400);
 
 /*
  * ⚠️ Ini yang paling penting dari bagian ini.
@@ -1352,9 +1390,11 @@ const batalMilikSendiri = await panggil(
 );
 cek('pemilik tagihan boleh membatalkannya sendiri', batalMilikSendiri.body?.ok === true,
   `dapat kode ${batalMilikSendiri.status} — ${batalMilikSendiri.body?.pesan ?? ''}`);
-cek('status tagihan jadi batal',
-  dokumen.get('jatim_tagihan/' + tagihanKedua.body?.orderId)?.status === 'batal');
-cek('penanda pembatalan dicatat', batalMilikSendiri.body?.ok === true);
+cek('dokumen tagihan pemilik dihapus saat dibatalkan',
+  !dokumen.has('jatim_tagihan/' + tagihanKedua.body?.orderId));
+const riwayatSetelahBatal = await B.bacaTagihanAkunAdmin(tokenSitiAdmin, 'budi');
+cek('tagihan yang dibatalkan tidak tampil dalam riwayat admin',
+  !riwayatSetelahBatal.tagihan?.some(t => t.orderId === tagihanKedua.body?.orderId));
 
 // Setelah dibatalkan, boleh membuat tagihan baru.
 const setelahBatal = await panggil(
@@ -2015,8 +2055,37 @@ console.log('\n=== 1i. Lewat handler HTTP: yang dipakai peramban sungguhan');
    * `_panel.ts` — bukan verifikasi password.
    */
   seed();
+  dokumen.set('jatim_tagihan/ORDER-BUDI-1', {
+    orderId: 'ORDER-BUDI-1',
+    username: 'budi',
+    status: 'lunas',
+    createdAt: '2026-03-01T00:00:00.000Z',
+  });
+  dokumen.set('jatim_tagihan/ORDER-BUDI-2', {
+    orderId: 'ORDER-BUDI-2',
+    username: 'budi',
+    status: 'lunas',
+    createdAt: '2026-02-01T00:00:00.000Z',
+  });
   P.resetPembatasPercobaan();
   const tokenAdminHandler = P.terbitkanToken('siti', 'admin', partial({ tabManajemenAkun: true }));
+
+  const riwayatAkunLewatHandler = await panggil(
+    { aksi: 'tagihan:akun', username: 'budi', batas: 30 },
+    { token: tokenAdminHandler }
+  );
+  cek('tagihan:akun lewat handler mengembalikan riwayat akun yang dipilih',
+    riwayatAkunLewatHandler.status === 200 &&
+      riwayatAkunLewatHandler.body?.tagihan?.length === 2 &&
+      riwayatAkunLewatHandler.body.tagihan.every((t: Record<string, unknown>) => t.username === 'budi'),
+    `status ${riwayatAkunLewatHandler.status}, jumlah ${riwayatAkunLewatHandler.body?.tagihan?.length ?? 0}`);
+  const riwayatAkunNonAdmin = await panggil(
+    { aksi: 'tagihan:akun', username: 'siti' },
+    { token: tokenBudi }
+  );
+  cek('tagihan:akun lewat handler menolak pengguna biasa',
+    riwayatAkunNonAdmin.status === 403,
+    `status ${riwayatAkunNonAdmin.status}`);
 
   // 2. Admin menyimpan kredensial lewat handler.
   const simpan = await panggil(

@@ -70,7 +70,7 @@ import {
 import {
   loadPengaturanBilling,
   loadSemuaTagihan,
-  loadTagihan,
+  loadTagihanAkunAdmin,
 } from '../lib/langgananFirestore';
 /*
  * ⚠️ Operasi tulis langganan datang dari `akunFirestore`, bukan
@@ -1530,7 +1530,7 @@ export function RiwayatModal({
     }
     let hidup = true;
     setLoading(true);
-    void loadTagihan(ringkasan.username, 30)
+    void loadTagihanAkunAdmin(ringkasan.username, 30)
       .then(data => {
         if (hidup) setTagihan(data);
       })

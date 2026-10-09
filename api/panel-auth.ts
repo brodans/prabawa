@@ -1269,6 +1269,7 @@ __export(serverBilling_exports, {
   bacaPengaturanBilling: () => bacaPengaturanBilling,
   bacaSemuaLangganan: () => bacaSemuaLangganan,
   bacaSemuaTagihan: () => bacaSemuaTagihan,
+  bacaTagihanAkunAdmin: () => bacaTagihanAkunAdmin,
   bacaTagihanSaya: () => bacaTagihanSaya,
   buatTagihanServer: () => buatTagihanServer,
   hapusSemuaTagihanServer: () => hapusSemuaTagihanServer,
@@ -1512,30 +1513,27 @@ async function setStatusTagihanServer(token, input) {
     if (!orderId2 || orderId2.length > 80 || /[\\/]/.test(orderId2)) {
       return { ok: false, kode: 400, pesan: "orderId tidak valid." };
     }
-    const snap = await (await admin()).collection(COLL_TAGIHAN2).doc(orderId2).get();
-    if (!snap.exists) {
-      return { ok: false, kode: 404, pesan: "Tagihan tidak ditemukan." };
-    }
-    const data = snap.data();
-    if (String(data.username ?? "") !== pemanggil.username) {
-      return { ok: false, kode: 404, pesan: "Tagihan tidak ditemukan." };
-    }
-    if (String(data.status ?? "") !== "menunggu") {
-      return {
-        ok: false,
-        kode: 409,
-        pesan: "Tagihan ini sudah tidak menunggu pembayaran, jadi tidak bisa dibatalkan di sini."
-      };
-    }
-    await (await admin()).collection(COLL_TAGIHAN2).doc(orderId2).set(
-      {
-        status: "batal",
-        batalOleh: "pemilik",
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      },
-      { merge: true }
-    );
-    return { ok: true, kode: 200 };
+    const db = await admin();
+    const refTagihan = db.collection(COLL_TAGIHAN2).doc(orderId2);
+    return db.runTransaction(async (tx) => {
+      const snap = await tx.get(refTagihan);
+      if (!snap.exists) {
+        return { ok: false, kode: 404, pesan: "Tagihan tidak ditemukan." };
+      }
+      const data = snap.data();
+      if (String(data.username ?? "") !== pemanggil.username) {
+        return { ok: false, kode: 404, pesan: "Tagihan tidak ditemukan." };
+      }
+      if (String(data.status ?? "") !== "menunggu") {
+        return {
+          ok: false,
+          kode: 409,
+          pesan: "Tagihan ini sudah tidak menunggu pembayaran, jadi tidak bisa dibatalkan di sini."
+        };
+      }
+      tx.delete(refTagihan);
+      return { ok: true, kode: 200 };
+    });
   }
   if (!(await dindingAdmin(token)).ok) {
     return { ok: false, kode: 403, pesan: "Akses khusus admin." };
@@ -1593,7 +1591,23 @@ async function bacaTagihanSaya(token, batas = 20) {
   const db = await admin();
   const batasAman = Math.min(Math.max(Number(batas) || 20, 1), 200);
   const snap = await db.collection(COLL_TAGIHAN2).where("username", "==", pemanggil.username).limit(Math.min(batasAman * 3, 200)).get();
-  const tagihan = snap.docs.map((d) => d.data()).sort((a, b) => {
+  const tagihan = snap.docs.map((d) => d.data()).filter((item) => item.status !== "batal").sort((a, b) => {
+    const selisih = String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
+    return selisih !== 0 ? selisih : String(b.orderId ?? "").localeCompare(String(a.orderId ?? ""));
+  }).slice(0, batasAman);
+  return { ok: true, kode: 200, tagihan };
+}
+async function bacaTagihanAkunAdmin(token, username, batas = 200) {
+  if (!(await dindingAdmin(token)).ok) {
+    return { ok: false, kode: 403, pesan: "Akses khusus admin." };
+  }
+  const namaAkun = username.trim();
+  if (!namaAkun || namaAkun.length > 64 || /[\\/]/.test(namaAkun)) {
+    return { ok: false, kode: 400, pesan: "Username akun tidak valid." };
+  }
+  const batasAman = Math.min(Math.max(Number(batas) || 30, 1), 200);
+  const snap = await (await admin()).collection(COLL_TAGIHAN2).where("username", "==", namaAkun).limit(Math.min(batasAman * 3, 200)).get();
+  const tagihan = snap.docs.map((d) => d.data()).filter((item) => item.status !== "batal").sort((a, b) => {
     const selisih = String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
     return selisih !== 0 ? selisih : String(b.orderId ?? "").localeCompare(String(a.orderId ?? ""));
   }).slice(0, batasAman);
@@ -1615,7 +1629,7 @@ async function bacaSemuaTagihan(token) {
     return { ok: false, kode: 403, pesan: "Akses khusus admin." };
   }
   const snap = await (await admin()).collection(COLL_TAGIHAN2).limit(200).get();
-  const tagihan = snap.docs.map((d) => d.data()).sort((a, b) => {
+  const tagihan = snap.docs.map((d) => d.data()).filter((item) => item.status !== "batal").sort((a, b) => {
     const selisih = String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? ""));
     return selisih !== 0 ? selisih : String(b.orderId ?? "").localeCompare(String(a.orderId ?? ""));
   });
@@ -2110,6 +2124,11 @@ async function tanganiPanelAuth(req, res) {
       case "tagihan:saya": {
         const { bacaTagihanSaya: bacaTagihanSaya2 } = await muatBilling();
         const hasil = await bacaTagihanSaya2(token, Number(body.batas) || 20);
+        return res.status(hasil.kode).json(hasil);
+      }
+      case "tagihan:akun": {
+        const { bacaTagihanAkunAdmin: bacaTagihanAkunAdmin2 } = await muatBilling();
+        const hasil = await bacaTagihanAkunAdmin2(token, str(body.username), Number(body.batas) || 30);
         return res.status(hasil.kode).json(hasil);
       }
       case "billing:baca": {

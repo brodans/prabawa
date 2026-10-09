@@ -420,6 +420,11 @@ export async function tanganiPanelAuth(
         const hasil = await bacaTagihanSaya(token, Number(body.batas) || 20);
         return res.status(hasil.kode).json(hasil);
       }
+      case 'tagihan:akun': {
+        const { bacaTagihanAkunAdmin } = await muatBilling();
+        const hasil = await bacaTagihanAkunAdmin(token, str(body.username), Number(body.batas) || 30);
+        return res.status(hasil.kode).json(hasil);
+      }
       case 'billing:baca': {
         const { bacaPengaturanBilling } = await muatBilling();
         const hasil = await bacaPengaturanBilling(token);
