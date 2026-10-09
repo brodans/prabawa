@@ -174,7 +174,7 @@ console.log('\n=== 3. Ganti titik langsung terasa — tidak ada jeda 5 detik');
 
   // Setiap tempat yang bisa mengganti titik aktif wajib memanggilnya.
   const pemakai = [
-    { f: 'src/pages/Presensi.tsx', minimal: 3, why: 'dropdown, tombol titik tersimpan, simpan titik baru' },
+    { f: 'src/pages/Presensi.tsx', minimal: 1, why: 'hanya dropdown titik tersimpan; koordinat peta sementara tidak mengubah titik aktif' },
     { f: 'src/pages/LokasiAbsen.tsx', minimal: 2, why: 'pakai titik, salin dari titik server' },
   ];
   for (const { f, minimal, why } of pemakai) {
@@ -193,6 +193,13 @@ console.log('\n=== 3. Ganti titik langsung terasa — tidak ada jeda 5 detik');
   cek('tidak ada lagi memo titikPakai yang hanya bergantung pada username',
     !/useMemo\(\(\) => bacaTitikAktif\(username\), \[username\]\)/.test(presensi),
     'pola lama masih ada di kode');
+  cek('pilihan peta sementara tidak disimpan sebagai titik lokal',
+    !/simpanTitik|setTitikAktif/.test(presensi.slice(presensi.indexOf('pilihOpen && ('))),
+    'pilihan sementara tidak boleh mengubah daftar/titik aktif di Lokasi Absen');
+  cek('koordinat sementara dikirim sebagai last_latlong untuk absensi',
+    /lastLatLong:\s*formatLatLong\(koordinat\.latitude,\s*koordinat\.longitude\)/.test(presensi));
+  cek('dropdown tetap menandai titik tersimpan yang dipilih di Lokasi Absen',
+    /value=\{titikPakai\?\.id \?\? ''\}/.test(presensi));
 }
 
 // ═════════════════════════════════════════════════════════════════════

@@ -174,7 +174,7 @@ function Transport({ onCopy }: { onCopy: (teks: string, label: string) => void }
         </p>
         <dl className="grid grid-cols-1 gap-2.5">
           <Row label="api_key" value="token sesi dari object login" mono />
-          <Row label="last_latlong" value='"<lat>,<long>" koordinat titik yang dipilih di peta' mono />
+          <Row label="last_latlong" value='"<lat>,<long>" titik tersimpan atau pilihan peta sementara di Presensi' mono />
           <Row label="imei" value="androidId perangkat — WAJIB ada di login" mono />
         </dl>
 

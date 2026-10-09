@@ -11,8 +11,9 @@ import {
   EmptyState,
   Field,
   Input,
-  LoadingBlock,
   PageHeader,
+  Skeleton,
+  SkeletonList,
 } from '../components/ui/Surface';
 import PetaAbsen, { type TitikPeta } from '../components/ui/PetaAbsen';
 import { ConfirmDialog } from '../components/ui/Modal';
@@ -284,7 +285,7 @@ export default function LokasiAbsen() {
         </div>
 
         {loading && locations.length === 0 ? (
-          <LoadingBlock label="Memuat titik absen..." />
+          <Skeleton className="h-[480px] w-full rounded-xl" />
         ) : (
           <PetaAbsen
             titik={titikPeta}
@@ -478,7 +479,10 @@ export default function LokasiAbsen() {
         </CardTitle>
 
         {loading ? (
-          <LoadingBlock />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <SkeletonList rows={2} />
+            <SkeletonList rows={2} />
+          </div>
         ) : locations.length === 0 ? (
           <EmptyState
             message="Belum ada titik absen terdaftar."

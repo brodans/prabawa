@@ -35,8 +35,10 @@ import {
   EmptyState,
   Field,
   Input,
-  LoadingBlock,
   NumberField,
+  Skeleton,
+  SkeletonList,
+  SkeletonTable,
   StatTile,
   Textarea,
   type Column,
@@ -240,7 +242,7 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
    * ## Kenapa `loading` hanya untuk pemuatan pertama
    *
    * Versi lama selalu `setLoading(true)`, dan `loading`=swap seluruh
-   * tabel dengan `<LoadingBlock>`. Setiap aksi di tab "Semua Pembayaran" —
+   * tabel dengan loader. Setiap aksi di tab "Semua Pembayaran" —
    * tandai lunas, batalkan, hapus — memanggil fungsi ini, jadi setiap klik
    * membuat tabel **dibongkar dan dirakit ulang**. Akibatnya yang dirasakan
    * admin:
@@ -769,7 +771,48 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
       </div>
 
       {loading ? (
-        <LoadingBlock label="Memuat data langganan..." />
+        <div role="status" aria-label="Memuat data langganan">
+          {tab === 'akun' ? (
+            <Card padded={false} className="p-5 sm:p-6">
+              <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="flex flex-wrap gap-1.5">
+                  {FILTER_STATUS.map(item => <Skeleton key={item.value} className="h-8 w-24 rounded-lg" />)}
+                </div>
+                <Skeleton className="h-10 w-full rounded-xl sm:w-64" />
+              </div>
+              <div className="mb-4 flex items-center justify-between">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-6 w-20 rounded-full" />
+              </div>
+              <SkeletonTable columns={kolomAkun.length} rows={6} />
+            </Card>
+          ) : tab === 'pembayaran' ? (
+            <Card padded={false} className="p-5 sm:p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-6 w-24 rounded-full" />
+              </div>
+              <SkeletonTable columns={kolomTagihan.length} rows={6} />
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {[0, 1, 2].map(section => (
+                <Card key={section}>
+                  <Skeleton className="mb-4 h-4 w-40" />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {[0, 1, 2, 3].map(field => (
+                      <div key={field} className="space-y-2">
+                        <Skeleton className="h-3 w-1/3" />
+                        <Skeleton className="h-10 w-full rounded-xl" />
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+          <span className="sr-only">Memuat data langganan...</span>
+        </div>
       ) : tab === 'akun' ? (
         <Card padded={false} className="p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-4">
@@ -1953,7 +1996,7 @@ function RiwayatModal({
       size="lg"
     >
       {loading ? (
-        <LoadingBlock label="Memuat riwayat..." />
+        <SkeletonList rows={4} />
       ) : tagihan.length === 0 ? (
         <EmptyState message="Belum ada pembayaran." hint="Riwayat akan muncul setelah ada pembayaran tercatat." />
       ) : (

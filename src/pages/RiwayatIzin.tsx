@@ -14,8 +14,8 @@ import {
   CardTitle,
   DataTable,
   EmptyState,
-  LoadingBlock,
   PageHeader,
+  SkeletonTable,
   StatTile,
   type Column,
 } from '../components/ui/Surface';
@@ -402,7 +402,7 @@ export default function RiwayatIzin() {
       <Card padded={false} className="p-5 sm:p-6">
         <CardTitle action={<Badge tone="slate">{filtered.length} baris</Badge>}>Daftar Pengajuan</CardTitle>
         {loading ? (
-          <LoadingBlock />
+          <SkeletonTable columns={columns.length} rows={6} />
         ) : filtered.length === 0 ? (
           <EmptyState message="Tidak ada pengajuan pada rentang ini." hint="Ubah rentang tanggal atau ajukan izin baru." />
         ) : (

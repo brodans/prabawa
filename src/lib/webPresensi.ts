@@ -173,8 +173,8 @@ export async function login({ nip, password, captcha }: { nip: string; password:
     'm_user[password]': password,
     'm_user[CAPTCHA]': captcha,
   });
-  // Proxy (ep.js) sudah follow redirect internal untuk POST, jadi browser
-  // menerima response final (200 dashboard atau 200 halaman login = gagal).
+  // Proxy rewrites redirects to /ep, allowing the browser to follow them
+  // same-origin and apply session cookies returned by the login endpoint.
   const res = await req(`${PROXY}/p/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

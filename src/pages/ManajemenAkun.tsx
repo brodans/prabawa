@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CreditCard,
   Plus,
@@ -23,9 +23,10 @@ import {
   EmptyState,
   Field,
   Input,
-  LoadingBlock,
   PageHeader,
   PasswordField,
+  Skeleton,
+  SkeletonTable,
   StatTile,
   Textarea,
   type Column,
@@ -293,6 +294,7 @@ function KelolaAkun({ toast, setSubPath }: {
   const [halaman, setHalaman] = useState(0);
   const [dialog, setDialog] = useState<{ akun: UserAccount | null } | null>(null);
   const [konfirmasiHapus, setKonfirmasiHapus] = useState<UserAccount | null>(null);
+  const sudahMuatRef = useRef(false);
   /**
    * `null` = belum ada yang gagal. String = status kredensial **tidak diketahui**,
    * yang Very berbeda dari "belum diatur".
@@ -300,7 +302,7 @@ function KelolaAkun({ toast, setSubPath }: {
   const [galatKredensial, setGalatKredensial] = useState<string | null>(null);
 
   const muat = useCallback(async () => {
-    setLoading(true);
+    if (!sudahMuatRef.current) setLoading(true);
     try {
       /*
        * Tiga request, bukan 2 + N.
@@ -348,6 +350,7 @@ function KelolaAkun({ toast, setSubPath }: {
       setGalatKredensial(null);
       toast.error(err?.message ?? 'Gagal memuat daftar akun.');
     } finally {
+      sudahMuatRef.current = true;
       setLoading(false);
     }
   }, [toast]);
@@ -683,7 +686,41 @@ function KelolaAkun({ toast, setSubPath }: {
     },
   ];
 
-  if (loading) return <LoadingBlock label="Memuat akun..." />;
+  if (loading) {
+    return (
+      <div className="space-y-4" role="status" aria-label="Memuat Manajemen Akun">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[0, 1, 2].map(item => (
+            <div
+              key={item}
+              className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6 space-y-3"
+            >
+              <Skeleton className="h-3 w-2/5" />
+              <Skeleton className="h-7 w-1/3" />
+            </div>
+          ))}
+        </div>
+
+        <Card padded={false} className="p-4 sm:p-5">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[minmax(0,1fr)_8rem_9rem_auto] sm:items-end">
+            {[0, 1, 2, 3].map(item => (
+              <div key={item} className="space-y-2">
+                <Skeleton className="h-3 w-1/3" />
+                <Skeleton className="h-[42px] w-full rounded-xl" />
+              </div>
+            ))}
+          </div>
+          <div className="mt-2.5 flex min-h-[26px] items-center">
+            <Skeleton className="h-3 w-40" />
+          </div>
+          <div className="mt-4">
+            <SkeletonTable columns={kolom.length} rows={7} />
+          </div>
+        </Card>
+        <span className="sr-only">Memuat akun...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

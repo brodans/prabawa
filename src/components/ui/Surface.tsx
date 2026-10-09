@@ -734,6 +734,68 @@ export function EmptyState({ message, hint }: { message: string; hint?: string }
   );
 }
 
+export function Skeleton({ className = '' }: { className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`animate-pulse rounded-lg bg-slate-200/70 dark:bg-slate-700/60 ${className}`}
+    />
+  );
+}
+
+export function SkeletonTable({ columns = 6, rows = 5 }: { columns?: number; rows?: number }) {
+  return (
+    <div className="space-y-3" role="status" aria-label="Memuat tabel">
+      <div
+        aria-hidden="true"
+        className="grid gap-3 border-b border-slate-200 dark:border-slate-700 px-3 pb-3"
+        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+      >
+        {Array.from({ length: columns }, (_, index) => (
+          <Skeleton key={index} className="h-3 w-3/4" />
+        ))}
+      </div>
+      {Array.from({ length: rows }, (_, row) => (
+        <div
+          key={row}
+          aria-hidden="true"
+          className="grid items-center gap-3 rounded-xl border border-slate-100 dark:border-slate-700/60 px-3 py-3"
+          style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+        >
+          {Array.from({ length: columns }, (_, column) => (
+            <Skeleton
+              key={column}
+              className={`h-3 ${column === 0 ? 'w-4/5' : column === columns - 1 ? 'w-1/2' : 'w-3/5'}`}
+            />
+          ))}
+        </div>
+      ))}
+      <span className="sr-only">Memuat data...</span>
+    </div>
+  );
+}
+
+export function SkeletonList({ rows = 4 }: { rows?: number }) {
+  return (
+    <div className="space-y-2.5" role="status" aria-label="Memuat daftar">
+      {Array.from({ length: rows }, (_, index) => (
+        <div
+          key={index}
+          aria-hidden="true"
+          className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 px-3.5 py-3"
+        >
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-3.5 w-2/5" />
+            <Skeleton className="h-3 w-1/3" />
+          </div>
+          <Skeleton className="h-6 w-16 shrink-0 rounded-full" />
+        </div>
+      ))}
+      <span className="sr-only">Memuat data...</span>
+    </div>
+  );
+}
+
 export function LoadingBlock({ label = 'Memuat data...' }: { label?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">

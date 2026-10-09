@@ -22,8 +22,8 @@ import {
   EmptyState,
   Field,
   Input,
-  LoadingBlock,
   PageHeader,
+  SkeletonList,
   StatTile,
 } from '../components/ui/Surface';
 import {
@@ -36,14 +36,13 @@ import {
   type WorkCodeView,
 } from '../lib/apiCalls';
 import { getNowWIBTime, getTodayWIB, timeToMinutes } from '../lib/dateFormatter';
-import { ABSEN_CHECK_TYPE, TIPE_IJIN_LABEL } from '../lib/presensiContract';
+import { ABSEN_CHECK_TYPE, formatLatLong, TIPE_IJIN_LABEL } from '../lib/presensiContract';
 import { checkGeofence } from '../lib/geo';
 import { isCheckType, jamTampil, labelCheckType, pilihWorkCodeUntukHari } from '../lib/viewModels';
 import PetaAbsen, { type TitikPeta } from '../components/ui/PetaAbsen';
 import {
   bacaTitik,
   setTitikAktif,
-  simpanTitik,
   type TitikAbsen,
 } from '../lib/lokasiTersimpan';
 import Dropdown from '../components/ui/Dropdown';
@@ -92,9 +91,16 @@ export default function Presensi() {
   const [pilihOpen, setPilihOpen] = useState(false);
   /** Draft koordinat yang sedang digeser di peta. */
   const [drafPeta, setDrafPeta] = useState<{ latitude: number; longitude: number } | null>(null);
+  /** Pilihan peta ini hanya berlaku selama halaman Presensi tetap terbuka. */
+  const [koordinatSementara, setKoordinatSementara] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   useEffect(() => {
     setTitikSaya(bacaTitik(username));
+    setKoordinatSementara(null);
+    setDrafPeta(null);
   }, [username]);
 
   // ── Konfirmasi absensi ──────────────────────────────────────────
@@ -158,7 +164,7 @@ export default function Presensi() {
           nama: 'Posisi baru',
           latitude: drafPeta.latitude,
           longitude: drafPeta.longitude,
-          radius: 100,
+          radius: 0,
           dariServer: false,
         }]
       : [];
@@ -203,10 +209,11 @@ export default function Presensi() {
   // absensi diblokir di UI dengan arahan memilih titik dulu.
   const koordinat = useMemo(
     () =>
-      titikPakai
+      koordinatSementara ??
+      (titikPakai
         ? { latitude: titikPakai.latitude, longitude: titikPakai.longitude }
-        : null,
-    [titikPakai]
+        : null),
+    [koordinatSementara, titikPakai]
   );
 
   // Jarak ke titik server dihitung dari koordinat yang akan dikirim,
@@ -328,7 +335,10 @@ export default function Presensi() {
     }
     setSubmitting(true);
     try {
-      const result = await rpcAbsen(context, {
+      const result = await rpcAbsen({
+        ...context,
+        lastLatLong: formatLatLong(koordinat.latitude, koordinat.longitude),
+      }, {
         checkType,
         workCode: workCodeId,
         isWfh,
@@ -421,7 +431,7 @@ export default function Presensi() {
         />
         <StatTile
           label="Koordinat Dipakai"
-          value={titikPakai ? 'Titik Peta' : 'Belum Ada'}
+            value={koordinatSementara ? 'Sementara' : titikPakai ? 'Titik Peta' : 'Belum Ada'}
           hint={
             koordinat
               ? `${koordinat.latitude.toFixed(5)}, ${koordinat.longitude.toFixed(5)}`
@@ -450,7 +460,7 @@ export default function Presensi() {
                 dikirim apa adanya sebagai `last_latlong` ke server saat absen. */}
             <Field
               label="Koordinat Absen"
-              hint="Dikirim sebagai last_latlong. Pilih titik di peta, lalu geser penandanya untuk menyetel posisi."
+              hint="Titik dari Lokasi Absen tetap tersimpan di daftar. Pilihan peta hanya berlaku sementara."
             >
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -459,6 +469,7 @@ export default function Presensi() {
                       value={titikPakai?.id ?? ''}
                       onChange={value => {
                         setTitikAktif(username, value);
+                        setKoordinatSementara(null);
                         setTitikSaya(prev =>
                           prev.map(item => ({ ...item, dipakai: item.id === value }))
                         );
@@ -484,12 +495,34 @@ export default function Presensi() {
                   </div>
                   <ActionButton
                     variant="secondary"
-                    onClick={() => setPilihOpen(true)}
+                    onClick={() => {
+                      const awal =
+                        koordinatSementara ??
+                        (titikPakai
+                          ? { latitude: titikPakai.latitude, longitude: titikPakai.longitude }
+                          : activeLocation?.latitude != null && activeLocation.longitude != null
+                            ? {
+                                latitude: activeLocation.latitude,
+                                longitude: activeLocation.longitude,
+                              }
+                            : null);
+                      setDrafPeta(awal);
+                      setPilihOpen(true);
+                    }}
                     icon={<MapPin className="w-4 h-4" />}
                   >
                     Pilih di Peta
                   </ActionButton>
                 </div>
+                {koordinatSementara && (
+                  <button
+                    type="button"
+                    onClick={() => setKoordinatSementara(null)}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    Kembali ke titik tersimpan
+                  </button>
+                )}
 
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-3 space-y-2 text-xs">
                   <div className="flex items-center justify-between gap-2">
@@ -669,7 +702,7 @@ export default function Presensi() {
             <div className="space-y-2.5">
               <ActionButton
                 block
-                size="lg"
+                size="md"
                 // Tiga syarat nyata: hak akses, work code, dan koordinat.
                 // Jam TIDAK lagi menjadi syarat.
                 disabled={!tabPermissions.aksiAbsen || !workCodeId || !koordinat}
@@ -687,7 +720,7 @@ export default function Presensi() {
           <Card>
             <CardTitle>Riwayat Absensi Hari Ini</CardTitle>
             {loading ? (
-              <LoadingBlock />
+              <SkeletonList rows={4} />
             ) : history.length === 0 ? (
               <EmptyState message="Belum ada riwayat absensi untuk hari ini." />
             ) : (
@@ -773,14 +806,49 @@ export default function Presensi() {
 
       {/* ── Peta pemilih koordinat ─────────────────────────────── */}
       {pilihOpen && (
-        <Modal open onClose={() => setPilihOpen(false)} size="xl" title="Pilih Titik Absen">
-          <div className="space-y-3">
-            <Alert tone="blue">
-              Klik peta untuk menandai koordinat, lalu geser penandanya untuk menempatkan titik
-              sedekat mungkin dengan kantor. Koordinat yang dipakai inilah yang dikirim ke server
-              sebagai <span className="font-mono">last_latlong</span> — GPS tidak diperlukan.
-            </Alert>
-
+        <Modal
+          open
+          onClose={() => {
+            setPilihOpen(false);
+            setDrafPeta(null);
+          }}
+          size="lg"
+          title="Pilih Titik Absen"
+          footer={
+            <div className="flex w-full items-center justify-between gap-3">
+              <span className="min-w-0 truncate font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                {drafPeta
+                  ? `${drafPeta.latitude.toFixed(6)}, ${drafPeta.longitude.toFixed(6)}`
+                  : 'Pilih koordinat'}
+              </span>
+              <div className="flex shrink-0 gap-2">
+                <ActionButton
+                  variant="ghost"
+                  onClick={() => {
+                    setPilihOpen(false);
+                    setDrafPeta(null);
+                  }}
+                >
+                  Batal
+                </ActionButton>
+                <ActionButton
+                  variant="primary"
+                  disabled={!drafPeta}
+                  onClick={() => {
+                    if (!drafPeta) return;
+                    setKoordinatSementara(drafPeta);
+                    setDrafPeta(null);
+                    setPilihOpen(false);
+                    setDialogAbsenOpen(false);
+                  }}
+                >
+                  Gunakan sementara
+                </ActionButton>
+              </div>
+            </div>
+          }
+        >
+          <div className="aspect-square w-full overflow-hidden rounded-xl">
             <PetaAbsen
               titik={titikPeta}
               draggableId={drafPeta ? '__draf__' : null}
@@ -789,92 +857,9 @@ export default function Presensi() {
                 setDialogAbsenOpen(false);
               }}
               onGeser={(_id, koordinat) => setDrafPeta(koordinat)}
-              fokus={
-                drafPeta
-                  ? { latitude: drafPeta.latitude, longitude: drafPeta.longitude }
-                  : titikPakai
-                    ? { id: titikPakai.id }
-                    : activeLocation
-                      ? { id: `server-${activeLocation.id}` }
-                      : null
-              }
-              height="440px"
+              fokus={drafPeta}
+              height="100%"
             />
-
-            {titikSaya.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Titik Tersimpan
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {titikSaya.map(item => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setTitikAktif(username, item.id);
-                        setTitikSaya(prev =>
-                          prev.map(x => ({ ...x, dipakai: x.id === item.id }))
-                        );
-                        segarkanTitik();
-                        setDialogAbsenOpen(false);
-                        setPilihOpen(false);
-                      }}
-                      className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-colors ${
-                        item.dipakai
-                          ? 'border-violet-400 dark:border-violet-500/50 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300'
-                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      {item.nama}
-                      <span className="ml-1.5 font-mono opacity-60">
-                        {item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-2">
-              <ActionButton
-                variant="secondary"
-                onClick={() => {
-                  if (!drafPeta) return;
-                  /*
-                   * `simpanTitik` menerima daftar, bukan satu titik — jadi
-                   * titik lama ikut ditulis ulang. Baris di bawah memastikan
-                   * hanya titik baru yang ditandai "dipakai": kalau tidak,
-                   * dua titik bisa sama-sama aktif dan `bacaTitikAktif`
-                   * akan mengembalikan yang mana saja depending urutan.
-                   */
-                  const baru: TitikAbsen = {
-                    id: `t${Date.now().toString(36)}`,
-                    nama: `Titik ${titikSaya.length + 1}`,
-                    latitude: drafPeta.latitude,
-                    longitude: drafPeta.longitude,
-                    dipakai: true,
-                    dibuatPada: Date.now(),
-                  };
-                  const daftar = simpanTitik(username, [
-                    ...titikSaya.map(item => ({ ...item, dipakai: false })),
-                    baru,
-                  ]);
-                  setTitikSaya(daftar);
-                  setDrafPeta(null);
-                  segarkanTitik();
-                  setDialogAbsenOpen(false);
-                }}
-                disabled={!drafPeta}
-              >
-                Simpan sebagai titik baru
-              </ActionButton>
-              {drafPeta && (
-                <ActionButton variant="ghost" onClick={() => setDrafPeta(null)}>
-                  Batalkan draf
-                </ActionButton>
-              )}
-            </div>
           </div>
         </Modal>
       )}

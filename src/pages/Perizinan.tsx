@@ -13,8 +13,8 @@ import {
   DataTable,
   EmptyState,
   Field,
-  LoadingBlock,
   PageHeader,
+  SkeletonTable,
   Textarea,
   type Column,
 } from '../components/ui/Surface';
@@ -502,7 +502,7 @@ export default function Perizinan() {
           </span>
         </CardTitle>
         {loading ? (
-          <LoadingBlock />
+          <SkeletonTable columns={columns.length} rows={5} />
         ) : (
           <DataTable
             columns={columns}
@@ -532,4 +532,3 @@ function IjinStatusBadge({ row }: { row: IjinView }) {
   if (row.status === 'ditolak') return <Badge tone="rose">Ditolak</Badge>;
   return <Badge tone="amber">Menunggu</Badge>;
 }
-

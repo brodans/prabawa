@@ -25,8 +25,8 @@ import {
   DataTable,
   EmptyState,
   Field,
-  LoadingBlock,
   PageHeader,
+  SkeletonTable,
   StatTile,
   type Column,
 } from '../components/ui/Surface';
@@ -470,7 +470,7 @@ export default function Laporan() {
           {activeReport.label}
         </CardTitle>
         {loading ? (
-          <LoadingBlock label="Menyusun laporan..." />
+          <SkeletonTable columns={reportType === 'rekap' ? rekapColumns.length : riwayatColumns.length} rows={6} />
         ) : visible.length === 0 ? (
           <EmptyState message="Belum ada data laporan." hint="Ubah rentang tanggal atau jenis laporan, lalu muat ulang." />
         ) : reportType === 'rekap' ? (

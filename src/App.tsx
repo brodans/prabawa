@@ -27,6 +27,7 @@ import { ToastProvider } from './components/ui/Toast';
 import LoginScreen from './components/LoginScreen';
 import AkunDropdown from './components/ui/AkunDropdown';
 import { ConfirmDialog } from './components/ui/Modal';
+import { Skeleton, SkeletonList, SkeletonTable } from './components/ui/Surface';
 import SettingAkunModal from './components/SettingAkunModal';
 import ProfilServerModal from './components/ProfilServerModal';
 import DeveloperInspector from './components/DeveloperInspector';
@@ -213,16 +214,161 @@ function Clock() {
   );
 }
 
-function PageLoading() {
-  return (
-    <div className="w-full space-y-6 animate-pulse" aria-label="Memuat halaman" role="status">
-      <div className="h-8 w-48 rounded-lg bg-slate-200/60 dark:bg-slate-800/60" />
-      <div className="h-32 w-full rounded-2xl bg-slate-200/50 dark:bg-slate-800/50" />
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="h-40 rounded-2xl bg-slate-200/40 dark:bg-slate-800/40" />
-        <div className="h-40 rounded-2xl bg-slate-200/40 dark:bg-slate-800/40" />
-        <div className="h-40 rounded-2xl bg-slate-200/40 dark:bg-slate-800/40 hidden lg:block" />
+function PageLoading({ pageId }: { pageId: string }) {
+  const header = (
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <Skeleton className="h-11 w-11 shrink-0 rounded-2xl" />
+        <div className="min-w-0 space-y-2">
+          <Skeleton className="h-6 w-44 max-w-full" />
+          <Skeleton className="h-3.5 w-64 max-w-full" />
+        </div>
       </div>
+      <Skeleton className="h-9 w-28 shrink-0 rounded-xl" />
+    </div>
+  );
+  const stats = (count: number) => (
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {Array.from({ length: count }, (_, index) => (
+        <div key={index} className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 space-y-3">
+          <Skeleton className="h-3 w-2/5" />
+          <Skeleton className="h-7 w-1/3" />
+          <Skeleton className="h-3 w-3/5" />
+        </div>
+      ))}
+    </div>
+  );
+  const filters = (count = 4) => (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: count }, (_, index) => (
+        <div key={index} className="space-y-2">
+          <Skeleton className="h-3 w-1/3" />
+          <Skeleton className="h-10 w-full rounded-xl" />
+        </div>
+      ))}
+    </div>
+  );
+  const table = (columns = 6, rows = 6) => (
+    <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-4 sm:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <Skeleton className="h-4 w-36" />
+        <Skeleton className="h-6 w-20 rounded-full" />
+      </div>
+      <SkeletonTable columns={columns} rows={rows} />
+    </div>
+  );
+
+  let content: React.ReactNode;
+  if (pageId === 'tabPresensi') {
+    content = (
+      <>
+        {stats(4)}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div className="lg:col-span-3 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6 space-y-5">
+            <Skeleton className="h-4 w-32" />
+            {filters(2)}
+            <Skeleton className="h-24 w-full rounded-xl" />
+            <Skeleton className="h-12 w-full rounded-xl" />
+          </div>
+          <div className="lg:col-span-2 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6">
+            <Skeleton className="mb-4 h-4 w-40" />
+            <SkeletonList rows={4} />
+          </div>
+        </div>
+      </>
+    );
+  } else if (pageId === 'tabLokasiAbsen') {
+    content = (
+      <>
+        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6">
+          <div className="mb-4 flex justify-between"><Skeleton className="h-4 w-36" /><Skeleton className="h-6 w-32 rounded-full" /></div>
+          <Skeleton className="h-[min(480px,65vh)] w-full rounded-xl" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Skeleton className="h-36 rounded-2xl" />
+          <Skeleton className="h-36 rounded-2xl" />
+        </div>
+      </>
+    );
+  } else if (pageId === 'tabManajemenAkun') {
+    content = (
+      <>
+        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700/60 pb-2">
+          <Skeleton className="h-8 w-36 rounded-lg" />
+          <Skeleton className="h-8 w-44 rounded-lg" />
+        </div>
+        {stats(3)}
+        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-4 sm:p-5">
+          {filters(4)}
+          <Skeleton className="my-5 h-3 w-40" />
+          <SkeletonTable columns={7} rows={7} />
+        </div>
+      </>
+    );
+  } else if (pageId === 'tabPerizinan') {
+    content = (
+      <>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 space-y-4">
+            <Skeleton className="h-4 w-36" />
+            {filters(4)}
+            <Skeleton className="h-24 w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-64 rounded-2xl" />
+        </div>
+        {table(7)}
+      </>
+    );
+  } else if (pageId === 'tabRiwayatIzin' || pageId === 'tabLaporan') {
+    content = (
+      <>
+        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6 space-y-4">
+          <Skeleton className="h-4 w-40" />
+          {filters(4)}
+          <Skeleton className="h-9 w-36 rounded-xl" />
+        </div>
+        {stats(4)}
+        {table(pageId === 'tabLaporan' ? 7 : 6)}
+      </>
+    );
+  } else if (pageId === 'tabWeb') {
+    content = (
+      <div className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6 space-y-5">
+        <Skeleton className="h-5 w-48" />
+        {filters(3)}
+        <Skeleton className="h-11 w-full rounded-xl" />
+        <SkeletonList rows={3} />
+      </div>
+    );
+  } else if (pageId === 'tabDocs') {
+    content = (
+      <div className="space-y-4">
+        <Skeleton className="h-36 rounded-2xl" />
+        <Skeleton className="h-64 rounded-2xl" />
+        <Skeleton className="h-48 rounded-2xl" />
+      </div>
+    );
+  } else {
+    content = (
+      <>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 space-y-4">
+            <Skeleton className="h-4 w-40" />
+            {filters(3)}
+            <Skeleton className="h-10 w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-56 rounded-2xl" />
+        </div>
+        {stats(3)}
+        {table(6, 4)}
+      </>
+    );
+  }
+
+  return (
+    <div className="w-full space-y-6" aria-label="Memuat halaman" role="status">
+      {header}
+      {content}
       <span className="sr-only">Memuat halaman...</span>
     </div>
   );
@@ -597,9 +743,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
         {/* Header */}
         <div className="h-[56px] flex items-center px-5 border-b border-slate-800/60 justify-between shrink-0">
           <div
-            className="flex items-center gap-3 overflow-hidden group cursor-pointer"
-            onClick={() => setIsAkunModalOpen(true)}
-            title="Pengaturan Akun"
+            className="group flex items-center gap-3 overflow-hidden"
           >
             <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-500 p-0.5 shadow-lg shadow-blue-500/20 transition-all duration-300 group-hover:scale-105 group-hover:shadow-blue-500/40">
               <div className="w-full h-full bg-[#0F172A] dark:bg-[#070B14] rounded-[0.7rem] p-1 flex items-center justify-center overflow-hidden">
@@ -910,7 +1054,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
           <main className="poni-konten flex-1 min-w-0 overflow-x-hidden w-full">
             <div className="min-w-0 w-full">
               <PageErrorBoundary key={activePageData.id} pageId={activePageData.id}>
-                <Suspense fallback={<PageLoading />}>
+                <Suspense fallback={<PageLoading pageId={activePageData.id} />}>
                   <motion.div
                     key={activePageData.id}
                     initial={{ opacity: 0, y: 10 }}

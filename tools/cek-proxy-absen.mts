@@ -327,6 +327,7 @@ console.log('\n=== ep: content-length basi tidak boleh mematikan POST');
   // Upstream terpisah dari stub di atas: handler ini dibaca dari `src/`, bukan
   // dari Express, jadi butuh target sendiri.
   const AskEp: { contentLength: string | undefined; byteLength: number }[] = [];
+  let redirectLogin = false;
   const stubEp = http.createServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on('data', (c: Buffer) => chunks.push(c));
@@ -335,6 +336,14 @@ console.log('\n=== ep: content-length basi tidak boleh mematikan POST');
         contentLength: req.headers['content-length'],
         byteLength: Buffer.concat(chunks).length,
       });
+      if (redirectLogin) {
+        res.writeHead(302, {
+          Location: 'https://e-presensi.example/index.php/default/index',
+          'Set-Cookie': 'epresensi-bkdjatim=session-baru; Path=/; HttpOnly',
+        });
+        res.end();
+        return;
+      }
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end('<html><title>Login</title></html>');
     });
@@ -429,6 +438,32 @@ console.log('\n=== ep: content-length basi tidak boleh mematikan POST');
       !!v && (v.contentLength === undefined || Number(v.contentLength) === v.byteLength),
       v ? `content-length=${v.contentLength} body=${v.byteLength}` : 'request tidak sampai ke upstream');
   }
+
+  AskEp.length = 0;
+  redirectLogin = true;
+  const reqRedirect = {
+    ...reqEp,
+    headers: {
+      'x-matched-path': '/ep/p/login',
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+  };
+  const resRedirect = {
+    statusCode: 200, h: {} as Record<string, string>,
+    setHeader(k: string, v: string) { this.h[k.toLowerCase()] = v; },
+    getHeader(k: string) { return this.h[k.toLowerCase()]; },
+    removeHeader(k: string) { delete this.h[k.toLowerCase()]; },
+    writeHead(c: number) { this.statusCode = c; return this; },
+    appendHeader(k: string, v: string) { this.h[k.toLowerCase()] = v; },
+    end() { statusEp = this.statusCode; },
+  };
+  await handlerEp(reqRedirect as never, resRedirect as never);
+  cek('redirect login diteruskan ke browser agar cookie sesi baru dipakai',
+    statusEp === 302 &&
+      resRedirect.h.location === '/ep/p/default/index' &&
+      resRedirect.h['set-cookie']?.includes('Path=/ep') &&
+      AskEp.length === 1,
+    `status=${statusEp} lokasi=${resRedirect.h.location} cookie=${resRedirect.h['set-cookie']}`);
 
   stubEp.close();
 }
