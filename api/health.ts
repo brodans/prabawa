@@ -62,6 +62,7 @@ function terapkanCors(res, origin) {
 
 // src/serverless/health.ts
 async function handler(req, res) {
+  res.setHeader("Cache-Control", "no-store, max-age=0");
   if (!terapkanCors(res, req.headers?.origin)) {
     return res.status(403).json({ ok: false });
   }

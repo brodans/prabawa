@@ -58,7 +58,10 @@ export function cekMidtransServer(): Promise<boolean> {
   if (cacheHealth) return cacheHealth;
   cacheHealth = (async () => {
     try {
-      const response = await fetch('/api/health', { headers: { Accept: 'application/json' } });
+      const response = await fetch('/api/health', {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      });
       if (!response.ok) return false;
       const data = (await response.json()) as { midtrans?: boolean };
       return Boolean(data?.midtrans);

@@ -71,10 +71,34 @@ export async function aktifkanLangganan(params: {
   });
 
   let data: HasilAktivasiKlien;
+  let teks: string;
   try {
-    data = (await response.json()) as HasilAktivasiKlien;
+    teks = await response.text();
   } catch {
-    return { ok: false, pesan: 'Respons server pembayaran bukan JSON.' };
+    return {
+      ok: false,
+      pesan:
+        `Respons endpoint aktivasi tidak bisa dibaca (HTTP ${response.status}). ` +
+        'Transaksi tetap tercatat di Midtrans; jangan bayar ulang. Hubungi administrator.',
+    };
+  }
+  try {
+    const hasil: unknown = JSON.parse(teks);
+    if (
+      typeof hasil !== 'object' ||
+      hasil === null ||
+      typeof (hasil as Record<string, unknown>).ok !== 'boolean'
+    ) {
+      throw new TypeError('Bentuk respons aktivasi tidak valid.');
+    }
+    data = hasil as HasilAktivasiKlien;
+  } catch {
+    return {
+      ok: false,
+      pesan:
+        `Endpoint aktivasi tidak mengembalikan respons JSON yang valid (HTTP ${response.status}). ` +
+        'Transaksi tetap tercatat di Midtrans; jangan bayar ulang. Hubungi administrator.',
+    };
   }
 
   if (response.status === 401) {

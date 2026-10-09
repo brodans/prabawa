@@ -640,6 +640,14 @@ cek('rewrite /ep ada dan muncul sebelum rewrite SPA',
   epRewrite >= 0 && idxSpa > epRewrite,
   epRewrite < 0 ? 'tidak ada rewrite /ep — menu web akan dilayani index.html'
     : `indeks /ep=${epRewrite}, indeks SPA=${idxSpa}`);
+const aktivasiRewrite = rewrites.findIndex(
+  (rw: AturanRute) => rw.src === '^/api/billing/aktivasi/?$' && rw.dest === '/api/billing-aktivasi'
+);
+cek('URL aktivasi browser dipetakan ke fungsi Vercel billing-aktivasi sebelum filesystem',
+  aktivasiRewrite >= 0 && aktivasiRewrite < rewrites.findIndex((rw: AturanRute) => rw.handle === 'filesystem'),
+  aktivasiRewrite < 0
+    ? 'tanpa alias ini URL aktivasi jatuh ke index.html dan gagal parse JSON'
+    : `indeks alias=${aktivasiRewrite}`);
 const pkg = JSON.parse((await import('node:fs')).readFileSync(join(root, 'package.json'), 'utf8'));
 cek('ada vercel.json', true);
 cek('tidak ada rewrite yang sending /api/rpc ke index.html',
@@ -680,6 +688,8 @@ cek('server dev punya bawaan localhost (biar .env lokal tidak wajib)',
 
 const healthSrc = (await import('node:fs')).readFileSync(join(root, 'src/serverless/health.ts'), 'utf8');
 cek('/api/health melaporkan status allow-list', /konfigurasi:/.test(healthSrc) && /origin: !originKosong/.test(healthSrc));
+cek('/api/health tidak di-cache agar pemeriksaan Midtrans tidak menerima 304',
+  /Cache-Control',\s*'no-store/.test(healthSrc));
 cek('/api/health menyertakan peringatan yang bisa dikerjakan', /peringatan:/.test(healthSrc) && /ALLOWED_ORIGINS belum diisi/.test(healthSrc));
 cek('/api/health tidak pernah membocorkan nilai server key',
   !/MIDTRANS_SERVER_KEY\s*[,}]/.test(healthSrc.replace(/.*MIDTRANS_SERVER_KEY belum diisi.*/, '')),

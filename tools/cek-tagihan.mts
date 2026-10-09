@@ -592,6 +592,13 @@ cek('kedua handler memakai kontrak respons Snap bersama dan tidak meneruskan raw
 cek('retry Midtrans memakai tagihan pending yang sudah dibuat',
   /tagihanLokal\?\.paketId === paketDipilih\.id/.test(modalSnap) &&
     /if \(!tagihanLokalPaket\)\s*\{\s*await buatTagihan/.test(modalSnap));
+cek('pembayaran yang sudah kembali dari Snap bisa diverifikasi ulang tanpa membuat transaksi baru',
+  /perluCekMidtrans/.test(modalSnap) &&
+    /Cek Status Pembayaran/.test(modalSnap) &&
+    /terapkan\(orderId,\s*terpilih,\s*'qris_midtrans'\)/.test(modalSnap));
+cek('tagihan Midtrans yang dilanjutkan diverifikasi dulu sebelum Snap dibuat ulang',
+  /if \(idLanjut\)[\s\S]*?terapkan\(idPakai,\s*paketDipilih,\s*'qris_midtrans'\)/.test(modalSnap) &&
+    /if \(idLanjut\)[\s\S]*?jalankanSnap\(idPakai/.test(modalSnap) === false);
 
 console.log('\n=== Respons sukses Snap dari endpoint Vercel');
 {

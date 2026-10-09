@@ -250,6 +250,7 @@ export default function BayarLanggananModal({
   const [galat, setGalat] = useState<string | null>(null);
   const [masaAkhir, setMasaAkhir] = useState('');
   const [perbesar, setPerbesar] = useState(false);
+  const [perluCekMidtrans, setPerluCekMidtrans] = useState(false);
   const snapAktifRef = useRef(false);
 
   // Midtrans baru dinyatakan siap setelah key klien dan server sama-sama terverifikasi.
@@ -300,6 +301,7 @@ export default function BayarLanggananModal({
     setGalat(null);
     setMasaAkhir('');
     setPerbesar(false);
+    setPerluCekMidtrans(false);
     setBekerja(false);
   }, [usernameRingkasan]);
 
@@ -436,7 +438,13 @@ export default function BayarLanggananModal({
               setRekening(rekAktif[0] ?? null);
               setLangkah('transfer');
             } else {
-              await jalankanSnap(idPakai, paketDipilih, metode);
+              setPerluCekMidtrans(true);
+              const hasil = await terapkan(idPakai, paketDipilih, 'qris_midtrans');
+              if (hasil.ok) {
+                selesaikanLangganan(hasil.masaAkhir);
+              } else {
+                setGalat(hasil.pesan);
+              }
             }
             return;
           }
@@ -500,6 +508,7 @@ export default function BayarLanggananModal({
       window.snap.pay(token, {
         onSuccess: () => {
           snapAktifRef.current = false;
+          setPerluCekMidtrans(true);
           setelahMidtrans(id, paketDipilih, metode);
         },
         onPending: () => {
@@ -541,11 +550,11 @@ export default function BayarLanggananModal({
    * pemanggil menentukan sendiri kesalahannya, satu jalur yang lupa menangani
    * `ok: false` akan membuat pengguna mengira sudah bayar padahal tidak.
    */
-  const terapkan = async (
+  async function terapkan(
     id: string,
     paketDipilih: PaketLangganan,
     metode: MetodePembayaran
-  ): Promise<{ ok: boolean; pesan: string; masaAkhir: string }> => {
+  ): Promise<{ ok: boolean; pesan: string; masaAkhir: string }> {
     const gagal = (pesan: string) => ({ ok: false, pesan, masaAkhir: '' });
     if (!ringkasan) return gagal('Sesi tidak valid. Muat ulang halaman.');
     setBekerja(true);
@@ -565,7 +574,14 @@ export default function BayarLanggananModal({
     } finally {
       setBekerja(false);
     }
-  };
+  }
+
+  function selesaikanLangganan(akhir: string) {
+    setMasaAkhir(akhir);
+    setPerluCekMidtrans(false);
+    setLangkah('selesai');
+    toast.success(`Langganan aktif sampai ${formatTanggalLokal(akhir)}.`);
+  }
 
   /**
    * Midtrans selesai — langsung minta server mengaktifkan.
@@ -584,9 +600,17 @@ export default function BayarLanggananModal({
       setGalat(hasil.pesan);
       return;
     }
-    setMasaAkhir(hasil.masaAkhir);
-    setLangkah('selesai');
-    toast.success(`Langganan aktif sampai ${formatTanggalLokal(hasil.masaAkhir)}.`);
+    selesaikanLangganan(hasil.masaAkhir);
+  };
+
+  const cekUlangPembayaranMidtrans = async () => {
+    if (!terpilih || !orderId) return;
+    const hasil = await terapkan(orderId, terpilih, 'qris_midtrans');
+    if (!hasil.ok) {
+      setGalat(hasil.pesan);
+      return;
+    }
+    selesaikanLangganan(hasil.masaAkhir);
   };
 
   /**
@@ -754,32 +778,50 @@ export default function BayarLanggananModal({
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Metode Pembayaran
               </p>
-              <div className="space-y-2">
-                {metodeTersedia.map(metode => {
-                  const Icon = METODE_ICON[metode];
-                  return (
-                    <button
-                      key={metode}
-                      type="button"
-                      disabled={bekerja}
-                      onClick={() => void mulai(terpilih, metode)}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-left transition-colors hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 disabled:opacity-50"
-                    >
-                      <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                        <Icon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                          {METODE_LABEL[metode]}
-                        </p>
-                        <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                          {METODE_HINT[metode]}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              {perluCekMidtrans ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Pembayaran sudah dikirim ke Midtrans. Cek statusnya untuk mengaktifkan langganan;
+                    tidak perlu membayar lagi.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={bekerja}
+                    onClick={() => void cekUlangPembayaranMidtrans()}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {bekerja && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Cek Status Pembayaran
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {metodeTersedia.map(metode => {
+                    const Icon = METODE_ICON[metode];
+                    return (
+                      <button
+                        key={metode}
+                        type="button"
+                        disabled={bekerja}
+                        onClick={() => void mulai(terpilih, metode)}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-left transition-colors hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 disabled:opacity-50"
+                      >
+                        <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                          <Icon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                            {METODE_LABEL[metode]}
+                          </p>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                            {METODE_HINT[metode]}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {metodeTersedia.length === 0 && memeriksaMidtrans && (
                 <p className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400" role="status">
                   <Loader2 className="h-4 w-4 animate-spin" />

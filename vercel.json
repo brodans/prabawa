@@ -12,6 +12,7 @@
   },
   "routes": [
     { "src": "^/ep(/.*)?$", "dest": "/api/ep", "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"] },
+    { "src": "^/api/billing/aktivasi/?$", "dest": "/api/billing-aktivasi" },
     { "handle": "filesystem" },
     { "src": "^/(.*)$", "dest": "/index.html" }
   ]

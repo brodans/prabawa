@@ -254,6 +254,10 @@ console.log('\n=== 8. Pembayaran diaktifkan lewat satu jalur — dan jalurnya di
 cek('komponen tidak mengimpor catatPembayaran', !/\bcatatPembayaran\b/.test(modalKode));
 cek('komponen hanya mengaktifkan lewat server', /aktifkanLangganan\(/.test(modalKode));
 cek('klien memanggil /api/billing/aktivasi', /\/api\/billing\/aktivasi/.test(kode(baca('../src/lib/aktivasiLangganan.ts'))));
+cek('klien menampilkan status HTTP jika endpoint aktivasi tidak memberi JSON',
+  /Endpoint aktivasi tidak mengembalikan respons JSON yang valid \(HTTP \$\{response\.status\}\)/.test(
+    kode(baca('../src/lib/aktivasiLangganan.ts'))
+  ));
 cek('tidak ada tulis Firestore di jalur aktivasi klien', !/setDoc/.test(baca('../src/lib/aktivasiLangganan.ts')));
 
 // Sisi server.
