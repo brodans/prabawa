@@ -191,6 +191,19 @@ export async function login({ nip, password, captcha }: { nip: string; password:
     err.jenis = /captcha/i.test(pesan) ? 'captcha' : 'kredensial';
     throw err;
   }
+  if (!res.ok) {
+    let pesan = `Login gagal menghubungi server e-Presensi (HTTP ${res.status}).`;
+    try {
+      const data = JSON.parse(html) as { error?: unknown; detail?: unknown };
+      if (typeof data.error === 'string') {
+        pesan = data.error;
+        if (typeof data.detail === 'string' && data.detail) pesan += `: ${data.detail}`;
+      }
+    } catch {
+      // Respons non-JSON tetap dilaporkan lewat status HTTP.
+    }
+    throw new Error(pesan);
+  }
   return true;
 }
 

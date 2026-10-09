@@ -1856,6 +1856,9 @@ try {
   cek('password yang dipakai login = password yang diisi admin',
     params?.password === CRED.budi.sandi,
     'password harus berasal dari dekripsi kredensial yang disimpan');
+  cek('login mengirim latlong netral yang valid',
+    params.latlong === '0,0',
+    `latlong="${params.latlong}" — field kosong ditolak gateway v89`);
   /*
    * ⚠️ Bug 3. Ini assertion kunci dari seluruh bagian ini.
    *
@@ -2011,6 +2014,9 @@ console.log('\n=== 1i. Lewat handler HTTP: yang dipakai peramban sungguhan');
     cek('IMEI dari kredensial admin dipakai, bukan TechMark peramban',
       paramMasuk.param.imei === 'IMEI-HANDLER',
       `imei="${paramMasuk.param.imei}"`);
+    cek('login lewat handler juga mengirim latlong netral yang valid',
+      paramMasuk.param.latlong === '0,0',
+      `latlong="${paramMasuk.param.latlong}" — field kosong ditolak gateway v89`);
   } finally {
     globalThis.fetch = fetchAsliHandler;
   }

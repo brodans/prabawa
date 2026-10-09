@@ -979,7 +979,7 @@ async function autoLoginPusat(token, username, opsi = {}) {
   const envelope = buildRpcEnvelope("login", {
     email: nip,
     password: sandi,
-    latlong: "",
+    latlong: "0,0",
     imei,
     api_key: "",
     last_latlong: ""

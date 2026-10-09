@@ -28,11 +28,9 @@ import {
 } from '../components/ui/Surface';
 import {
   rpcAbsen,
-  rpcCekAbsen,
   rpcGetLokasiAbsen,
   rpcGetWorkCode,
   rpcHistoryAbsen,
-  type CekAbsenResult,
   type HistoryAbsenModel,
   type LokasiView,
   type WorkCodeView,
@@ -99,28 +97,10 @@ export default function Presensi() {
     setTitikSaya(bacaTitik(username));
   }, [username]);
 
-  // ── Percakapan konfirmasi ───────────────────────────────────────
-  const [cek, setCek] = useState<CekAbsenResult | null>(null);
-  const [checking, setChecking] = useState(false);
+  // ── Konfirmasi absensi ──────────────────────────────────────────
+  const [dialogAbsenOpen, setDialogAbsenOpen] = useState(false);
+  const [errorAbsen, setErrorAbsen] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  /**
-   * Batas akhir konfirmasi absensi (epoch ms).
-   *
-   * Diisi setelah `cekabsen` membolehkan absensi, memakai `absen_timeout`
-   * dari `login`. Sifatnya seperti `PendingAttendanceResult` di aplikasi
-   * Android: jendela konfirmasi punya masa berlaku, dan lewatnya jendela
-   * membuat `absen` ditolak.
-   */
-  const [konfirmasiBerlaku, setKonfirmasiBerlaku] = useState<number | null>(null);
-  /** Detik berjalan — hanya untuk menghitung mundur. */
-  const [detik, setDetik] = useState(0);
-
-  // Detik untuk hitung mundur konfirmasi absensi.
-  useEffect(() => {
-    if (konfirmasiBerlaku === null) return;
-    const timer = setInterval(() => setDetik(prev => prev + 1), 1000);
-    return () => clearInterval(timer);
-  }, [konfirmasiBerlaku]);
 
   const today = getTodayWIB();
 
@@ -199,7 +179,7 @@ export default function Presensi() {
    * saat pengguna mengganti titik dari dropdown atau peta. Akibatnya kartu
    * koordinat, hitungan jarak, dan baris konfirmasi di dialog semuanya
    * masih menampilkan titik yang lama — dan `koordinat` tetap `null` kalau
-   * sebelumnya belum ada titik, sehingga tombol "Cek Absensi" tetap terkunci
+  * sebelumnya belum ada titik, sehingga tombol "Absen" tetap terkunci
    * padahal titik baru saja dibuat.
    *
    * Diturunkan dari state yang sama dengan isi dropdown, jadi keduanya
@@ -281,7 +261,7 @@ export default function Presensi() {
    *
    * ⚠️ INI PURELY INFORMATIF — tidak pernah memblokir absensi.
    *
-   * Dulu gate ini mematikan tombol "Cek Absensi" di luar jam kerja. Itu
+  * Dulu gate ini mematikan tombol "Absen" di luar jam kerja. Itu
    * salah untuk dua alasan:
    *
    * 1. **Server adalah satu-satunya penentu.** `absen` dan `cekabsen` tidak
@@ -319,9 +299,10 @@ export default function Presensi() {
     return buka ? `sejak ${buka}` : 'tidak ditentukan';
   }, [schedule, checkType]);
 
-  // ── Langkah 1: cek ke server ─────────────────────────────────────
-  const handleCek = async () => {
+  // ── Buka konfirmasi ─────────────────────────────────────────────
+  const handleAbsen = () => {
     setError(null);
+    setErrorAbsen('');
     if (!workCodeId) {
       setError('Work Code wajib dipilih — server menolak tanpa itu.');
       return;
@@ -330,47 +311,19 @@ export default function Presensi() {
       setError('Koordinat belum dipilih. Pilih titik di peta lebih dulu.');
       return;
     }
-    setChecking(true);
-    try {
-      const result = await rpcCekAbsen(context, {
-        checkType,
-        workCode: workCodeId,
-        isWfh,
-      });
-      if (result === null) {
-        setError('Server pusat tidak menjawab pengecekan absensi.');
-        return;
-      }
-      setCek(result);
-      // `absen_timeout` dari `login` (= 300.000 ms secara default) adalah
-      // masa berlaku konfirmasi ini. Kalau sudah lewat, window-nya
-      // kedaluwarsa dan `absen` kemungkinan ditolak — jadi peringatkan
-      // lebih awal daripada membiarkan server menolak butanya.
-      if (result.absen) {
-        setKonfirmasiBerlaku(Date.now() + (pegawai?.absenTimeout ?? 300_000));
-      } else {
-        setKonfirmasiBerlaku(null);
-      }
-    } catch (err: any) {
-      setError(err?.message ?? 'Gagal mengecek absensi ke server pusat.');
-    } finally {
-      setChecking(false);
-    }
+    setDialogAbsenOpen(true);
   };
 
-  // Sisa waktu konfirmasi dalam detik, dihitung tiap detik.
-  const sisaKonfirmasi = useMemo(() => {
-    if (!konfirmasiBerlaku) return null;
-    return Math.max(0, Math.ceil((konfirmasiBerlaku - Date.now()) / 1000));
-  }, [konfirmasiBerlaku, detik]);
-
-  const konfirmasiKedaluwarsa = konfirmasiBerlaku !== null && sisaKonfirmasi === 0;
-
-  // ── Langkah 2: kirim absensi ─────────────────────────────────────
+  // ── Kirim absensi ───────────────────────────────────────────────
   const submitAbsen = async () => {
     setError(null);
+    setErrorAbsen('');
     if (!workCodeId) {
-      setError('Work Code wajib dipilih — server menolak tanpa itu.');
+      setErrorAbsen('Work Code wajib dipilih — server menolak tanpa itu.');
+      return;
+    }
+    if (!koordinat) {
+      setErrorAbsen('Koordinat belum dipilih. Pilih titik di peta lebih dulu.');
       return;
     }
     setSubmitting(true);
@@ -388,22 +341,21 @@ export default function Presensi() {
       });
 
       if (result === null) {
-        setError('Server pusat menolak absensi. Periksa lokasi, jam kerja, dan duplikasi absen.');
+        setErrorAbsen('Server pusat tidak mengembalikan hasil absensi. Coba lagi beberapa saat.');
         return;
       }
       if (result.absen === false) {
-        setError(result.message || 'Server menolak absensi ini.');
-        setCek({ absen: false, message: result.message ?? '' });
+        setErrorAbsen(result.message || 'Server menolak absensi ini.');
         return;
       }
 
       toast.success(`Absen ${labelCheckType(String(checkType))} tercatat pada ${getNowWIBTime().slice(0, 5)} WIB.`);
-      setCek(null);
+      setDialogAbsenOpen(false);
       setKeterangan('');
       setKirimIjin(false);
       await loadData();
     } catch (err: any) {
-      setError(err?.message ?? 'Gagal mengirim absensi ke server pusat.');
+      setErrorAbsen(err?.message ?? 'Gagal mengirim absensi ke server pusat.');
     } finally {
       setSubmitting(false);
     }
@@ -411,10 +363,10 @@ export default function Presensi() {
 
   // Tombol kembali menutup dialog konfirmasi lebih dulu.
   useBackButton(
-    cek !== null,
+    dialogAbsenOpen,
     () => {
-      if (!cek) return false;
-      setCek(null);
+      if (!dialogAbsenOpen) return false;
+      setDialogAbsenOpen(false);
       return true;
     }
   );
@@ -495,8 +447,7 @@ export default function Presensi() {
           <div className="space-y-4">
             {/* ── Koordinat absen ──────────────────────────────────
                 Ini yang menggantikan GPS. Titik yang dipilih di sini
-                dikirim apa adanya sebagai `last_latlong` ke cekabsen
-                dan absen. */}
+                dikirim apa adanya sebagai `last_latlong` ke server saat absen. */}
             <Field
               label="Koordinat Absen"
               hint="Dikirim sebagai last_latlong. Pilih titik di peta, lalu geser penandanya untuk menyetel posisi."
@@ -512,10 +463,10 @@ export default function Presensi() {
                           prev.map(item => ({ ...item, dipakai: item.id === value }))
                         );
                         // `context.lastLatLong` ikut segar sekarang juga, bukan
-                        // menunggu polling 5 detik — kalau tidak, klik "Cek
-                        // Absensi" sesaat setelah ini mengirim koordinat lama.
+                        // menunggu polling 5 detik — kalau tidak, klik "Absen"
+                        // sesaat setelah ini mengirim koordinat lama.
                         segarkanTitik();
-                        setCek(null);
+                        setDialogAbsenOpen(false);
                       }}
                       opsi={
                         titikSaya.length === 0
@@ -575,7 +526,7 @@ export default function Presensi() {
                 value={workCodeId}
                 onChange={value => {
                   setWorkCodeId(value);
-                  setCek(null);
+                  setDialogAbsenOpen(false);
                 }}
                 opsi={[
                   { value: '', label: '— Pilih work code —', disabled: true },
@@ -608,7 +559,7 @@ export default function Presensi() {
                     type="button"
                     onClick={() => {
                       setCheckType(item.value);
-                      setCek(null);
+                      setDialogAbsenOpen(false);
                     }}
                     className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
                       checkType === item.value
@@ -636,7 +587,7 @@ export default function Presensi() {
                 disabled={!hariWfh}
                 onChange={checked => {
                   setIsWfh(checked);
-                  setCek(null);
+                  setDialogAbsenOpen(false);
                 }}
                 label="Absen dari rumah (WFH)"
               />
@@ -650,7 +601,7 @@ export default function Presensi() {
                 checked={kirimIjin}
                 onChange={checked => {
                   setKirimIjin(checked);
-                  setCek(null);
+                  setDialogAbsenOpen(false);
                 }}
                 label="Kirim izin bersama absensi ini"
               />
@@ -663,7 +614,7 @@ export default function Presensi() {
                     value={typeIjin}
                     onChange={value => {
                       setTypeIjin(value);
-                      setCek(null);
+                      setDialogAbsenOpen(false);
                     }}
                     opsi={TIPE_IJIN_OPTIONS.map(([value, label]) => ({
                       value,
@@ -719,14 +670,13 @@ export default function Presensi() {
               <ActionButton
                 block
                 size="lg"
-                loading={checking}
                 // Tiga syarat nyata: hak akses, work code, dan koordinat.
                 // Jam TIDAK lagi menjadi syarat.
                 disabled={!tabPermissions.aksiAbsen || !workCodeId || !koordinat}
-                onClick={handleCek}
+                onClick={handleAbsen}
                 icon={<Fingerprint className="w-5 h-5" />}
               >
-                Cek Absensi
+                Absen
               </ActionButton>
             </div>
           </div>
@@ -770,60 +720,40 @@ export default function Presensi() {
       </div>
 
       {/* ── Dialog konfirmasi ───────────────────────────────────── */}
-      {cek && (
+      {dialogAbsenOpen && (
         <Modal
           open
-          onClose={() => setCek(null)}
+          onClose={() => setDialogAbsenOpen(false)}
           size="md"
           title={`Konfirmasi ${labelCheckType(String(checkType))}`}
           icon={<ShieldCheck className="w-5 h-5 text-blue-500" />}
           footer={
-            <div className="flex gap-2">
+            <div className="flex justify-end gap-2">
               <ActionButton
                 variant="ghost"
-                block
-                onClick={() => setCek(null)}
+                onClick={() => setDialogAbsenOpen(false)}
                 icon={<XCircle className="w-4 h-4" />}
               >
                 Batal
               </ActionButton>
               <ActionButton
-                block
                 loading={submitting}
-                // ⚠️ Hanya `cek.absen` yang memblokir — server sudah
-                // menyatakan boleh atau tidak lewat `cekabsen`.
-                //
-                // Masa berlaku konfirmasi (`absen_timeout`) sengaja TIDAK
-                // dipakai untuk menonaktifkan tombol: field itu dari
-                // `login` dan belum terverifikasi bahwa server memakainya
-                // untuk menolak. Menonaktifkan di sini berisiko memblokir
-                // absensi yang sebenarnya sah, jadi cukup diperingatkan
-                // (lihat Alert di atas).
-                disabled={!cek.absen}
+                className="flex-1 min-w-0"
                 onClick={() => void submitAbsen()}
                 icon={<CheckCircle2 className="w-4 h-4" />}
               >
-                Kirim
+                Absen
               </ActionButton>
             </div>
           }
         >
           <div className="space-y-4">
-              {cek.message && (
-                /*
-                 * Ikonnya sekarang berasal dari `Alert` sendiri, lewat
-                 * `tone`. Versi ini menaruh `AlertTriangle`/`XCircle` di
-                 * dalam `children` — jadi segitiga peringatan tampil dua
-                 * kali, persis di baris yang paling perlu dibaca dengan
-                 * tenang (hasil "Cek Absensi").
-                 */
-                <Alert tone={cek.absen ? 'amber' : 'rose'}>{cek.message}</Alert>
-              )}
+              {errorAbsen && <Alert tone="rose">{errorAbsen}</Alert>}
 
               <div className="space-y-2 text-sm">
                 <ConfirmRow label="Waktu" value={`${getNowWIBTime().slice(0, 8)} WIB`} />
                 <ConfirmRow label="Work Code" value={selectedWorkCode?.nama ?? '-'} />
-                <ConfirmRow label="Tipe" value={cek.kode ?? labelCheckType(String(checkType))} />
+                <ConfirmRow label="Tipe" value={labelCheckType(String(checkType))} />
                 <ConfirmRow label="Titik Absen" value={titikPakai?.nama ?? '-'} />
                 <ConfirmRow
                   label="Koordinat"
@@ -837,30 +767,6 @@ export default function Presensi() {
                 {kirimIjin && <ConfirmRow label="Izin" value={TIPE_IJIN_LABEL[typeIjin] ?? typeIjin} />}
               </div>
 
-              {/* Masa berlaku konfirmasi — berasal dari `absen_timeout`
-                  di `login`, sama seperti `PendingAttendanceResult`
-                  (Valid / Expired) pada aplikasi Android.
-
-                  ⚠️ INI KETERANGAN SAJA, bukan blokir. `absen_timeout`
-                  belum terverifikasi dipakai server untuk menolak, jadi
-                  tombol Kirim sengaja tetap aktif. Kalau ternyata
-                  ditolak, pesan server tampil apa adanya di sini. */}
-              {sisaKonfirmasi !== null &&
-                (konfirmasiKedaluwarsa ? (
-                  <Alert tone="amber">
-                        Konfirmasi sudah lewat{' '}
-                        {Math.round((pegawai?.absenTimeout ?? 300_000) / 1000)} detik menurut{' '}
-                        <span className="font-mono">absen_timeout</span>. Anda
-                        tetap bisa mencoba — server yang menentukan. Kalau ditolak, tekan
-                        &ldquo;Cek Absensi&rdquo; lagi.
-                  </Alert>
-                ) : (
-                  <Alert tone="blue">
-                    Sisa waktu konfirmasi{' '}
-                    <span className="font-mono">{formatSisaDetik(sisaKonfirmasi)}</span> — dari{' '}
-                    <span className="font-mono">absen_timeout</span> pada <span className="font-mono">login</span>.
-                  </Alert>
-                ))}
           </div>
         </Modal>
       )}
@@ -880,7 +786,7 @@ export default function Presensi() {
               draggableId={drafPeta ? '__draf__' : null}
               onKlikPeta={koordinat => {
                 setDrafPeta(koordinat);
-                setCek(null);
+                setDialogAbsenOpen(false);
               }}
               onGeser={(_id, koordinat) => setDrafPeta(koordinat)}
               fokus={
@@ -911,7 +817,7 @@ export default function Presensi() {
                           prev.map(x => ({ ...x, dipakai: x.id === item.id }))
                         );
                         segarkanTitik();
-                        setCek(null);
+                        setDialogAbsenOpen(false);
                         setPilihOpen(false);
                       }}
                       className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-colors ${
@@ -957,7 +863,7 @@ export default function Presensi() {
                   setTitikSaya(daftar);
                   setDrafPeta(null);
                   segarkanTitik();
-                  setCek(null);
+                  setDialogAbsenOpen(false);
                 }}
                 disabled={!drafPeta}
               >
@@ -976,15 +882,6 @@ export default function Presensi() {
     </div>
   );
 }
-
-/** "4:59" untuk sisa waktu konfirmasi absensi. */
-function formatSisaDetik(detik: number): string {
-  const menit = Math.floor(detik / 60);
-  const sisa = detik % 60;
-  return `${menit}:${String(sisa).padStart(2, '0')}`;
-}
-
-
 
 function ConfirmRow({ label, value, tone }: { label: string; value: string; tone?: 'emerald' | 'rose' }) {
   const color =

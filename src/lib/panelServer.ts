@@ -1521,14 +1521,14 @@ export async function autoLoginPusat(
   const imei = sanitizeString(data.imei || opsi.imei || '', 64);
 
   /*
-   * `latlong` wajib ada di envelope `login`. Aplikasi ini tidak memakai GPS
-   * maupun peta, jadi nilainya kosong — sama seperti yang dikirim modul ini
-   * sebelum pemindahan.
+   * `latlong` wajib berisi koordinat pada envelope `login`. Aplikasi ini
+   * tidak memakai GPS saat login, jadi kirim nilai netral yang sama dengan
+   * form web: `0,0`.
    */
   const envelope = buildRpcEnvelope('login', {
     email: nip,
     password: sandi,
-    latlong: '',
+    latlong: '0,0',
     imei,
     api_key: '',
     last_latlong: '',

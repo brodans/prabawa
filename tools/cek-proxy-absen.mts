@@ -433,6 +433,40 @@ console.log('\n=== ep: content-length basi tidak boleh mematikan POST');
   stubEp.close();
 }
 
+console.log('\n=== web login: respons HTTP gagal tidak boleh dianggap berhasil');
+{
+  const { login: loginWeb } = await import('../src/lib/webPresensi.ts');
+  const fetchAsli = globalThis.fetch;
+  let urlLogin = '';
+  let paramsLogin = new URLSearchParams();
+  globalThis.fetch = (async (url: URL | RequestInfo, opsi?: RequestInit) => {
+    urlLogin = String(url);
+    paramsLogin = new URLSearchParams(String(opsi?.body ?? ''));
+    return new Response(JSON.stringify({ error: 'Gagal menghubungi server e-Presensi', detail: 'fetch failed' }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }) as typeof globalThis.fetch;
+
+  try {
+    let pesanLogin = '';
+    try {
+      await loginWeb({ nip: '198501012015011001', password: 'sandi-uji', captcha: '2636' });
+    } catch (err) {
+      pesanLogin = err instanceof Error ? err.message : String(err);
+    }
+    cek('form login dikirim ke endpoint proxy web', urlLogin === '/ep/p/login', urlLogin);
+    cek('NIP, password, dan captcha dikirim pada field yang benar',
+      paramsLogin.get('m_user[email]') === '198501012015011001' &&
+        paramsLogin.get('m_user[password]') === 'sandi-uji' &&
+        paramsLogin.get('m_user[CAPTCHA]') === '2636');
+    cek('HTTP 502 tidak dianggap login berhasil dan error proxy ditampilkan',
+      /fetch failed/.test(pesanLogin), pesanLogin || '(tidak ada error)');
+  } finally {
+    globalThis.fetch = fetchAsli;
+  }
+}
+
 console.log(fail === 0 ? '\nSEMUA LULUS' : `\n${fail} KEGAGALAN`);
 stub.close();
 srv.close();
