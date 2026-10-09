@@ -57,6 +57,8 @@ export interface KartuQrisProps {
   /** Lebar kartu dalam piksel logis. */
   lebar?: number;
   className?: string;
+  /** Keterangan kaki kartu; default menjelaskan QRIS dinamis untuk pembayaran. */
+  keteranganFooter?: string;
   /** Dipanggil sekali QR selesai digambar (untuk tombol unduh / perbesar). */
   onSiap?: (dataUrl: string) => void;
 }
@@ -65,6 +67,7 @@ export default function KartuQris({
   qrisString,
   lebar = 300,
   className = '',
+  keteranganFooter,
   onSiap,
 }: KartuQrisProps) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
@@ -116,7 +119,7 @@ export default function KartuQris({
           c.width = w;
           c.height = h;
           return c;
-        }, { qrisString, skala: 3, logoQris, logoGpn });
+        }, { qrisString, skala: 3, logoQris, logoGpn, keteranganFooter });
 
         if (batal) return;
         const url = canvas.toDataURL('image/png', 1);
@@ -133,7 +136,7 @@ export default function KartuQris({
     return () => {
       batal = true;
     };
-  }, [qrisString]);
+  }, [qrisString, keteranganFooter]);
 
   /*
    * Lebar dikirim lewat `style` supaya angka `lebar` tidak ikut hilang saat

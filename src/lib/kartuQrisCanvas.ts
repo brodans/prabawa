@@ -67,6 +67,7 @@ export interface GambarMuat {
 
 export interface OpsiGambarKartu {
   qrisString: string;
+  keteranganFooter?: string;
   /** Faktor render; 3 = tajam di layar retina. */
   skala?: number;
   /** Panjang font — harus sama dengan font yang sudah dimuat halaman. */
@@ -289,7 +290,7 @@ export function gambarKartuQris(
   ctx.fillText('GoPay · OVO · DANA · ShopeePay · m-banking', 25, 522);
   ctx.fillStyle = '#94a3b8';
   ctx.font = font(600, 12);
-  ctx.fillText('QRIS Dinamis · nominal terkunci di dalam QR', 25, 552);
+  ctx.fillText(opsi.keteranganFooter ?? 'QRIS Dinamis · nominal terkunci di dalam QR', 25, 552);
 
   return { kanvasQr, modul, px, sisiQr: modul * px };
 }

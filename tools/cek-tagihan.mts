@@ -520,9 +520,9 @@ console.log('\n=== 11. Pengaturan billing: hanya field layar yang ditulis server
 
   const DIHARAPKAN = [
     'namaMerchant', 'qrisStatis', 'rekening', 'paket',
-    'metodeAktif', 'nomorWa', 'templateWa',
+    'metodeAktif', 'midtransAktif', 'nomorWa', 'templateWa',
   ];
-  cek('tujuh field layar ditulis satu per satu',
+  cek('delapan field layar ditulis satu per satu',
     DIHARAPKAN.every(k => kunciTulis.includes(k)),
     `hilang: ${DIHARAPKAN.filter(k => !kunciTulis.includes(k)).join(', ') || '—'}`);
   cek('tidak ada field lain yang ikut ditulis',
@@ -550,6 +550,13 @@ console.log('\n=== 11. Pengaturan billing: hanya field layar yang ditulis server
   cek('daftar field yang ditulis sama persis dengan yang dibaca',
     kunciBaca.length === tulisLayar.length && kunciBaca.every(k => tulisLayar.includes(k)),
     `baca: ${kunciBaca.join(', ')} | tulis: ${tulisLayar.join(', ')}`);
+  cek('status Midtrans ditulis sebagai boolean dan dibaca kembali',
+    /midtransAktif:\s*nilai\.midtransAktif === true/.test(simpan) &&
+      /midtransAktif:\s*[\s\S]{0,120}data\.midtransAktif/.test(baca),
+    'toggle aktif harus bertahan setelah pengaturan dimuat ulang');
+  cek('pengaturan lama menyimpulkan Midtrans aktif dari metode yang tersimpan',
+    /Array\.isArray\(data\.metodeAktif\)\s*&&\s*data\.metodeAktif\.includes\('qris_midtrans'\)/.test(baca),
+    'kompatibilitas dengan pengaturan yang sudah memiliki metode QRIS Midtrans');
 }
 
 console.log(fail === 0 ? '\nSEMUA LULUS' : `\n${fail} KEGAGALAN`);

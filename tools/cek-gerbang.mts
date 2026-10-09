@@ -168,6 +168,11 @@ cek(
   /if \(!isFirebaseReady\(\) \|\| !ringkasan\) \{\s*return <>\{children\}<\/>;/.test(gateKode)
 );
 cek('kasih alasan di komentar', /terkunci permanen/.test(gateSrc));
+cek(
+  'layar langganan habis punya tinggi viewport dan area konten yang bisa digulir',
+  /className="flex h-dvh min-h-0 flex-col overflow-hidden/.test(gateSrc) &&
+    /className="min-h-0 flex-1 overflow-y-auto overscroll-contain"/.test(gateSrc)
+);
 
 // ═════════════════════════════════════════════════════════════════════
 console.log('\n=== 6. Dialog pembayaran untuk akun sendiri');

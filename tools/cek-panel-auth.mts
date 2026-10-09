@@ -1650,7 +1650,7 @@ cek('login awal memakai label status yang sama dan fixed viewport',
     /Memeriksa sesi…/.test(appSrc) &&
     !/Memeriksa langganan…/.test(gateSrc));
 cek('shell mengunci dokumen sebelum first paint untuk mencegah scrollbar ganda',
-  /React\.useLayoutEffect\(\(\) => \{\s*document\.documentElement\.classList\.add\('app-shell-active'\)/.test(appSrc));
+  /React\.useLayoutEffect\(\(\) => \{\s*if \(adaSesiSaatMuat \|\| isAuthenticated\) \{\s*document\.documentElement\.classList\.add\('app-shell-active'\)/.test(appSrc));
 cek('request panel-auth punya timeout dan AbortSignal',
   /PANEL_AUTH_TIMEOUT_MS = 15_000/.test(akunSrc) &&
   /setTimeout\(\(\) => controller\.abort\(\), PANEL_AUTH_TIMEOUT_MS\)/.test(akunSrc) &&

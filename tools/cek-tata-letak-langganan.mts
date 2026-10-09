@@ -35,6 +35,11 @@ const cek = (nama: string, ok: unknown, detail = ''): void => {
 const langganan = baca('src/pages/Langganan.tsx');
 const langgananKode = kode(langganan);
 
+console.log('\n=== 0. Pengaturan hanya melalui tab Metode & Paket');
+cek('tombol pengaturan langganan dihapus', !/setDialogPengaturan|>Pengaturan<\/ActionButton>/.test(langgananKode));
+cek('modal pengaturan langganan dihapus', !/dialogPengaturan|title="Pengaturan Langganan"/.test(langgananKode));
+cek('form pengaturan tetap dipakai di tab Metode & Paket', /<PengaturanPaket[\s\S]*?pengaturan=\{pengaturan\}/.test(langgananKode));
+
 // ═════════════════════════════════════════════════════════════════════
 console.log('\n=== 1. Setiap grid di baris paket seimbang');
 {

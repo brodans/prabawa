@@ -248,17 +248,18 @@ export default function BayarLanggananModal({
   const [perbesar, setPerbesar] = useState(false);
   const snapAktifRef = useRef(false);
 
-  // Midtrans baru diketahui siap setelah satu probe ke `/api/health`.
-  const [midtransAda, setMidtransAda] = useState(midtransTersedia());
+  // Midtrans baru dinyatakan siap setelah key klien dan server sama-sama terverifikasi.
+  const [midtransAda, setMidtransAda] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!pengaturan.midtransAktif) {
-      setMidtransAda(midtransTersedia());
+      setMidtransAda(false);
       return;
     }
+    setMidtransAda(null);
     let hidup = true;
     void cekMidtransServer().then(ada => {
-      if (hidup) setMidtransAda(ada || midtransTersedia());
+      if (hidup) setMidtransAda(ada && midtransTersedia());
     });
     return () => {
       hidup = false;
@@ -355,13 +356,18 @@ export default function BayarLanggananModal({
   const metodeTersedia = useMemo(() => {
     const daftar: MetodePembayaran[] = [];
     if (pengaturan.metodeAktif.includes('qris') && pengaturan.qrisStatis.trim()) daftar.push('qris');
-    if (pengaturan.midtransAktif && pengaturan.metodeAktif.includes('qris_midtrans') && midtransAda) {
+    if (
+      pengaturan.midtransAktif &&
+      pengaturan.metodeAktif.includes('qris_midtrans') &&
+      midtransAda === true
+    ) {
       daftar.push('qris_midtrans');
     }
     const rekAktif = pengaturan.rekening.filter(item => item.aktif && item.nomorRekening.trim());
     if (pengaturan.metodeAktif.includes('transfer') && rekAktif.length > 0) daftar.push('transfer');
     return daftar;
   }, [pengaturan, midtransAda]);
+  const memeriksaMidtrans = pengaturan.midtransAktif && midtransAda === null;
 
   /** Buat tagihan, lalu siapkan QR atau instruksi transfer. */
   const mulai = useCallback(
@@ -673,7 +679,7 @@ export default function BayarLanggananModal({
                     <button
                       key={item.id}
                       type="button"
-                      disabled={bekerja || metodeTersedia.length === 0}
+                      disabled={bekerja || (metodeTersedia.length === 0 && !memeriksaMidtrans)}
                       onClick={() => {
                         setTerpilih(item);
                         setLangkah('pilih-metode');
@@ -702,8 +708,17 @@ export default function BayarLanggananModal({
 
               {paket.length > 0 && metodeTersedia.length === 0 && (
                 <Alert tone="amber">
-                  Belum ada metode pembayaran yang siap. Hubungi administrator — atau minta akunmu
-                  ditandai gratis sementara.
+                  {memeriksaMidtrans ? (
+                    <span className="inline-flex items-center gap-2" role="status">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Memeriksa metode pembayaran…
+                    </span>
+                  ) : (
+                    <>
+                      Belum ada metode pembayaran yang siap. Hubungi administrator — atau minta
+                      akunmu ditandai gratis sementara.
+                    </>
+                  )}
                 </Alert>
               )}
             </div>
@@ -755,6 +770,12 @@ export default function BayarLanggananModal({
                   );
                 })}
               </div>
+              {metodeTersedia.length === 0 && memeriksaMidtrans && (
+                <p className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400" role="status">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Memeriksa metode pembayaran…
+                </p>
+              )}
             </div>
           )}
 

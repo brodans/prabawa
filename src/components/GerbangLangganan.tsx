@@ -609,7 +609,7 @@ export function LayarLanggananHabis({
   }, [muatUlangLokal]);
 
   return (
-    <div className="min-h-[100dvh] bg-slate-100 dark:bg-[#070B14] flex flex-col">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-100 dark:bg-[#070B14]">
       {/* ─── Kepala ─────────────────────────────────────────────────── */}
       <header className="shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60">
         <div className="max-w-3xl mx-auto px-4 py-3.5 flex items-center gap-3">
@@ -630,7 +630,7 @@ export function LayarLanggananHabis({
       </header>
 
       {/* ─── Isi ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="max-w-3xl mx-auto px-4 py-6 sm:py-8 space-y-4">
           <div className="rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 p-5">
             <div className="flex items-start gap-3.5">

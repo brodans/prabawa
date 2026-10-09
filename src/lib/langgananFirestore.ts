@@ -117,6 +117,10 @@ export async function loadPengaturanBilling(): Promise<PengaturanBilling> {
       Array.isArray(data.metodeAktif) && data.metodeAktif.length > 0
         ? data.metodeAktif
         : BILLING_DEFAULT.metodeAktif,
+    midtransAktif:
+      typeof data.midtransAktif === 'boolean'
+        ? data.midtransAktif
+        : Array.isArray(data.metodeAktif) && data.metodeAktif.includes('qris_midtrans'),
   };
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -8,6 +8,7 @@ import {
   History,
   KeyRound,
   Landmark,
+  LoaderCircle,
   Pencil,
   Plus,
   QrCode,
@@ -24,6 +25,7 @@ import {
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../components/ui/Toast';
 import { StatusMidtrans } from '../components/StatusMidtrans';
+const KartuQrisPreview = lazy(() => import('../components/KartuQris'));
 import {
   ActionButton,
   Alert,
@@ -231,7 +233,6 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
   const [dialogMasa, setDialogMasa] = useState<RingkasanLangganan | null>(null);
   const [dialogRiwayat, setDialogRiwayat] = useState<RingkasanLangganan | null>(null);
   const [dialogKredensial, setDialogKredensial] = useState<string | null>(null);
-  const [dialogPengaturan, setDialogPengaturan] = useState(false);
   const [dialogRekening, setDialogRekening] = useState<RekeningBank | null>(null);
   const [konfirmasiHapus, setKonfirmasiHapus] = useState<string | null>(null);
   const [konfirmasiHapusSemua, setKonfirmasiHapusSemua] = useState(false);
@@ -714,9 +715,6 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
         >
           Muat Ulang
         </ActionButton>
-        <ActionButton size="sm" onClick={() => setDialogPengaturan(true)} icon={<Settings2 className="w-4 h-4" />}>
-          Pengaturan
-        </ActionButton>
       </div>
 
       {/* ── Statistik ───────────────────────────────────────────────── */}
@@ -963,37 +961,6 @@ function LanggananInner({ toast }: { toast: ReturnType<typeof useToast> }) {
       {/* ── Dialog: riwayat pembayaran satu akun ────────────────────── */}
       <RiwayatModal ringkasan={dialogRiwayat} onClose={() => setDialogRiwayat(null)} />
 
-      {/* ── Dialog: pengaturan & rekening ───────────────────────────── */}
-      <Modal
-        open={dialogPengaturan}
-        onClose={() => setDialogPengaturan(false)}
-        title="Pengaturan Langganan"
-        icon={<Settings2 className="w-5 h-5 text-blue-500" />}
-        size="lg"
-        footer={
-          <button
-            type="button"
-            onClick={() => setDialogPengaturan(false)}
-            className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
-          >
-            Tutup
-          </button>
-        }
-      >
-        <PengaturanBillingForm
-          nilai={pengaturan}
-          onSimpan={async nilai => {
-            await savePengaturanBilling(nilai);
-            setPengaturan(nilai);
-            setDialogPengaturan(false);
-            toast.success('Pengaturan disimpan.');
-          }}
-          onEditRekening={rek => {
-            setDialogRekening(rek);
-          }}
-        />
-      </Modal>
-
       <RekeningModal
         rekening={dialogRekening}
         onClose={() => setDialogRekening(null)}
@@ -1123,8 +1090,8 @@ function PengaturanPaket({
 /**
  * Form pengaturan pembayaran.
  *
- * Dipakai di dua tempat (tab "Metode & Paket" dan dialog Pengaturan), jadi
- * komponennya stateless terhadap penyimpanan — hanya memanggil `onSimpan`.
+ * Form di dalam tab "Metode & Paket"; penyimpanan tetap ditangani pemilik tab
+ * melalui `onSimpan`.
  */
 function PengaturanBillingForm({
   nilai,
@@ -1234,14 +1201,16 @@ function PengaturanBillingForm({
               <button
                 key={item.value}
                 type="button"
-                onClick={() =>
-                  setDraft(prev => ({
+                onClick={() => setDraft(prev => {
+                  const metodeAktif = aktif
+                    ? prev.metodeAktif.filter(m => m !== item.value)
+                    : [...prev.metodeAktif, item.value];
+                  return {
                     ...prev,
-                    metodeAktif: aktif
-                      ? prev.metodeAktif.filter(m => m !== item.value)
-                      : [...prev.metodeAktif, item.value],
-                  }))
-                }
+                    metodeAktif,
+                    ...(item.value === 'qris_midtrans' ? { midtransAktif: !aktif } : {}),
+                  };
+                })}
                 className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition-colors ${
                   aktif
                     ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/20'
@@ -1271,8 +1240,16 @@ function PengaturanBillingForm({
         <div className="mt-4 space-y-2.5 pt-4 border-t border-slate-100 dark:border-slate-700/60">
           <Checkbox
             checked={draft.midtransAktif}
-            onChange={midtransAktif => setDraft(prev => ({ ...prev, midtransAktif }))}
-            label="Aktifkan Midtrans (VA bank & e-wallet)"
+            onChange={midtransAktif => setDraft(prev => ({
+              ...prev,
+              midtransAktif,
+              metodeAktif: midtransAktif
+                ? prev.metodeAktif.includes('qris_midtrans')
+                  ? prev.metodeAktif
+                  : [...prev.metodeAktif, 'qris_midtrans']
+                : prev.metodeAktif.filter(metode => metode !== 'qris_midtrans'),
+            }))}
+            label="Aktifkan QRIS via Midtrans"
           />
 
           {/*
@@ -1312,13 +1289,32 @@ function PengaturanBillingForm({
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
             Tempel string QRIS statis dari aplikasi bank. Nominal akan ditambahkan otomatis per tagihan.
           </p>
-          <Textarea
-            value={draft.qrisStatis}
-            onChange={event => cekQris(event.target.value)}
-            rows={3}
-            placeholder="Tempel string QRIS dari aplikasi bank"
-            className="font-mono text-xs"
-          />
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
+            <Textarea
+              value={draft.qrisStatis}
+              onChange={event => cekQris(event.target.value)}
+              rows={3}
+              placeholder="Tempel string QRIS dari aplikasi bank"
+              className="font-mono text-xs"
+            />
+            {ringkasanQris && (
+              <div className="flex justify-center sm:justify-end">
+                <Suspense
+                  fallback={
+                    <div className="flex aspect-[440/580] w-40 items-center justify-center rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                      <LoaderCircle className="h-5 w-5 animate-spin text-slate-400" />
+                    </div>
+                  }
+                >
+                  <KartuQrisPreview
+                    qrisString={draft.qrisStatis.trim()}
+                    lebar={160}
+                    keteranganFooter="QRIS Statis · nominal saat transaksi"
+                  />
+                </Suspense>
+              </div>
+            )}
+          </div>
           {qrisError.length > 0 && (
             <ul className="mt-2 space-y-1">
               {qrisError.map((err, i) => (
@@ -1330,26 +1326,16 @@ function PengaturanBillingForm({
             </ul>
           )}
           {ringkasanQris && (
-            <div className="mt-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 text-[11px] space-y-1">
-              <p className="font-bold text-slate-700 dark:text-slate-200">{ringkasanQris.namaMerchant || '—'}</p>
-              <p className="text-slate-500 dark:text-slate-400">
-                {ringkasanQris.namaPenerbit || 'Penerbit tidak terbaca'} · {ringkasanQris.kotaMerchant}
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] dark:border-slate-700 dark:bg-slate-900/40">
+              <p className="font-semibold text-slate-700 dark:text-slate-200">
+                {ringkasanQris.namaPenerbit || 'QRIS valid'} · {ringkasanQris.kotaMerchant}
               </p>
-              <p className="text-slate-400 dark:text-slate-500 font-mono">
-                {ringkasanQris.metode === 'dinamis' ? 'QRIS dinamis' : 'QRIS statis'} · nominal{' '}
-                {ringkasanQris.nominal || 'tidak ada (dinamis saat transaksi)'}
+              <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                {ringkasanQris.metode === 'dinamis' ? 'QRIS dinamis' : 'QRIS statis'} ·{' '}
+                {ringkasanQris.nominal ? `nominal ${ringkasanQris.nominal}` : 'nominal saat transaksi'}
               </p>
             </div>
           )}
-          <div className="mt-3">
-            <Field label="Nama Merchant">
-              <Input
-                value={draft.namaMerchant}
-                onChange={event => setDraft(prev => ({ ...prev, namaMerchant: event.target.value }))}
-                placeholder="PRABAWA"
-              />
-            </Field>
-          </div>
         </Card>
       )}
 

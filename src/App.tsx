@@ -12,6 +12,7 @@ import {
   History,
   Home,
   KeyRound,
+  LoaderCircle,
   LogOut,
   Menu,
   Moon,
@@ -476,11 +477,6 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
     setServerLoginError,
     setServerLogoutRequested,
   } = useAppContext();
-
-  React.useLayoutEffect(() => {
-    document.documentElement.classList.add('app-shell-active');
-    return () => document.documentElement.classList.remove('app-shell-active');
-  }, []);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
@@ -1032,7 +1028,8 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
                   // tidak pernah terpanggil. Sekarang membuka modal yang
                   // benar-benar memanggil server pusat.
                   id: 'password',
-                  label: 'Ubah profil & password di server',
+                  label: 'Profil akun server',
+                  hint: 'Ubah profil dan password di server',
                   icon: <KeyRound className="w-4 h-4 text-blue-500" />,
                   onClick: () => setIsProfilServerOpen(true),
                 },
@@ -1189,29 +1186,30 @@ function LayarMemeriksaSesi() {
 }
 
 function LayarMemulihkanSesi({ pageId }: { pageId: string }) {
-  const halaman = PAGES.find(page => pageMenutup(page, pageId));
   return (
-    <div className="fixed inset-0 flex h-[100svh] overflow-hidden bg-slate-50 dark:bg-[#0B1120]" aria-busy="true">
-      <aside className="hidden w-64 shrink-0 flex-col gap-6 border-r border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950 lg:flex">
-        <Skeleton className="h-9 w-36 rounded-xl" />
+    <div className="fixed inset-0 flex h-dvh overflow-hidden bg-slate-50 dark:bg-[#0B1120]" aria-busy="true">
+      <aside className="hidden w-64 shrink-0 flex-col gap-6 border-r border-slate-800/60 bg-[#0F172A] p-5 lg:flex">
+        <div className="h-9 w-36 animate-pulse rounded-xl bg-slate-800/80" />
         <div className="space-y-3">
           {Array.from({ length: 7 }, (_, index) => (
-            <Skeleton key={index} className="h-10 w-full rounded-xl" />
+            <div key={index} className="h-10 w-full animate-pulse rounded-xl bg-slate-800/80" />
           ))}
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-950 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <Skeleton className="h-5 w-5 rounded-md lg:hidden" />
-            <span className="truncate text-sm font-semibold text-slate-700 dark:text-slate-200">
-              {halaman?.label ?? 'Memuat aplikasi'}
-            </span>
-          </div>
-          <Skeleton className="h-8 w-28 rounded-xl" />
+        <header className="flex h-14 shrink-0 items-center justify-end border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-950 sm:px-6">
+          <Skeleton className="h-8 w-8 rounded-full" />
         </header>
-        <main className="min-h-0 flex-1 overflow-hidden p-4 sm:p-6">
+        <main className="relative min-h-0 flex-1 overflow-hidden p-4 sm:p-6">
           <PageLoading pageId={pageId} />
+          <div
+            className="pointer-events-none absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-200"
+            role="status"
+            aria-live="polite"
+          >
+            <LoaderCircle className="h-4 w-4 animate-spin text-indigo-500" />
+            Memeriksa sesi…
+          </div>
         </main>
       </div>
     </div>
@@ -1261,6 +1259,13 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
    * membuatnya jadi beberapa frame, bukan satu.
    */
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  React.useLayoutEffect(() => {
+    if (adaSesiSaatMuat || isAuthenticated) {
+      document.documentElement.classList.add('app-shell-active');
+      return () => document.documentElement.classList.remove('app-shell-active');
+    }
+    document.documentElement.classList.remove('app-shell-active');
+  }, [adaSesiSaatMuat, isAuthenticated]);
   const memulihkan = adaSesiSaatMuat;
   const fallbackPemeriksaan = memulihkan
     ? <LayarMemulihkanSesi pageId={activePage} />
@@ -1410,7 +1415,7 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.4, ease: 'easeInOut' }}
-          className="h-[100svh] overflow-hidden"
+          className="h-dvh overflow-hidden"
         >
           {/*
             ⚠️ Gerbang langganan membungkus SELURUH aplikasi, termasuk

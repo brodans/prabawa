@@ -1638,6 +1638,7 @@ async function bacaPengaturanBilling(token) {
       rekening: Array.isArray(data.rekening) ? data.rekening : [],
       paket: normalisasiDaftarPaket(data.paket),
       metodeAktif: Array.isArray(data.metodeAktif) ? data.metodeAktif : [],
+      midtransAktif: typeof data.midtransAktif === "boolean" ? data.midtransAktif : Array.isArray(data.metodeAktif) && data.metodeAktif.includes("qris_midtrans"),
       nomorWa: String(data.nomorWa ?? ""),
       templateWa: String(data.templateWa ?? "")
     }
@@ -1665,6 +1666,7 @@ async function simpanBillingServer(_token, nilai) {
       rekening: daftarRekening,
       paket,
       metodeAktif,
+      midtransAktif: nilai.midtransAktif === true,
       nomorWa: String(nilai.nomorWa ?? ""),
       templateWa: String(nilai.templateWa ?? ""),
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
