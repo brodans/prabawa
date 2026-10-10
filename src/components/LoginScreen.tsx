@@ -104,7 +104,7 @@ function sanitizeUsername(value: string): string {
 }
 
 function sanitizePassword(value: string): string {
-  return value.replace(/[\x00-\x1F\x7F]/g, '').substring(0, MAX_PASSWORD_LEN);
+  return value.replace(/[\x00-\x1F\x7F]/g, '').replace(/\s/g, '').substring(0, MAX_PASSWORD_LEN);
 }
 
 const formatCountdown = (seconds: number) =>
@@ -467,7 +467,7 @@ export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode }: Log
                     type="text"
                     value={state.username}
                     disabled={isLocked || isAuthing}
-                    onChange={event => dispatch({ type: 'SET_USERNAME', payload: event.target.value })}
+                    onChange={event => dispatch({ type: 'SET_USERNAME', payload: event.target.value.replace(/\s/g, '') })}
                     className="block w-full pl-11 pr-4 py-3.5 bg-white/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all disabled:opacity-50"
                     placeholder="Masukkan ID Anda"
                     autoComplete="username"
@@ -498,7 +498,7 @@ export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode }: Log
                     type={showPin ? 'text' : 'password'}
                     value={state.pin}
                     disabled={isLocked || isAuthing}
-                    onChange={event => dispatch({ type: 'SET_PIN', payload: event.target.value })}
+                    onChange={event => dispatch({ type: 'SET_PIN', payload: event.target.value.replace(/\s/g, '') })}
                     className="block w-full pl-11 pr-12 py-3.5 bg-white/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl text-base font-mono tracking-widest text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all disabled:opacity-50"
                     placeholder={isLocked ? 'TERKUNCI' : '••••••••'}
                     autoComplete="current-password"

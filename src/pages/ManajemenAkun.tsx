@@ -1350,7 +1350,7 @@ function DialogAkun({
           >
             <Input
               value={username}
-              onChange={e => setUsername(e.target.value)}
+              onChange={e => setUsername(e.target.value.replace(/\s/g, ''))}
               placeholder="budi.santoso"
             />
           </Field>
@@ -1361,7 +1361,7 @@ function DialogAkun({
           >
             <PasswordField
               value={password}
-              onChange={setPassword}
+              onChange={value => setPassword(value.replace(/\s/g, ''))}
               placeholder={baru ? '••••••' : 'Tidak diubah'}
               autoComplete="new-password"
             />
@@ -1436,7 +1436,7 @@ function DialogAkun({
             <Field label="NIP" hint="Email login server.">
               <Input
                 value={nipServer}
-                onChange={e => setNipServer(e.target.value)}
+                onChange={e => setNipServer(e.target.value.replace(/\s/g, ''))}
                 placeholder="18 digit NIP"
                 inputMode="numeric"
                 className="font-mono"
@@ -1464,7 +1464,7 @@ function DialogAkun({
           >
             <PasswordField
               value={passwordServer}
-              onChange={setPasswordServer}
+              onChange={value => setPasswordServer(value.replace(/\s/g, ''))}
               placeholder={tersimpan?.terbaca ? '•••••••• (tidak diubah)' : 'Password server pusat'}
               autoComplete="new-password"
             />

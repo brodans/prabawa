@@ -134,8 +134,8 @@ export default function Beranda() {
     event.preventDefault();
     setLoginError('');
 
-    const nip = loginForm.username.trim();
-    const password = loginForm.password;
+    const nip = loginForm.username.replace(/\s/g, '').trim();
+    const password = loginForm.password.replace(/\s/g, '');
     if (!nip || !password) {
       setLoginError('NIP dan password wajib diisi.');
       return;
@@ -273,7 +273,7 @@ export default function Beranda() {
               <Field label="NIP">
                 <Input
                   value={loginForm.username}
-                  onChange={event => setLoginForm(prev => ({ ...prev, username: event.target.value.slice(0, 32) }))}
+                  onChange={event => setLoginForm(prev => ({ ...prev, username: event.target.value.replace(/\s/g, '').slice(0, 32) }))}
                   placeholder="Nomor Induk Pegawai"
                   inputMode="numeric"
                   autoComplete="off"
@@ -284,7 +284,7 @@ export default function Beranda() {
                 <PasswordField
                   value={loginForm.password}
                   onChange={password =>
-                    setLoginForm(prev => ({ ...prev, password: password.slice(0, 64) }))
+                    setLoginForm(prev => ({ ...prev, password: password.replace(/\s/g, '').slice(0, 64) }))
                   }
                   placeholder="••••••••"
                   maxLength={64}

@@ -484,7 +484,7 @@ export default function SettingAkunModal({ onClose }: SettingAkunModalProps) {
                                 value={verifyPassForUsername}
                                 onChange={(e) =>
                                   setVerifyPassForUsername(
-                                    e.target.value.substring(0, 128)
+                                    e.target.value.replace(/\s/g, '').substring(0, 128)
                                   )
                                 }
                                 className={credentialInputClass}
@@ -609,7 +609,7 @@ export default function SettingAkunModal({ onClose }: SettingAkunModalProps) {
                               <input
                                 type={show ? 'text' : 'password'}
                                 value={val}
-                                onChange={(e) => set(e.target.value)}
+                                onChange={(e) => set(e.target.value.replace(/\s/g, ''))}
                                 className="w-full pl-4 pr-10 py-2.5 border border-slate-200 dark:border-slate-700/80 rounded-xl bg-white dark:bg-slate-900/60 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none text-sm transition-all"
                                 placeholder={placeholder}
                                 maxLength={128}

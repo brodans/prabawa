@@ -73,6 +73,8 @@ export interface ModalProps {
   footer?: ReactNode;
   /** Sembunyikan tombol × di kanan atas. */
   hideClose?: boolean;
+  /** Sembunyikan seluruh footer modal. */
+  hideFooter?: boolean;
 }
 
 const SIZES: Record<NonNullable<ModalProps['size']>, string> = {
@@ -91,6 +93,7 @@ export function Modal({
   children,
   footer,
   hideClose = false,
+  hideFooter = false,
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -170,17 +173,19 @@ export function Modal({
           {children}
         </div>
 
-        <div className="shrink-0 px-5 py-3.5 border-t border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/30">
-          {footer ?? (
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
-            >
-              Tutup
-            </button>
-          )}
-        </div>
+        {!hideFooter && (
+          <div className="shrink-0 px-5 py-3.5 border-t border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/30">
+            {footer ?? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+              >
+                Tutup
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

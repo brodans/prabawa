@@ -776,7 +776,7 @@ cek('dialog edit memindahkan kredensial ke username baru',
   /simpanKredensialServerJikaDiisi\(usernameTujuan\)/.test(akunSrc),
   'kredensial harus mengikuti akun saat username diganti');
 cek('username pada dialog edit dapat diubah',
-  /<Input\s+value=\{username\}\s+onChange=\{e => setUsername\(e\.target\.value\)\}\s+placeholder="budi\.santoso"/.test(akunSrc),
+  /<Input\s+value=\{username\}\s+onChange=\{e => setUsername\(e\.target\.value\.replace\(\/\\s\/g, ''\)\)\}\s+placeholder="budi\.santoso"/.test(akunSrc),
   'input username harus aktif pada mode edit');
 cek('dialog edit mengirim usernameBaru ke server',
   /usernameTujuan !== akun\.username \? \{ usernameBaru: usernameTujuan \} : \{\}/.test(akunSrc),

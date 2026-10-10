@@ -276,7 +276,7 @@ export default function ProfilServerModal({ onClose }: { onClose: () => void }) 
             >
               <PasswordField
                 value={passwordLama}
-                onChange={setPasswordLama}
+                onChange={value => setPasswordLama(value.replace(/\s/g, ''))}
                 autoComplete="current-password"
               />
             </Field>
@@ -286,7 +286,7 @@ export default function ProfilServerModal({ onClose }: { onClose: () => void }) 
             >
               <PasswordField
                 value={passwordBaru}
-                onChange={setPasswordBaru}
+                onChange={value => setPasswordBaru(value.replace(/\s/g, ''))}
                 autoComplete="new-password"
               />
             </Field>
@@ -295,7 +295,7 @@ export default function ProfilServerModal({ onClose }: { onClose: () => void }) 
             >
               <PasswordField
                 value={konfirmasi}
-                onChange={setKonfirmasi}
+                onChange={value => setKonfirmasi(value.replace(/\s/g, ''))}
                 autoComplete="new-password"
               />
             </Field>

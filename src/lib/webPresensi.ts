@@ -97,6 +97,19 @@ function isHalamanLogin(html: string): boolean {
 
 type ApiError = Error & { sesiHabis?: boolean; perluCaptchaBaru?: boolean; jenis?: string };
 
+function pesanLoginLebihJelas(pesan: string): string {
+  const teks = pesan.toLowerCase();
+  const salah = '(?:salah|tidak valid|tidak cocok|tidak ditemukan|tidak terdaftar|invalid|incorrect|wrong|not found|not registered)';
+  const polaNip = new RegExp(`(?:email|e-mail|nip|username|user).{0,45}${salah}|${salah}.{0,45}(?:email|e-mail|nip|username|user)`, 'i');
+  const polaPassword = new RegExp(`(?:password|kata sandi|sandi).{0,45}${salah}|${salah}.{0,45}(?:password|kata sandi|sandi)`, 'i');
+  const polaCaptcha = new RegExp(`(?:captcha|capcha|kode verifikasi).{0,45}${salah}|${salah}.{0,45}(?:captcha|capcha|kode verifikasi)`, 'i');
+  const kategori = [polaNip.test(teks), polaPassword.test(teks), polaCaptcha.test(teks)];
+  if (kategori.filter(Boolean).length !== 1) return pesan;
+  if (kategori[0]) return 'Email / NIP tidak terdaftar.';
+  if (kategori[1]) return 'Password salah.';
+  return 'Captcha salah.';
+}
+
 /** Lempar error bertanda sesiHabis bila respons ternyata halaman login. */
 function pastikanBukanLogin(html: string): void {
   if (isHalamanLogin(html)) {
@@ -169,9 +182,9 @@ export async function selesaikanCaptcha(blob: Blob): Promise<OcrResult> {
  */
 export async function login({ nip, password, captcha }: { nip: string; password: string; captcha: string }): Promise<boolean> {
   const body = new URLSearchParams({
-    'm_user[email]': nip,
-    'm_user[password]': password,
-    'm_user[CAPTCHA]': captcha,
+    'm_user[email]': nip.replace(/\s/g, ''),
+    'm_user[password]': password.replace(/\s/g, ''),
+    'm_user[CAPTCHA]': captcha.replace(/\s/g, ''),
   });
   // Proxy rewrites redirects to /ep, allowing the browser to follow them
   // same-origin and apply session cookies returned by the login endpoint.
@@ -186,7 +199,7 @@ export async function login({ nip, password, captcha }: { nip: string; password:
     const pesan = m
       ? m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
       : 'Login gagal (periksa NIP, password, dan captcha).';
-    const err = new Error(pesan) as ApiError;
+    const err = new Error(pesanLoginLebihJelas(pesan)) as ApiError;
     err.perluCaptchaBaru = true;
     err.jenis = /captcha/i.test(pesan) ? 'captcha' : 'kredensial';
     throw err;

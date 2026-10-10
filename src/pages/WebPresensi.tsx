@@ -1055,7 +1055,7 @@ export default function WebPresensi() {
             <div>
               <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-nip">NIP</label>
               <input
-                id="web-nip" value={nip} onChange={(e) => setNip(e.target.value)}
+                id="web-nip" value={nip} onChange={(e) => setNip(e.target.value.replace(/\s/g, ''))}
                 placeholder="NIP 18 digit" required autoComplete="off"
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
               />
@@ -1065,7 +1065,7 @@ export default function WebPresensi() {
               <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-password">Password</label>
               <div className="relative">
                 <input
-                  id="web-password" value={password} onChange={(e) => setPassword(e.target.value)}
+                  id="web-password" value={password} onChange={(e) => setPassword(e.target.value.replace(/\s/g, ''))}
                   type={lihatPassword ? 'text' : 'password'}
                   placeholder="Password" required autoComplete="new-password"
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-4 pr-11 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
@@ -1092,7 +1092,7 @@ export default function WebPresensi() {
                 Captcha
               </label>
               <input
-                id="web-captcha" value={captcha} onChange={(e) => simpanCaptcha(e.target.value)}
+                id="web-captcha" value={captcha} onChange={(e) => simpanCaptcha(e.target.value.replace(/\s/g, ''))}
                 placeholder={ocrTersedia && OCR_LOKAL ? 'Terisi otomatis' : 'Ketik kode captcha'}
                 autoComplete="off" inputMode="numeric" maxLength={4}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"

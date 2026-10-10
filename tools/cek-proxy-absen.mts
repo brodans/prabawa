@@ -474,9 +474,11 @@ console.log('\n=== web login: respons HTTP gagal tidak boleh dianggap berhasil')
   const fetchAsli = globalThis.fetch;
   let urlLogin = '';
   let paramsLogin = new URLSearchParams();
+  let htmlLogin = '';
   globalThis.fetch = (async (url: URL | RequestInfo, opsi?: RequestInit) => {
     urlLogin = String(url);
     paramsLogin = new URLSearchParams(String(opsi?.body ?? ''));
+    if (htmlLogin) return new Response(htmlLogin, { status: 200, headers: { 'Content-Type': 'text/html' } });
     return new Response(JSON.stringify({ error: 'Gagal menghubungi server e-Presensi', detail: 'fetch failed' }), {
       status: 502,
       headers: { 'Content-Type': 'application/json' },
@@ -486,17 +488,32 @@ console.log('\n=== web login: respons HTTP gagal tidak boleh dianggap berhasil')
   try {
     let pesanLogin = '';
     try {
-      await loginWeb({ nip: '198501012015011001', password: 'sandi-uji', captcha: '2636' });
+      await loginWeb({ nip: ' 198501012015011001 ', password: 'sandi uji', captcha: '26 36' });
     } catch (err) {
       pesanLogin = err instanceof Error ? err.message : String(err);
     }
     cek('form login dikirim ke endpoint proxy web', urlLogin === '/ep/p/login', urlLogin);
     cek('NIP, password, dan captcha dikirim pada field yang benar',
       paramsLogin.get('m_user[email]') === '198501012015011001' &&
-        paramsLogin.get('m_user[password]') === 'sandi-uji' &&
+        paramsLogin.get('m_user[password]') === 'sandiuji' &&
         paramsLogin.get('m_user[CAPTCHA]') === '2636');
     cek('HTTP 502 tidak dianggap login berhasil dan error proxy ditampilkan',
       /fetch failed/.test(pesanLogin), pesanLogin || '(tidak ada error)');
+
+    for (const [respons, pesan] of [
+      ['Email / NIP tidak terdaftar', 'Email / NIP tidak terdaftar.'],
+      ['Password salah', 'Password salah.'],
+      ['Captcha salah', 'Captcha salah.'],
+    ]) {
+      htmlLogin = `<form><input name="m_user[email]"><input name="m_user[CAPTCHA]"><div class="alert alert-danger">${respons}</div></form>`;
+      let pesanKredensial = '';
+      try {
+        await loginWeb({ nip: '123', password: 'sandi', captcha: '1234' });
+      } catch (err) {
+        pesanKredensial = err instanceof Error ? err.message : String(err);
+      }
+      cek(`error upstream "${respons}" dijelaskan dengan jelas`, pesanKredensial === pesan, pesanKredensial);
+    }
   } finally {
     globalThis.fetch = fetchAsli;
   }

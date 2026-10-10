@@ -248,6 +248,8 @@ export default function BayarLanggananModal({
   const [rekening, setRekening] = useState<RekeningBank | null>(null);
   const [bekerja, setBekerja] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
+  const mulaiBerjalan = useRef(false);
+  const aktivasiBerjalan = useRef(false);
   const [masaAkhir, setMasaAkhir] = useState('');
   const [perbesar, setPerbesar] = useState(false);
   const [perluCekMidtrans, setPerluCekMidtrans] = useState(false);
@@ -379,7 +381,8 @@ export default function BayarLanggananModal({
   /** Buat tagihan, lalu siapkan QR atau instruksi transfer. */
   const mulai = useCallback(
     async (paketDipilih: PaketLangganan, metode: MetodePembayaran) => {
-      if (!ringkasan) return;
+      if (!ringkasan || mulaiBerjalan.current) return;
+      mulaiBerjalan.current = true;
       setBekerja(true);
       setGalat(null);
       const tagihanLokalPaket =
@@ -477,6 +480,7 @@ export default function BayarLanggananModal({
         setGalat(err?.message ?? 'Gagal menyiapkan pembayaran.');
         setLangkah('pilih-paket');
       } finally {
+        mulaiBerjalan.current = false;
         setBekerja(false);
       }
     },
@@ -557,6 +561,8 @@ export default function BayarLanggananModal({
   ): Promise<{ ok: boolean; pesan: string; masaAkhir: string }> {
     const gagal = (pesan: string) => ({ ok: false, pesan, masaAkhir: '' });
     if (!ringkasan) return gagal('Sesi tidak valid. Muat ulang halaman.');
+    if (aktivasiBerjalan.current) return gagal('Pembayaran sedang diproses. Tunggu sebentar.');
+    aktivasiBerjalan.current = true;
     setBekerja(true);
     setGalat(null);
     try {
@@ -572,6 +578,7 @@ export default function BayarLanggananModal({
     } catch (err: any) {
       return gagal(err?.message ?? 'Gagal menghubungi server pembayaran.');
     } finally {
+      aktivasiBerjalan.current = false;
       setBekerja(false);
     }
   }
@@ -690,6 +697,8 @@ export default function BayarLanggananModal({
         }
         icon={langkah === 'selesai' ? undefined : <Banknote className="w-5 h-5 text-blue-500" />}
         size="md"
+        hideClose
+        hideFooter
       >
         <div className="space-y-4">
           {galat && <Alert tone="rose">{galat}</Alert>}

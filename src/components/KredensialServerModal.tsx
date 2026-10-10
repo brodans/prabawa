@@ -252,7 +252,7 @@ export default function KredensialServerModal({
           <Field label="NIP" hint="Nomor induk pegawai — dipakai sebagai `email` saat login server.">
             <Input
               value={nip}
-              onChange={event => setNip(event.target.value)}
+              onChange={event => setNip(event.target.value.replace(/\s/g, ''))}
               placeholder="18 digit NIP, contoh 123456789012345678"
               className="font-mono"
               disabled={bekerja}
@@ -271,7 +271,7 @@ export default function KredensialServerModal({
           >
             <PasswordField
               value={password}
-              onChange={setPassword}
+              onChange={value => setPassword(value.replace(/\s/g, ''))}
               placeholder={tersedia?.terbaca ? '•••••••• (tidak diubah)' : 'Password server pusat'}
               autoComplete="new-password"
               disabled={bekerja}
