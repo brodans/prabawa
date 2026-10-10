@@ -171,11 +171,8 @@ function Clock() {
   }, []);
 
   return (
-    <div className="hidden sm:flex items-center gap-2.5 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200/50 dark:border-slate-700/50 shadow-sm transition-all hover:shadow-md">
-      <span className="relative flex h-2.5 w-2.5">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-      </span>
+    <div className="hidden sm:flex items-center gap-2.5 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
+      <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
       <span className="text-xs font-mono font-medium tracking-tight text-slate-700 dark:text-slate-200">
         {time.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour12: false })}
       </span>
@@ -443,7 +440,7 @@ function PageLoading({ pageId }: { pageId: string }) {
           <div className="mb-3 flex flex-wrap items-center gap-4">
             <Skeleton className="ml-auto h-3 w-40" />
           </div>
-          <Skeleton className="h-[480px] w-full rounded-xl" />
+          <Skeleton className="aspect-square w-full rounded-xl sm:aspect-auto sm:h-[480px]" />
         </div>
         <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
@@ -621,14 +618,14 @@ function PageLoading({ pageId }: { pageId: string }) {
                 </div>
               ))}
             </div>
-            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-3 w-16" />
-                <Skeleton className="h-11 w-full rounded-xl" />
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Skeleton className="h-11 w-20 rounded-xl" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-14 min-w-0 flex-1 rounded-xl" />
                 <Skeleton className="h-11 w-10 rounded-xl" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-[42px] w-full rounded-xl" />
               </div>
             </div>
             <Skeleton className="h-10 w-40 rounded-xl" />
@@ -1124,7 +1121,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
           <div
             className="group flex items-center gap-3 overflow-hidden"
           >
-            <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-500 p-0.5 shadow-lg shadow-blue-500/20 transition-all duration-300 group-hover:scale-105 group-hover:shadow-blue-500/40">
+            <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-2xl bg-slate-700 p-0.5">
               <div className="w-full h-full bg-[#0F172A] dark:bg-[#070B14] rounded-[0.7rem] p-1 flex items-center justify-center overflow-hidden">
                 <img
                   src={APP_LOGO}
@@ -1195,7 +1192,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
                       {isActive && (
                         <motion.div
                           layoutId="activeNav"
-                          className="absolute left-0 top-2 bottom-2 w-1 bg-blue-500 rounded-r-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                          className="absolute left-0 top-2 bottom-2 w-1 bg-blue-500 rounded-r-full"
                         />
                       )}
                       <Icon

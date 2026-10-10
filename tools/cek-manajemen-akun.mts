@@ -918,8 +918,11 @@ cek('kedua tombol berbobot sama (tidak ada varian primary bertingkat)',
     (tombolBaru?.match(/variant="(\w+)"/) || [])[1] === 'secondary',
   'varian berbeda bikin satu tombol terlihat lebih penting dari yang lain');
 cek('dua tombol memakai grid-cols-2 supaya lebarnya sama',
-  /<div className="grid grid-cols-2 gap-2">\s*<ActionButton[\s\S]{0,400}void muat\((?:true)?\)[\s\S]{0,700}Akun Baru/.test(akunSrc),
+  /<div className="col-span-2 grid grid-cols-2 gap-2 sm:col-span-1">\s*<ActionButton[\s\S]*?void muat\(true\)[\s\S]*?Akun Baru/.test(akunSrc),
   'dua blok terpisah tidak dijamin lebarnya sama');
+cek('Peran dan Urutkan berdampingan pada mobile',
+  /grid grid-cols-2 gap-2\.5 sm:grid-cols-\[minmax\(0,1fr\)_8rem_9rem_auto\]/.test(akunSrc) &&
+    /Field label="Cari akun" className="col-span-2 sm:col-span-1"/.test(akunSrc));
 
 cek('lebar dropdown ditetapkan, bukan mengikuti isi',
   (akunSrc.match(/className="w-full"/g) || []).length >= 2,

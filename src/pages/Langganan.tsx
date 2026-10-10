@@ -1122,7 +1122,7 @@ function PengaturanBillingForm({
           {draft.paket.map(item => (
             <div
               key={item.id}
-              className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30"
+              className="p-2 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30"
             >
               {/*
                * Tata letak tiga tahap, dan hanya yang terakhir yang 12 kolom.
@@ -1139,11 +1139,11 @@ function PengaturanBillingForm({
                *
                * Yang dipakai sekarang:
                *
-               * | Lebar        | Kolom | Susunan                                    |
-               * |--------------|-------|--------------------------------------------|
-               * | < 640 px     |   1   | semua turun ke bawah, satu-satu            |
-               * | 640–1279 px  |   2   | Nama penuh, lalu Harga/Durasi/Satuan/Hapus  |
-               * | ≥ 1280 px    |  12   | 4 + 3 + 2 + 2 + 1                          |
+               * | Lebar        | Kolom | Susunan                                      |
+               * |--------------|-------|----------------------------------------------|
+               * | < 640 px     |   6   | Nama (2) + Harga (4); Durasi/Satuan/Hapus   |
+               * | 640–1279 px  |   2   | Nama penuh, lalu pasangan field               |
+               * | ≥ 1280 px    |  12   | Nama/Harga/Durasi/Satuan/Hapus (4/3/2/2/1)   |
                *
                * Porsi lebar di layar monitor diberikan ke **Harga**, bukan ke
                * Nama atau Satuan. Alasannya isi kolom: `Nama Paket` berupa teks
@@ -1177,8 +1177,8 @@ function PengaturanBillingForm({
                * menjajikannya benar-benar. Penjelasan dipindah ke satu tempat:
                * baris ringkasan.
                */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-2.5 items-end">
-                <div className="sm:col-span-2 xl:col-span-4">
+              <div className="grid grid-cols-6 gap-2 items-end sm:grid-cols-2 sm:gap-2.5 xl:grid-cols-12">
+                <div className="col-span-2 sm:col-span-2 xl:col-span-4">
                   <Field label="Nama Paket">
                     <Input
                       value={item.label}
@@ -1186,7 +1186,7 @@ function PengaturanBillingForm({
                     />
                   </Field>
                 </div>
-                <div className="xl:col-span-3">
+                <div className="col-span-4 min-w-0 sm:col-span-1 xl:col-span-3">
                   <Field label="Harga">
                     <NumberField
                       min={1}
@@ -1196,10 +1196,11 @@ function PengaturanBillingForm({
                       aria-label={`Harga paket ${item.label}`}
                       prefix="Rp"
                       format={formatRuang}
+                      hideSteppersBelowSm
                     />
                   </Field>
                 </div>
-                <div className="xl:col-span-2">
+                <div className="col-span-2 min-w-0 sm:col-span-1 xl:col-span-2">
                   <Field label="Durasi">
                     <NumberField
                       min={1}
@@ -1210,7 +1211,7 @@ function PengaturanBillingForm({
                     />
                   </Field>
                 </div>
-                <div className="xl:col-span-2">
+                <div className="col-span-3 min-w-0 sm:col-span-1 xl:col-span-2">
                   <Field label="Satuan">
                     <Dropdown
                       value={item.satuan}
@@ -1223,23 +1224,14 @@ function PengaturanBillingForm({
                     />
                   </Field>
                 </div>
-                {/*
-                 * `h-10 w-10` = 40 px, sama dengan tinggi `Input`
-                 * (`py-2.5` + `text-sm`). Default `AksiIcon` adalah `h-9` 36 px;
-                 * di dalam tabel selisih 4 px itu tidak terasa, tapi di baris
-                 * form yang disejajarkan dengan `items-end` justru terlihat
-                 * meleset dari kolom sebelahnya.
-                 *
-                 * Pembungkus `flex` menumpuk label di atas, jadi di `sm` (2
-                 * kolom) tombol ini tetap berada di barisnya sendiri dan tidak
-                 * ikut melebar.
-                 */}
-                <div className="flex sm:justify-end">
+                {/* Area hapus mengisi sel sempit di mobile; di layar lebar ikon
+                  kembali berukuran tetap dan sejajar dengan field. */}
+                <div className="col-span-1 flex justify-end sm:col-span-1">
                   <AksiIcon
                     icon={Trash2}
                     label={`Hapus paket ${item.label}`}
                     tone="rose"
-                    className="h-10 w-10"
+                    className="h-10 w-full min-w-0 sm:w-10"
                     onClick={() => hapusPaket(item.id)}
                   />
                 </div>
@@ -1264,7 +1256,7 @@ function PengaturanBillingForm({
         )}
       </Card>
 
-      <div className="flex justify-end">
+      <div className="flex justify-center sm:justify-end">
         <ActionButton onClick={() => void simpan()} loading={menyimpan} icon={<BadgeCheck className="w-4 h-4" />}>
           Simpan Pengaturan
         </ActionButton>

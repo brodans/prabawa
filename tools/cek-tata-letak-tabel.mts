@@ -262,6 +262,9 @@ console.log('\n=== 3c. DataTable mengukur, bukan menebak breakpoint');
   cek('tidak ada pasangan breakpoint lama yang tersisa',
     !/md:hidden/.test(surface) && !/hidden md:block/.test(surface) && !/AMBANG_TABEL/.test(surface),
     'salah satunya masih ada berarti salah satu dari dua tampilan bisa bocor');
+  cek('kartu mobile DataTable memakai baris label/nilai yang simetris',
+    /dl className="divide-y[^\"]*"[\s\S]*?grid min-w-0 grid-cols-\[minmax\(0,0\.9fr\)_minmax\(0,1\.1fr\)\][\s\S]*?text-right text-sm/.test(surface),
+    'label dan isi harus tetap satu baris dan dipisahkan garis, bukan menumpuk bebas');
   cek('tidak ada peta ambang container-query',
     !/@min-\[/.test(surface),
     'kunci container-query harus literal per ambang dan cepat basi begitu ada kolom baru');
@@ -363,9 +366,9 @@ console.log('\n=== 6. Kolom baris paket sejajar');
   cek('penjelasan durasi tetap ada di baris ringkasan',
     /Dipakai pengguna sebagai/.test(blok) && /deskripsiDurasi/.test(blok),
     'hint satuan dihapus, jadi ringkasannya yang memikul penjelasannya');
-  cek('tombol hapus disamakan tingginya dengan Input (40 px)',
-    /className="h-10 w-10"/.test(blok),
-    'h-9 (36 px) vs Input 40 px = tombol terlihat meleset 4 px');
+  cek('tombol hapus setinggi Input dan melebar aman di mobile sempit',
+    /className="h-10 w-full min-w-0 sm:w-10"/.test(blok),
+    'tinggi 40 px sama dengan Input; lebar ikut sel pada mobile dan kembali 40 px di desktop');
   cek('AksiIcon menerima className',
     /className = ''/.test(langganan) && /\$\{className\}/.test(langganan),
     'tanpa ini penyesuaian tinggi tidak bisa lewat dari pemanggil');
@@ -622,6 +625,13 @@ console.log('\n=== 10. Grid >=3 kolom tetap di dalam panel sempit');
       kolom: [3],
       alasan: 'Navigasi tiga tab yang lebarnya sama, dengan teks dapat membungkus.',
     },
+    {
+      berkas: 'src/pages/Langganan.tsx',
+      kolom: [6],
+      alasan:
+        'Editor paket mobile sengaja membagi Nama+Harga lalu Durasi+Satuan+Hapus; ' +
+        'grid 6 kolom memberi span 3/3 dan 2/3/1 tanpa membuat tombol hapus meluber.',
+    },
   ];
 
   const semuaBerkas: string[] = [];
@@ -666,6 +676,18 @@ console.log('\n=== 10. Grid >=3 kolom tetap di dalam panel sempit');
   cek('nama bank membungkus, bukan memaksa lebar minimum',
     /break-words[\s\S]{0,80}\{item\.nama\}/.test(langganan),
     'kata panjang pada tombol bank menaikkan min-content dan melebarkan grid');
+  cek('paket mobile menempatkan nama/harga lalu durasi/satuan/hapus',
+    /grid grid-cols-6 gap-2 items-end sm:grid-cols-2 sm:gap-2\.5 xl:grid-cols-12/.test(langganan) &&
+      /col-span-2 sm:col-span-2 xl:col-span-4/.test(langganan) &&
+      /col-span-4 min-w-0 sm:col-span-1 xl:col-span-3/.test(langganan) &&
+      /col-span-2 min-w-0 sm:col-span-1 xl:col-span-2/.test(langganan) &&
+      /col-span-3 min-w-0 sm:col-span-1 xl:col-span-2/.test(langganan) &&
+      /h-10 w-full min-w-0 sm:w-10/.test(langganan));
+  cek('field harga menyembunyikan stepper hanya di mobile agar nominal muat',
+    /hideSteppersBelowSm/.test(langganan) &&
+      /hideSteppersBelowSm \? 'hidden sm:flex'/.test(surface));
+  cek('tombol Simpan Pengaturan berada di tengah pada mobile',
+    /flex justify-center sm:justify-end/.test(langganan));
 }
 
 console.log(fail === 0 ? '\nSEMUA LULUS' : `\n${fail} KEGAGALAN`);

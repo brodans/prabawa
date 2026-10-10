@@ -1118,21 +1118,10 @@ export default function WebPresensi() {
 
         {/* Captcha */}
         {!sudahLogin && !memulihkanSesi && (
-          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-captcha">
-                Captcha
-              </label>
-              <input
-                id="web-captcha" value={captcha} onChange={(e) => simpanCaptcha(e.target.value.replace(/\s/g, ''))}
-                placeholder={ocrTersedia && OCR_LOKAL ? 'Terisi otomatis' : 'Ketik kode captcha'}
-                autoComplete="off" inputMode="numeric" maxLength={4}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
-              />
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
               <div
-                className={`relative h-11 w-20 shrink-0 overflow-hidden rounded-xl border bg-slate-50 dark:bg-slate-800/60 ${
+                className={`relative h-14 min-w-0 flex-1 overflow-hidden rounded-xl border bg-slate-50 dark:bg-slate-800/60 ${
                   captchaImg ? 'border-slate-200 dark:border-slate-700' : 'border-dashed border-slate-300 dark:border-slate-600'
                 }`}
                 aria-busy={loadingCaptcha}
@@ -1145,6 +1134,17 @@ export default function WebPresensi() {
                 title="Muat ulang captcha" aria-label="Muat ulang captcha">
                 <RefreshCw className={`w-4 h-4 ${loadingCaptcha ? 'animate-spin' : ''}`} />
               </button>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-captcha">
+                Captcha
+              </label>
+              <input
+                id="web-captcha" value={captcha} onChange={(e) => simpanCaptcha(e.target.value.replace(/\s/g, ''))}
+                placeholder={ocrTersedia && OCR_LOKAL ? 'Terisi otomatis' : 'Ketik kode captcha'}
+                autoComplete="off" inputMode="numeric" maxLength={4}
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
+              />
             </div>
           </div>
         )}
@@ -1191,7 +1191,7 @@ export default function WebPresensi() {
                 <button key={t.id} type="button" onClick={() => setTab(t.id)}
                   className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
                     tab === t.id
-                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                      ? 'bg-indigo-600 text-white'
                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800'
                   }`}>
                   <Icon className="w-4 h-4" />

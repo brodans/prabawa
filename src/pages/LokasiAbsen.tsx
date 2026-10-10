@@ -275,23 +275,26 @@ export default function LokasiAbsen() {
         </div>
 
         {loading && locations.length === 0 ? (
-          <Skeleton className="h-[480px] w-full rounded-xl" />
+          <Skeleton className="aspect-square w-full rounded-xl sm:aspect-auto sm:h-[480px]" />
         ) : (
-          <PetaAbsen
-            titik={titikPeta}
-            draggableId={draf ? '__draf__' : null}
-            onGeser={geserTitik}
-            onKlikPeta={koordinat => mulaiDraf(koordinat)}
-            onPilih={setTerpilih}
-            fokus={
-              terpilih === '__draf__'
-                ? { id: '__draf__' }
-                : terpilih
-                  ? { id: terpilih }
-                  : fokusAwal
-            }
-            height="480px"
-          />
+          <div className="aspect-square w-full sm:aspect-auto sm:h-[480px]">
+            <PetaAbsen
+              titik={titikPeta}
+              draggableId={draf ? '__draf__' : null}
+              onGeser={geserTitik}
+              onKlikPeta={koordinat => mulaiDraf(koordinat)}
+              onPilih={setTerpilih}
+              fokus={
+                terpilih === '__draf__'
+                  ? { id: '__draf__' }
+                  : terpilih
+                    ? { id: terpilih }
+                    : fokusAwal
+              }
+              height="100%"
+              className="h-full"
+            />
+          </div>
         )}
 
         {draf && (
@@ -464,9 +467,7 @@ export default function LokasiAbsen() {
 
       {/* ── Titik dari server ────────────────────────────────────── */}
       <Card padded={false} className="p-5 sm:p-6">
-        <CardTitle action={<Badge tone="blue">object: getlokasiabsen</Badge>}>
-          Titik Kantor dari Server
-        </CardTitle>
+        <CardTitle>Titik Kantor dari Server</CardTitle>
 
         {loading ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -328,26 +328,13 @@ export default function LoginScreen({ onLogin, onLoginStart, isDarkMode, toggleD
       {/* ─── Latar ─────────────────────────────────────────────────── */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="login-grid-mask absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)]" />
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl" />
-        {/*
-         * Sudut bawah-kiri dulu hijau (emerald). Di dark mode blur-3xl +
-         * alpha kecil membuatnya menyala sebagai bercak hijau di atas
-         * `#0a0f1c`, dan itu satu-satunya warna hangat-hijau di layar yang
-         * seluruhnya biru — jadi terlihat seperti elemen yang salah warna,
-         * bukan pilihan desain.
-         *
-         * Sekarang biru, dan ronaunya tetap berbeda dari sudut kanan-atas
-         * (indigo di sana, sky di sini) supaya kedua bercak tidak berubah
-         * menjadi satu gumpalan tanpa bentuk.
-         */}
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 rounded-full bg-sky-500/10 dark:bg-sky-500/15 blur-3xl" />
       </div>
 
       {/* ─── Ganti tema ────────────────────────────────────────────── */}
       <div className="absolute top-6 right-6 z-20">
         <button
           onClick={toggleDarkMode}
-          className="p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-slate-800 transition-all duration-300 active:scale-95 group text-slate-600 dark:text-white hover:text-slate-800 dark:hover:text-white"
+          className="p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-800 transition-colors active:scale-95 group text-slate-600 dark:text-white hover:text-slate-800 dark:hover:text-white"
           aria-label="Ganti tema"
         >
           {/*
@@ -377,20 +364,10 @@ export default function LoginScreen({ onLogin, onLoginStart, isDarkMode, toggleD
       </div>
 
       {/* ─── Kartu utama ───────────────────────────────────────────── */}
-      <div className="relative z-10 w-full max-w-[26rem] bg-white/95 dark:bg-slate-900/75 backdrop-blur-xl border border-slate-200/90 dark:border-slate-700/60 rounded-[2rem] shadow-2xl shadow-slate-900/10 dark:shadow-slate-950/50 overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
+      <div className="relative z-10 w-full max-w-[26rem] bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-700/60 rounded-[2rem] shadow-xl shadow-slate-900/10 dark:shadow-slate-950/50 overflow-hidden">
 
         <div className="px-8 pt-10 pb-6 text-center relative">
           <div className="relative inline-flex items-center justify-center w-20 h-20 mb-6 group">
-            <div className="absolute inset-0 bg-indigo-500/20 dark:bg-indigo-500/30 rounded-3xl rotate-6 group-hover:rotate-12 transition-transform duration-500" />
-            {/*
-             * Layer kedua logo, dulu hijau. Sama seperti bercak latar: di
-             * dark mode dua warna hijau-oranye beradu dengan ungu jadi
-             * bercak hangat yang tidak ada gunanya di sini — bukan penanda
-             * status, cuma hiasan. Sky menjaga pasangan ini tetap di keluarga
-             * biru, dan tetap berbeda dari lapisan indigo-nya.
-             */}
-            <div className="absolute inset-0 bg-sky-500/20 dark:bg-sky-500/30 rounded-3xl -rotate-6 group-hover:-rotate-12 transition-transform duration-500" />
             <div className="relative flex items-center justify-center w-full h-full bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-1.5 overflow-hidden">
               <img
                 src={APP_LOGO}
@@ -518,7 +495,7 @@ export default function LoginScreen({ onLogin, onLoginStart, isDarkMode, toggleD
                   ? 'bg-indigo-500 cursor-wait'
                   : isLocked || !canSubmit
                     ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 shadow-[0_8px_20px_rgb(79,70,229,0.25)] hover:-translate-y-0.5 active:translate-y-0 group'
+                    : 'bg-indigo-600 hover:bg-indigo-700 active:translate-y-0 group'
               }`}
             >
                 {isAuthing ? (

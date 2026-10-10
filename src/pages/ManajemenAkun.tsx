@@ -872,8 +872,8 @@ function KelolaAkun({ toast }: {
          * panel popupnya tetap `min-w-[13rem]`, jadi trigger yang lebih
          * sempit tidak ikut membuat daftar opsinya sempit.
          */}
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[minmax(0,1fr)_8rem_9rem_auto] sm:items-end">
-          <Field label="Cari akun">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[minmax(0,1fr)_8rem_9rem_auto] sm:items-end">
+          <Field label="Cari akun" className="col-span-2 sm:col-span-1">
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <Input
@@ -958,10 +958,8 @@ function KelolaAkun({ toast }: {
            *    sedangkan kotaknya dibatasi 108 px. Teksnya bocor keluar
            *    background tombol — itu yang bikin terlihat "gak lurus".
            * 2. **Terlalu besar.** `size="md"` adalah ukuran tombol formulir
-           *    utama: tinggi, tebal, dan varian primary-nya punya
-           *    `shadow-[0_8px_20px_...]` yang membuatnya tampak melayang dan
-           *    lebih besar dari tetangganya. Untuk dua aksi di baris penyaring,
-           *    bobot visual itu berlebihan.
+           *    utama: padding dan teksnya lebih besar dari kontrol di samping.
+           *    Untuk aksi di baris penyaring, bobot visual itu berlebihan.
            *
            * Sekarang `size="sm"` (12 px horizontal, `text-xs`) dengan tinggi
            * dikunci ke `h-[42px]` — jadi **tinggi tetap sama** dengan
@@ -979,16 +977,14 @@ function KelolaAkun({ toast }: {
            * sebelumnya ("besar kecil beda ukuran"). Yang dikecilkan adalah
            * ketebalan visualnya, bukan tingginya.
            *
-           * Varian: `ghost` + `secondary`, bukan `ghost` + `primary`. Keduanya
-           * berborder tanpa bayangan, jadi seragam dan rata. Tombol utama dengan
-           * gradien + bayangan besar di baris penyaring akan terlihat seperti
-           * menimpa baris itu, bukan bagian dari dalamnya.
+           * Varian: `ghost` + `secondary`, jadi dua aksi setara tanpa aksen
+           * visual berlebihan.
            *
            * Lebar: `grid grid-cols-2` + `block`, **bukan** lebar tetap. Tinggi
            * kedua tombol sudah dijamin sama oleh grid, dan lebar mengikuti isi
            * — jadi tidak mungkin ada teks yang keluar kotak.
            */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="col-span-2 grid grid-cols-2 gap-2 sm:col-span-1">
             <ActionButton
               variant="ghost"
               size="sm"

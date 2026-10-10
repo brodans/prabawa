@@ -381,7 +381,7 @@ export default function DeveloperInspector({
                         <div className="flex items-center gap-1.5">
                           <span
                             className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                              entry.error ? 'bg-rose-400 shadow-[0_0_6px_rgba(251,113,133,0.5)]' : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]'
+                              entry.error ? 'bg-rose-400' : 'bg-emerald-400'
                             }`}
                           />
                           <span className="truncate text-[10px] font-semibold font-mono tracking-tight">
@@ -554,7 +554,7 @@ export default function DeveloperInspector({
                   <div className="flex items-center gap-1.5">
                     <span
                       className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                        entry.error ? 'bg-rose-400 shadow-[0_0_6px_rgba(251,113,133,0.5)]' : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]'
+                        entry.error ? 'bg-rose-400' : 'bg-emerald-400'
                       }`}
                     />
                     <span className="truncate text-[10px] font-bold font-mono tracking-tight">

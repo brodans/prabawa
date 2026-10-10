@@ -171,14 +171,14 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_8px_20px_rgb(79,70,229,0.22)] hover:from-blue-500 hover:to-indigo-500 active:translate-y-0',
+    'bg-blue-600 text-white hover:bg-blue-700 active:translate-y-0',
   secondary:
     'bg-slate-100 dark:bg-slate-700/70 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-200 dark:hover:bg-slate-700',
   ghost:
     'bg-transparent text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800',
-  danger: 'bg-rose-600 text-white shadow-[0_8px_20px_rgb(225,29,72,0.22)] hover:bg-rose-700',
-  success: 'bg-emerald-600 text-white shadow-[0_8px_20px_rgb(5,150,105,0.22)] hover:bg-emerald-700',
-  warning: 'bg-amber-500 text-white shadow-[0_8px_20px_rgb(245,158,11,0.22)] hover:bg-amber-600',
+  danger: 'bg-rose-600 text-white hover:bg-rose-700',
+  success: 'bg-emerald-600 text-white hover:bg-emerald-700',
+  warning: 'bg-amber-500 text-white hover:bg-amber-600',
 };
 
 const SIZES: Record<ButtonSize, string> = {
@@ -347,6 +347,7 @@ export function NumberField({
   'aria-label': ariaLabel,
   prefix,
   format,
+  hideSteppersBelowSm = false,
 }: {
   value: number;
   onChange: (value: number) => void;
@@ -359,6 +360,8 @@ export function NumberField({
   'aria-label'?: string;
   /** Teks tetap di kiri input, mis. `"Rp"`. */
   prefix?: string;
+  /** Sembunyikan tombol naik/turun pada layar sempit agar input tetap terbaca. */
+  hideSteppersBelowSm?: boolean;
   /**
    * Format tampilan, mis. `formatRuang` untuk `100000` → `"100.000"`.
    *
@@ -435,7 +438,7 @@ export function NumberField({
         className={`font-mono tabular-nums ${prefix ? 'rounded-l-none text-left' : 'text-center'}`}
       />
       {!disabled && (
-        <div className="flex flex-col gap-1 shrink-0">
+        <div className={`flex flex-col gap-1 shrink-0 ${hideSteppersBelowSm ? 'hidden sm:flex' : ''}`}>
           <StepButton
             onClick={naik}
             disabled={max !== undefined && value >= max}
@@ -1025,20 +1028,20 @@ export function DataTable<T>({
         {rows.map((row, index) => (
           <li
             key={keyOf(row, index)}
-            className="rounded-xl border border-slate-200 dark:border-slate-700/70 bg-white dark:bg-slate-900/40 p-3.5 space-y-2"
+            className="rounded-xl border border-slate-200 dark:border-slate-700/70 bg-white dark:bg-slate-900/40 p-4 space-y-2"
           >
             {judul && (
-              <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 min-w-0">
+              <div className="min-w-0 border-b border-slate-100 pb-2 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:text-slate-100">
                 {judul.render(row, index)}
               </div>
             )}
-            <dl className="space-y-1.5">
+            <dl className="divide-y divide-slate-100 dark:divide-slate-800">
               {berlabel.map(column => (
                 <div
                   key={column.key}
-                  className="flex items-start justify-between gap-3 min-w-0"
+                  className="grid min-w-0 grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] items-start gap-3 py-2 first:pt-0 last:pb-0"
                 >
-                  <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 shrink-0 pt-0.5">
+                  <dt className="min-w-0 break-words pt-0.5 text-[10px] font-bold uppercase leading-relaxed tracking-wider text-slate-500 dark:text-slate-400">
                     {column.header}
                   </dt>
                   <dd className="min-w-0 text-right text-sm text-slate-600 dark:text-slate-300">

@@ -701,7 +701,7 @@ export function LayarLanggananHabis({
                 setBayar(true);
               }}
               disabled={paket.length === 0}
-              className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold shadow-[0_8px_20px_rgb(79,70,229,0.22)] hover:from-blue-500 hover:to-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CreditCard className="w-4 h-4" />
               {menunggu.length > 0 ? 'Lanjut Bayar Tagihan' : 'Lakukan Pembayaran'}
@@ -974,7 +974,7 @@ function PanelTagihanMenunggu({
               type="button"
               disabled={sibuk}
               onClick={() => setBayarTagihan(utama.orderId)}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold shadow-[0_6px_16px_rgb(79,70,229,0.20)] hover:from-blue-500 hover:to-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CreditCard className="w-4 h-4" />
               Lanjutkan Pembayaran
@@ -1041,8 +1041,7 @@ export function LayarTungguVerifikasi({
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center text-center">
           <div className="relative w-16 h-16 flex items-center justify-center">
-            <span className="absolute inset-0 rounded-full bg-[#25D366]/15 animate-ping" aria-hidden="true" />
-            <span className="relative w-16 h-16 rounded-full bg-[#25D366] flex items-center justify-center shadow-[0_8px_24px_rgb(37,211,102,0.35)]">
+            <span className="relative w-16 h-16 rounded-full bg-[#25D366] flex items-center justify-center">
               <IkonWa className="w-8 h-8 text-white" />
             </span>
           </div>

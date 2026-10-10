@@ -77,6 +77,22 @@ cek('satu aturan global scrollbar, tanpa deklarasi yang saling menimpa',
 console.log('\n=== Overlay lain');
 cek('App: overlay menu mobile tanpa blur', !/fixed inset-0 bg-slate-900\/60 backdrop-blur/.test(appSrc));
 cek('App: konten utama tidak di-blur', !/isMobileMenuOpen \? 'blur-sm/.test(appSrc));
+const glowSrc = [
+  appSrc,
+  webSrc,
+  ...[
+    'src/components/LoginScreen.tsx',
+    'src/components/GerbangLangganan.tsx',
+    'src/components/DeveloperInspector.tsx',
+    'src/components/ui/Surface.tsx',
+  ].map(file => tanpaKomentar(readFileSync(join(root, file), 'utf8'))),
+].join('\n');
+cek('tidak ada glow warna, blur dekoratif, atau pulse berulang',
+  !/shadow-\[[^\]]*(?:rgb\(|rgba\()[^\]]*\]|shadow-(?:blue|indigo|emerald|rose|amber)-|blur-3xl|animate-ping|via-indigo-500\/50/.test(glowSrc));
+cek('varian tombol bersama tidak memakai bayangan glow',
+  !/const VARIANTS:[\s\S]*?= \{[\s\S]*?shadow-\[/.test(
+    tanpaKomentar(readFileSync(join(root, 'src/components/ui/Surface.tsx'), 'utf8'))
+  ));
 cek('skeleton Web mengikuti status sesi dan tidak menampilkan tab sebelum login',
   /webPresensiState\.sudahLogin[\s\S]*?login;/.test(appSrc));
 cek('skeleton Web mengikuti tab aktif setelah login',
@@ -92,7 +108,19 @@ cek('skeleton Laporan mengikuti tabel enam kolom tanpa badge duplikat',
 cek('skeleton Presensi mengikuti kartu statistik dan seluruh kontrol formulir',
   /pageId === 'tabPresensi' && pegawai[\s\S]*?stats\(4, \[2, 3\]\)[\s\S]*?grid grid-cols-1 gap-2 sm:grid-cols-3[\s\S]*?SkeletonList rows=\{4\}/.test(appSrc));
 cek('skeleton Lokasi Absen memuat peta, titik pengguna, dan titik server',
-  /pageId === 'tabLokasiAbsen'[\s\S]*?h-\[480px\][\s\S]*?w-44[\s\S]*?SkeletonList rows=\{3\}/.test(appSrc));
+  /pageId === 'tabLokasiAbsen'[\s\S]*?aspect-square w-full rounded-xl sm:aspect-auto sm:h-\[480px\][\s\S]*?w-44[\s\S]*?SkeletonList rows=\{3\}/.test(appSrc));
+cek('peta Lokasi Absen persegi di mobile dan menghilangkan badge object teknis',
+  /Skeleton className="aspect-square w-full rounded-xl sm:aspect-auto sm:h-\[480px\]"/.test(appSrc) &&
+    /<div className="aspect-square w-full sm:aspect-auto sm:h-\[480px\]">/.test(
+      readFileSync(join(root, 'src/pages/LokasiAbsen.tsx'), 'utf8')
+    ) &&
+    !/Badge tone="blue">object: getlokasiabsen/.test(readFileSync(join(root, 'src/pages/LokasiAbsen.tsx'), 'utf8')));
+const docsSrc = readFileSync(join(root, 'src/pages/Docs.tsx'), 'utf8');
+cek('navigasi bagian Dokumentasi memakai grid simetris pada mobile',
+  /grid grid-cols-2 gap-1\.5[\s\S]{0,160}sm:grid-cols-4 xl:grid-cols-8/.test(docsSrc) &&
+    /min-h-11 min-w-0 items-center justify-center/.test(docsSrc));
+cek('daftar object mati Dokumentasi rapi di grid pada mobile',
+  /grid grid-cols-2 gap-1\.5 sm:grid-cols-3 lg:grid-cols-4/.test(docsSrc));
 cek('skeleton tanpa judul halaman mengikuti header yang benar-benar dirender',
   /const adaHeaderHalaman =\s*pageId === 'tabBeranda' \|\| pageId === 'tabPresensi' \|\| pageId === 'tabDocs'/.test(appSrc) &&
     /\{adaHeaderHalaman && header\}/.test(appSrc));
@@ -104,8 +132,9 @@ cek('pemeriksaan sesi menampilkan shell workspace tanpa blur latar belakang',
 cek('hard refresh menampilkan boot shell sebelum React mount',
   /<div id="root">\s*<div class="boot-shell"/.test(htmlSrc) &&
     /<script type="module" src="\/src\/main\.tsx"><\/script>/.test(htmlSrc));
-cek('captcha punya ukuran slot tetap saat gambar belum/sudah dimuat',
-  /h-11 w-20 shrink-0 overflow-hidden/.test(webSrc) &&
+cek('input dan gambar captcha memakai lebar kolom penuh',
+  /id="web-captcha"[\s\S]{0,500}className="w-full/.test(webSrc) &&
+    /h-14 min-w-0 flex-1 overflow-hidden/.test(webSrc) &&
     /h-full w-full object-contain/.test(webSrc));
 cek('captcha loading memakai shimmer tanpa spinner pada gambar',
   /captcha-shimmer absolute inset-0/.test(webSrc) &&
