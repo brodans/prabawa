@@ -68,7 +68,7 @@ const REPORT_TYPES: { value: ReportType; label: string; rpc: string; hint: strin
     value: 'rekap',
     label: 'Rekap Harian',
     rpc: 'history_absen',
-    hint: 'Satu baris per pegawai per tanggal, hasil pivot lokal dari history_absen.',
+    hint: 'Rekap absensi per pegawai per tanggal.',
   },
 ];
 
@@ -238,7 +238,7 @@ export default function Laporan() {
         judul: activeReport.label,
         subjudul: `Periode ${dateStart} sampai ${dateEnd}`,
         meta: [
-          `Sumber data: presensi.bkd.jatimprov.go.id/service · object: ${activeReport.rpc}`,
+          'Sumber data: presensi.bkd.jatimprov.go.id/service',
           `Akun: ${currentUser?.username ?? '-'} · ${filtered.length} baris`,
         ],
         catatan:
@@ -294,7 +294,7 @@ export default function Laporan() {
               opsi={REPORT_TYPES.map(item => ({
                 value: item.value,
                 label: item.label,
-                hint: `object: ${item.rpc}`,
+                hint: item.hint,
               }))}
               aria-label="Jenis laporan"
             />
@@ -363,7 +363,6 @@ export default function Laporan() {
         <CardTitle
           action={
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <Badge tone="blue">object: {activeReport.rpc}</Badge>
               <ActionButton
                 variant="ghost"
                 size="sm"
@@ -428,8 +427,8 @@ export default function Laporan() {
 
         {visible.length > 0 && (
           <p className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-400 dark:text-slate-500 print:hidden">
-            Sumber data: <span className="font-mono">presensi.bkd.jatimprov.go.id/service</span> ·{' '}
-            <span className="font-mono">object: {activeReport.rpc}</span> · akun {currentUser?.username ?? '-'}
+            Sumber data: <span className="font-mono">presensi.bkd.jatimprov.go.id/service</span> · akun{' '}
+            {currentUser?.username ?? '-'}
             {reportType === 'rekap' && ' · rekap dihitung lokal'}
           </p>
         )}

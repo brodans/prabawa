@@ -98,16 +98,34 @@ function isHalamanLogin(html: string): boolean {
 type ApiError = Error & { sesiHabis?: boolean; perluCaptchaBaru?: boolean; jenis?: string };
 
 function pesanLoginLebihJelas(pesan: string): string {
-  const teks = pesan.toLowerCase();
-  const salah = '(?:salah|tidak valid|tidak cocok|tidak ditemukan|tidak terdaftar|invalid|incorrect|wrong|not found|not registered)';
-  const polaNip = new RegExp(`(?:email|e-mail|nip|username|user).{0,45}${salah}|${salah}.{0,45}(?:email|e-mail|nip|username|user)`, 'i');
-  const polaPassword = new RegExp(`(?:password|kata sandi|sandi).{0,45}${salah}|${salah}.{0,45}(?:password|kata sandi|sandi)`, 'i');
-  const polaCaptcha = new RegExp(`(?:captcha|capcha|kode verifikasi).{0,45}${salah}|${salah}.{0,45}(?:captcha|capcha|kode verifikasi)`, 'i');
+  const teks = pesan.toLowerCase().replace(/\s+/g, ' ');
+  const polaNip = /(?:email|e-?mail|nip|username|user|akun).{0,60}(?:salah|keliru|tidak valid|tidak cocok|tidak ditemukan|tidak terdaftar|invalid|incorrect|wrong|not found|not registered|does not exist)|(?:salah|keliru|tidak valid|tidak cocok|tidak ditemukan|tidak terdaftar|invalid|incorrect|wrong|not found|not registered|does not exist).{0,60}(?:email|e-?mail|nip|username|user|akun)/i;
+  const polaPassword = /(?:password|kata sandi|sandi).{0,60}(?:salah|keliru|tidak valid|tidak cocok|tidak sesuai|invalid|incorrect|wrong)|(?:salah|keliru|tidak valid|tidak cocok|tidak sesuai|invalid|incorrect|wrong).{0,60}(?:password|kata sandi|sandi)/i;
+  const polaCaptcha = /(?:captcha|capcha|kode verifikasi).{0,60}(?:salah|keliru|tidak valid|tidak cocok|invalid|incorrect|wrong)|(?:salah|keliru|tidak valid|tidak cocok|invalid|incorrect|wrong).{0,60}(?:captcha|capcha|kode verifikasi)/i;
   const kategori = [polaNip.test(teks), polaPassword.test(teks), polaCaptcha.test(teks)];
   if (kategori.filter(Boolean).length !== 1) return pesan;
   if (kategori[0]) return 'Email / NIP tidak terdaftar.';
   if (kategori[1]) return 'Password salah.';
   return 'Captcha salah.';
+}
+
+function teksErrorLogin(html: string): string {
+  const pesan: string[] = [];
+  const elemenError = /<(?:div|span|p)\b(?=[^>]*\bclass\s*=\s*(["'])[^"']*(?:alert-danger|help-block|invalid-feedback|text-danger|error)[^"']*\1)[^>]*>([\s\S]*?)<\/(?:div|span|p)>/gi;
+  for (const cocok of html.matchAll(elemenError)) {
+    const teks = cocok[2]
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;|&#160;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&quot;|&#34;/gi, '"')
+      .replace(/&#39;|&apos;/gi, "'")
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (teks) pesan.push(teks);
+  }
+  return pesan.join(' ');
 }
 
 /** Lempar error bertanda sesiHabis bila respons ternyata halaman login. */
@@ -195,10 +213,7 @@ export async function login({ nip, password, captcha }: { nip: string; password:
   });
   const html = await res.text();
   if (isHalamanLogin(html)) {
-    const m = html.match(/<div class="alert alert-danger">([\s\S]*?)<\/div>/i);
-    const pesan = m
-      ? m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-      : 'Login gagal (periksa NIP, password, dan captcha).';
+    const pesan = teksErrorLogin(html) || 'Login gagal (periksa NIP, password, dan captcha).';
     const err = new Error(pesanLoginLebihJelas(pesan)) as ApiError;
     err.perluCaptchaBaru = true;
     err.jenis = /captcha/i.test(pesan) ? 'captcha' : 'kredensial';

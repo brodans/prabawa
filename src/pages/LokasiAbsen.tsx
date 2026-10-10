@@ -278,9 +278,6 @@ export default function LokasiAbsen() {
         </CardTitle>
 
         <div className="flex flex-wrap items-center gap-4 mb-3 text-[11px] text-slate-500 dark:text-slate-400">
-          <LegendSwatch color="bg-emerald-500" label="Titik server" />
-          <LegendSwatch color="bg-violet-500" label="Titik Anda" />
-          <LegendSwatch color="bg-blue-600" label="Sedang disunting" />
           <span className="ml-auto">Klik peta untuk menambah titik</span>
         </div>
 
@@ -392,7 +389,7 @@ export default function LokasiAbsen() {
             ) : undefined
           }
         >
-          Titik Anda
+          Titik Tersimpan
         </CardTitle>
 
         {milikSaya.length === 0 ? (
@@ -565,7 +562,7 @@ export default function LokasiAbsen() {
       <ConfirmDialog
         open={konfirmasiBersihkan}
         tone="danger"
-        title="Hapus semua titik Anda?"
+        title="Hapus semua titik tersimpan?"
         message={`${milikSaya.length} titik yang tersimpan di perangkat ini akan dihapus. Titik kantor dari server tidak tersentuh. Tindakan ini tidak bisa dibatalkan.`}
         confirmLabel="Ya, Hapus Semua"
         cancelLabel="Batal"
@@ -573,15 +570,6 @@ export default function LokasiAbsen() {
         onCancel={() => setKonfirmasiBersihkan(false)}
       />
     </div>
-  );
-}
-
-function LegendSwatch({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
-      {label}
-    </span>
   );
 }
 

@@ -604,8 +604,7 @@ export default function Presensi() {
 
             {!koordinat ? (
               <Alert tone="rose">
-                Belum ada titik absen. Pilih koordinat lewat tombol &ldquo;Pilih di Peta&rdquo; di
-                atas — server membutuhkan koordinat untuk mencatat absensi.
+                Pilih titik absen di peta sebelum melakukan absensi.
               </Alert>
             ) : !tabPermissions.aksiAbsen ? (
               <Alert tone="amber">Akun Anda tidak memiliki hak untuk melakukan absensi.</Alert>

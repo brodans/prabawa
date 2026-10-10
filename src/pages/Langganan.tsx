@@ -47,7 +47,6 @@ import {
   formatRuang,
   formatRupiah,
   paketById,
-  isiPesanWa,
   DAFTAR_BANK,
   deskripsiDurasi,
   infoBank,
@@ -55,7 +54,6 @@ import {
   normalisasiNomorWa,
   paketEfektif,
   validasiKodeBank,
-  tautanWa,
   TEMPLATE_WA_DEFAULT,
   BATAS_PESAN_WA,
   formatRuang as formatRuangWa,
@@ -967,11 +965,6 @@ function PengaturanBillingForm({
           </button>
         </div>
 
-        {waValid && (
-          <p className="mt-3 text-[11px] text-slate-400 dark:text-slate-500 font-mono break-all">
-            {tautanWa(draft.nomorWa, isiPesanWa(draft.templateWa, { app: 'PRABAWA', username: 'contoh' }))}
-          </p>
-        )}
       </Card>
 
       {/* Rekening bank */}
