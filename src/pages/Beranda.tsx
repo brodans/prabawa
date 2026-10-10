@@ -7,6 +7,7 @@ import {
   CloudDownload,
   Fingerprint,
   LogIn,
+  LoaderCircle,
   MapPin,
   RefreshCw,
   ShieldCheck,
@@ -61,6 +62,7 @@ export default function Beranda() {
     setPegawai,
     setServerConnected,
     serverLoginError,
+    serverAutoLoginPending,
     setServerLoginError,
     setServerLogoutRequested,
     loginForm,
@@ -257,6 +259,24 @@ export default function Beranda() {
   const lokasiAktif = locations[0] ?? null;
 
   // ═══ Belum login ke server pusat ═══════════════════════════════
+  if (!pegawai && serverAutoLoginPending) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Beranda"
+          subtitle={`Menghubungkan akun ke server ${APP_FULL_NAME}`}
+          icon={<UserCircle className="w-5 h-5" />}
+        />
+        <Card>
+          <div className="flex items-center gap-3 py-3" role="status" aria-live="polite">
+            <LoaderCircle className="w-5 h-5 animate-spin text-blue-500" />
+            <p className="text-sm text-slate-600 dark:text-slate-300">Menyiapkan akun tersambung…</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   if (!pegawai) {
     return (
       <div className="space-y-6">

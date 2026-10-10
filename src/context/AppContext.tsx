@@ -22,7 +22,7 @@ import {
   clearAllSessions,
   perbaruiTokenSesi,
 } from '../lib/sessionManager';
-import { resetAutoLogin } from '../lib/serverAutoLogin';
+import { resetAutoLogin, sudahKeluarServer } from '../lib/serverAutoLogin';
 import { bacaStorage, tulisStorage } from '../lib/storageAman';
 import { verifikasiSesiPanel } from '../lib/akunFirestore';
 import { migrasiTitikUsernameLokal } from '../lib/lokasiTersimpan';
@@ -182,6 +182,8 @@ interface AppContextType {
    */
   serverLoginError: string | null;
   setServerLoginError: (value: string | null) => void;
+  serverAutoLoginPending: boolean;
+  setServerAutoLoginPending: (value: boolean) => void;
   /** true = pengguna menekan "Keluar dari Server", auto-login dimatikan. */
   serverLogoutRequested: boolean;
   setServerLogoutRequested: (value: boolean) => void;
@@ -371,6 +373,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   /** True selama token belum diverifikasi server. */
   const [cekingSesi, setCekingSesi] = useState(() => sesiTersimpan !== null);
+  const [serverAutoLoginPending, setServerAutoLoginPending] = useState(false);
 
   // ⚠️ SECURITY: role selalu 'user' bila currentUser null.
   const userRole: UserRole = currentUser?.role ?? 'user';
@@ -404,6 +407,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         migrasiTitikUsernameLokal(hasil.akun.username, hasil.akun.usernameSebelumnya ?? []);
         setCurrentUserState(hasil.akun);
         setTabPermissionsState(izinServer);
+        setServerAutoLoginPending(!sudahKeluarServer(hasil.akun.username));
         // Perpanjangan token disimpan tanpa mengganti akun.
         if (hasil.tokenBaru) perbaruiTokenSesi(hasil.tokenBaru);
       } catch {
@@ -417,6 +421,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         clearAllSessions();
         setCurrentUserState(null);
         setTabPermissionsState(UNAUTHENTICATED_PERMISSIONS);
+        setServerAutoLoginPending(false);
       } finally {
         if (hidup) setCekingSesi(false);
       }
@@ -425,7 +430,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       hidup = false;
     };
-  }, [sesiTersimpan]);
+  }, [sesiTersimpan, setServerAutoLoginPending]);
 
   // ── State server pusat ───────────────────────────────────────────
   const [pegawai, setPegawai] = useState<PegawaiProfile | null>(null);
@@ -454,6 +459,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPegawai(null);
       setServerConnected(false);
       setServerLoginError(null);
+      setServerAutoLoginPending(false);
       setServerLogoutRequested(false);
       setLoginForm({ username: '', password: '', imei: '' });
       setConfig(EMPTY_CONFIG);
@@ -488,7 +494,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setPegawai(null);
     setServerConnected(false);
-    setServerLoginError(null);
+    const autoLoginAktif = !sudahKeluarServer(user.username);
+    setServerLoginError(autoLoginAktif ? 'Menghubungkan server pusat…' : null);
+    setServerAutoLoginPending(autoLoginAktif);
     setLoginForm({ username: '', password: '', imei: '' });
     setConfig(EMPTY_CONFIG);
 
@@ -508,6 +516,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('[AppContext] setCurrentUser tanpa token — sesi ditolak.');
       setCurrentUserState(null);
       setTabPermissionsState(UNAUTHENTICATED_PERMISSIONS);
+      setServerAutoLoginPending(false);
       clearAllSessions();
       return;
     }
@@ -689,6 +698,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setServerConnected,
       serverLoginError,
       setServerLoginError,
+      serverAutoLoginPending,
+      setServerAutoLoginPending,
       serverLogoutRequested,
       setServerLogoutRequested,
       loginForm,
@@ -716,14 +727,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }),
     [
       // State
-      pegawai, serverConnected, serverLoginError, serverLogoutRequested,
+      pegawai, serverConnected, serverLoginError, serverAutoLoginPending, serverLogoutRequested,
       loginForm, developerMode, config, activePage,
       pathname, laporanLogState, riwayatIzinState, webPresensiState, currentUser, userRole,
       tabPermissions, cekingSesi, adaSesiSaatMuat,
       // Setter
       setDeveloperMode, setActivePage, setSubPath, setCurrentUser,
       // Dispatcher useState — stabil, tapi didaftarkan agar lengkap.
-      setPegawai, setServerConnected, setServerLoginError, setServerLogoutRequested,
+      setPegawai, setServerConnected, setServerLoginError, setServerAutoLoginPending, setServerLogoutRequested,
       setLoginForm, setConfig, setLaporanLogState, setRiwayatIzinState, setWebPresensiState,
     ]
   );

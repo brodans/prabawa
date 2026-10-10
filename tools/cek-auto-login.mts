@@ -340,6 +340,7 @@ cek('logout server mereset status auto-login', appSrc.includes('resetAutoLogin()
  */
 const berandaSrc = readFileSync(new URL('../src/pages/Beranda.tsx', import.meta.url), 'utf8');
 const autoLoginSrc = readFileSync(new URL('../src/lib/serverAutoLogin.ts', import.meta.url), 'utf8');
+const ctxSrc = readFileSync(new URL('../src/context/AppContext.tsx', import.meta.url), 'utf8');
 cek('login manual menandai server aktif', berandaSrc.includes('tandaiAktifServer('));
 cek('login manual menyimpan IMEI', berandaSrc.includes('simpanImei('));
 cek('login manual membesarkan penanda "keluar dari server"',
@@ -347,6 +348,15 @@ cek('login manual membesarkan penanda "keluar dari server"',
 cek('tidak ada penanda "berhasil" yang tidak pernah dibaca',
   !berandaSrc.includes('tandaiBerhasil(') && !autoLoginSrc.includes('berhasilUntuk'),
   'kalau muncul lagi, pastikan `mulaiAutoLogin()` MEMBACANYA');
+cek('Beranda menunggu auto-login sebelum menampilkan form manual',
+  /if \(!pegawai && serverAutoLoginPending\)/.test(berandaSrc));
+cek('status auto-login siap diturunkan setelah profil berhasil dipasang',
+  /setServerAutoLoginPending\(false\)/.test(appKode.slice(
+    appKode.indexOf('const setProfilServer = React.useCallback('),
+    appKode.indexOf('React.useEffect\(\(\) => \{\n    const username')
+  )));
+cek('pemulihan sesi menandai percobaan auto-login sebelum workspace dibuka',
+  /setServerAutoLoginPending\(!sudahKeluarServer\(hasil\.akun\.username\)\)/.test(ctxSrc));
 
 // main.tsx memakai StrictMode — inilah yang memicu mount ganda.
 const mainSrc = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');

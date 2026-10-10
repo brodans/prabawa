@@ -774,6 +774,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
     developerMode,
     setDeveloperMode,
     setServerLoginError,
+    setServerAutoLoginPending,
     setServerLogoutRequested,
   } = useAppContext();
 
@@ -875,8 +876,9 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
         kodeUnor: profil.kodeUnor || prev.kodeUnor,
       }));
       setServerLoginError(null);
+      setServerAutoLoginPending(false);
     },
-    [setPegawai, setServerConnected, setConfig, setServerLoginError]
+    [setPegawai, setServerConnected, setConfig, setServerLoginError, setServerAutoLoginPending]
   );
 
   React.useEffect(() => {
@@ -885,11 +887,13 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
     // Pengguna memang meminta keluar dari server — jangan hubungkan lagi.
     if (sudahKeluarServer(username)) {
       setServerLoginError(null);
+      setServerAutoLoginPending(false);
       return;
     }
 
     let hidup = true;
     setServerLoginError('Menghubungkan server pusat…');
+    setServerAutoLoginPending(true);
 
     void (async () => {
       const hasil = await mulaiAutoLogin(username);
@@ -914,6 +918,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
             }
             setServerConnected(false);
             setServerLoginError(ulang.pesan ?? 'Sesi server sudah tidak berlaku. Silakan masuk ulang.');
+            setServerAutoLoginPending(false);
             return;
           }
         }
@@ -928,13 +933,14 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
       setServerLoginError(
         hasil.status === 'belum-ada-kredensial' ? null : hasil.pesan ?? 'Gagal menghubungi server pusat.'
       );
+      setServerAutoLoginPending(false);
     })();
 
     // Tidak ada `abort()` di sini — lihat catatan di atas.
     return () => {
       hidup = false;
     };
-  }, [currentUser?.username, setServerLoginError, setServerConnected, setProfilServer]);
+  }, [currentUser?.username, setServerLoginError, setServerConnected, setServerAutoLoginPending, setProfilServer]);
 
   // ── Putuskan sesi server pusat ─────────────────────────────────────
   // Memanggil `logout` yang memvalidasi api_key di sisi server, jadi
@@ -1445,7 +1451,7 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
 //  Root
 // ═══════════════════════════════════════════════════════════════════════
 
-function LayarPemeriksaanSesi({ pageId }: { pageId: string }) {
+function LayarMenyiapkanWorkspace({ pageId }: { pageId: string }) {
   return (
     <div
       className="fixed inset-0 z-50 flex h-dvh w-full overflow-hidden bg-slate-50 text-slate-800 dark:bg-[#0B1120] dark:text-slate-200"
@@ -1518,7 +1524,7 @@ function LayarPemeriksaanSesi({ pageId }: { pageId: string }) {
             <LoaderCircle className="h-6 w-6 animate-spin" strokeWidth={2.4} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Memeriksa sesi</p>
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Menyiapkan workspace</p>
           </div>
         </div>
       </div>
@@ -1559,14 +1565,9 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
    * di provider menyatakan `true` sampai server memverifikasi token itu dan
    * mengembalikan peran yang dibaca ulang dari dokumen.
    *
-   * Tiga kondisi yang harus dibedakan, dan ketiganya terlihat:
-  *   `!adaToken`       → layar login
-  *   `cekingSesi`      → layar "Memeriksa sesi" (TANPA menu, tanpa sidebar)
-  *   akun terverifikasi → aplikasi
-   *
-   * Yang kedua tidak boleh dilewati. Tanpa itu ada satu frame di mana aplikasi
-   * sudah dirender dengan hak yang belum diverifikasi — dan `AnimatePresence`
-   * membuatnya jadi beberapa frame, bukan satu.
+  * Selama `cekingSesi`, layar login tetap terlihat dan form dikunci. Setelah
+  * verifikasi berhasil, akun tampil; bila gagal, form login kembali aktif.
+  * `MainApp` tidak pernah dirender dengan hak yang belum diverifikasi.
    */
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   React.useLayoutEffect(() => {
@@ -1576,7 +1577,7 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
     }
     document.documentElement.classList.remove('app-shell-active');
   }, [adaSesiSaatMuat, isAuthenticated]);
-  const fallbackPemeriksaan = <LayarPemeriksaanSesi pageId={activePage} />;
+  const fallbackWorkspace = <LayarMenyiapkanWorkspace pageId={activePage} />;
 
   React.useEffect(() => {
     if (cekingSesi) return;
@@ -1706,16 +1707,19 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
           dipertahankan tanpa interaksi; pada login awal, status pemeriksaan
           tampil di atas viewport yang tetap terisi.
       */}
-      {cekingSesi ? (
-        fallbackPemeriksaan
-      ) : !isAuthenticated ? (
+      {cekingSesi || (!isAuthenticated && !currentUser) ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
           style={{ minHeight: '100svh' }}
         >
-          <LoginScreen onLogin={handleLogin} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
+          <LoginScreen
+            onLogin={handleLogin}
+            isDarkMode={isDarkMode}
+            toggleDarkMode={toggleDarkMode}
+            checkingSession={cekingSesi}
+          />
         </motion.div>
       ) : (
         <motion.div
@@ -1733,7 +1737,7 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
           */}
           <GerbangLangganan
             onKeluar={handleLogout}
-            fallbackLoading={fallbackPemeriksaan}
+            fallbackLoading={fallbackWorkspace}
           >
             <MainApp onLogout={handleLogout} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
           </GerbangLangganan>

@@ -1674,22 +1674,24 @@ cek('isAuthenticated dimulai false, bukan dari storage',
   'isAuthenticated dari storage = render aplikasi dengan role yang belum diverifikasi');
 cek('tidak ada setIsAuthenticated yang membaca storage',
   !/setIsAuthenticated\(\s*\(\)\s*=>\s*!!loadSession/.test(appSrc));
-cek('layar tunggu mengikuti status verifikasi dari AppContext',
-    /const fallbackPemeriksaan = <LayarPemeriksaanSesi pageId=\{activePage\} \/>/.test(appSrc) &&
-  /if \(cekingSesi\) return;\s*setIsAuthenticated\(currentUser !== null\)/.test(appSrc),
-  'verifikasi sukses membuka aplikasi; sesi yang ditolak tetap tidak terautentikasi');
-cek('pemulihan sesi menampilkan placeholder halaman terakhir tanpa akses',
-  /cekingSesi \? \(\s*fallbackPemeriksaan/.test(appSrc) &&
-      /function LayarPemeriksaanSesi/.test(appSrc) &&
-    /adaSesiSaatMuat/.test(ctxSrc));
-cek('pemeriksaan langganan memakai fallback yang sama selama pemulihan',
-  /fallbackLoading=\{fallbackPemeriksaan\}/.test(appSrc) &&
+cek('LoginScreen tetap tampil selama verifikasi sesi',
+  /cekingSesi \|\| \(!isAuthenticated && !currentUser\) \?/.test(appSrc) &&
+    /checkingSession=\{cekingSesi\}/.test(appSrc) &&
+    /if \(cekingSesi\) return;\s*setIsAuthenticated\(currentUser !== null\)/.test(appSrc),
+  'akses workspace baru dibuka setelah server memverifikasi sesi');
+cek('login dikunci dan menampilkan progress selama pemulihan sesi',
+  /checkingSession \|\| authInFlight\.current/.test(loginSrc) &&
+    /disabled=\{checkingSession \|\| isLocked \|\| isAuthing\}/.test(loginSrc) &&
+    /Memulihkan sesi/.test(loginSrc));
+cek('tidak ada layar khusus bertuliskan Memeriksa sesi',
+  !/LayarPemeriksaanSesi|Memeriksa sesi/.test(appSrc));
+cek('pemulihan token menyiapkan auto-login pusat sebelum workspace dibuka',
+  /setServerAutoLoginPending\(!sudahKeluarServer\(hasil\.akun\.username\)\)/.test(ctxSrc));
+cek('fallback langganan memakai shell workspace generik',
+  /fallbackLoading=\{fallbackWorkspace\}/.test(appSrc) &&
     /fallbackLoading\) return <>\{fallbackLoading\}<\/>/.test(gateSrc));
-cek('pemeriksaan sesi ditampilkan di tengah workspace',
-    /fixed inset-0 z-\[60\] grid place-items-center/.test(appSrc) &&
-      /Memeriksa sesi/.test(appSrc) &&
-      /role="status"[\s\S]*?aria-live="polite"/.test(appSrc) &&
-      !/Memeriksa langganan…/.test(gateSrc));
+cek('fallback tidak menyebut pemeriksaan sesi',
+  /Menyiapkan workspace/.test(appSrc) && !/Memeriksa sesi/.test(appSrc));
 cek('loader meniru shell workspace di desktop dan mobile',
     /hidden h-full w-64[\s\S]{0,100}lg:flex/.test(appSrc) &&
       /lg:hidden/.test(appSrc) &&
