@@ -1118,7 +1118,7 @@ export default function WebPresensi() {
 
         {/* Captcha */}
         {!sudahLogin && !memulihkanSesi && (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end">
             <div className="flex items-center gap-2">
               <div
                 className={`relative h-14 min-w-0 flex-1 overflow-hidden rounded-xl border bg-slate-50 dark:bg-slate-800/60 ${

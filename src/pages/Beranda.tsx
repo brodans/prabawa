@@ -381,16 +381,20 @@ export default function Beranda() {
               disabled={!tabPermissions.aksiSyncData}
               onClick={handleSyncData}
               icon={<CloudDownload className="w-4 h-4" />}
+              aria-label="Sinkronkan data"
+              title="Sinkronkan data"
             >
-              Sync Data
+              <span className="hidden sm:inline">Sync Data</span>
             </ActionButton>
             <ActionButton
               variant="secondary"
               size="sm"
               onClick={() => void loadDashboard()}
               icon={<RefreshCw className="w-4 h-4" />}
+              aria-label="Muat ulang beranda"
+              title="Muat ulang"
             >
-              Muat Ulang
+              <span className="hidden sm:inline">Muat Ulang</span>
             </ActionButton>
           </>
         }

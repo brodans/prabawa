@@ -335,7 +335,7 @@ export default function Dropdown({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: arah === 'atas' ? 4 : -4, scale: 0.98 }}
             transition={{ duration: 0.13, ease: 'easeOut' }}
-            className={`absolute z-[80] w-full min-w-[13rem] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xl shadow-slate-950/25 overflow-hidden ${
+            className={`absolute left-0 z-[80] w-full min-w-0 max-w-[calc(100vw-1rem)] rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xl shadow-slate-950/25 overflow-hidden ${
               arah === 'atas' ? 'bottom-full mb-2' : 'top-full mt-2'
             }`}
           >

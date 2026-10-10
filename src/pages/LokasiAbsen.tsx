@@ -271,7 +271,7 @@ export default function LokasiAbsen() {
         </CardTitle>
 
         <div className="flex flex-wrap items-center gap-4 mb-3 text-[11px] text-slate-500 dark:text-slate-400">
-          <span className="ml-auto">Klik peta untuk menambah titik</span>
+          <span>Klik peta untuk menambah titik</span>
         </div>
 
         {loading && locations.length === 0 ? (

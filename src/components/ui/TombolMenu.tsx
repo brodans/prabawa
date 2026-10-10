@@ -48,6 +48,7 @@ export interface TombolMenuProps {
   loading?: boolean;
   ariaLabel?: string;
   className?: string;
+  labelClassName?: string;
 }
 
 export function TombolMenu({
@@ -60,6 +61,7 @@ export function TombolMenu({
   loading = false,
   ariaLabel,
   className = '',
+  labelClassName = '',
 }: TombolMenuProps) {
   const [open, setOpen] = useState(false);
   const tutup = () => setOpen(false);
@@ -103,7 +105,7 @@ export function TombolMenu({
         className={`${open ? 'ring-2 ring-blue-500/30' : ''} ${className}`}
         icon={loading ? undefined : icon}
       >
-        {label}
+        <span className={labelClassName}>{label}</span>
         {/* Panah ikut arah. */}
         <ChevronDown
           className={`w-3.5 h-3.5 opacity-70 transition-transform duration-200 ${

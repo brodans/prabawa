@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import {
   BookOpen,
+  ChevronDown,
   Copy,
   FileCode2,
   Globe,
@@ -35,6 +36,7 @@ import {
   ABSEN_CHECK_TYPE,
 } from '../lib/presensiContract';
 import { APP_FULL_NAME } from '../lib/appIdentity';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 /**
  * Dokumentasi kontrak server pusat.
@@ -94,13 +96,13 @@ export default function Docs() {
       </div>
 
       {/* ── Navigasi bagian ──────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-1.5 rounded-2xl border border-slate-200 bg-slate-100/70 p-1.5 dark:border-slate-700 dark:bg-slate-800/50 sm:grid-cols-4 xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-100/70 p-1 dark:border-slate-700 dark:bg-slate-800/50 md:flex md:flex-nowrap md:justify-between md:overflow-x-auto md:custom-scrollbar">
         {BAGIAN.map(item => (
           <button
             key={item.id}
             type="button"
             onClick={() => setBagian(item.id)}
-            className={`flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-center text-[11px] font-semibold leading-tight transition-colors sm:text-xs ${
+            className={`flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-center text-[10px] font-semibold leading-tight transition-colors sm:min-h-10 sm:gap-1.5 sm:rounded-xl sm:px-2 sm:text-xs md:flex-none md:whitespace-nowrap ${
               bagian === item.id
                 ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
@@ -127,6 +129,40 @@ export default function Docs() {
 /** Bagian awal: selalu "Transport & Login" saat halaman dimuat. */
 function useBagianAwal() {
   return useState<Bagian>('transport');
+}
+
+function KeteranganPonsel({
+  children,
+  label = 'Buka keterangan lengkap',
+}: {
+  children: ReactNode;
+  label?: string;
+}) {
+  const mobile = useMediaQuery('(max-width: 767px)');
+  const [open, setOpen] = useState(!mobile);
+  const contentId = useId();
+
+  useEffect(() => {
+    setOpen(!mobile);
+  }, [mobile]);
+
+  return (
+    <details
+      open={open}
+      onToggle={event => {
+        if (mobile) setOpen(event.currentTarget.open);
+      }}
+    >
+      <summary
+        className="mb-2 flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 marker:hidden dark:border-slate-700 dark:text-slate-300 md:hidden [&::-webkit-details-marker]:hidden"
+        aria-controls={contentId}
+      >
+        <span>{label}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </summary>
+      <div id={contentId}>{children}</div>
+    </details>
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -167,18 +203,21 @@ function Transport({ onCopy }: { onCopy: (teks: string, label: string) => void }
 
       <Card>
         <CardTitle>Field yang selalu disuntik</CardTitle>
+        <KeteranganPonsel>
         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Ditaruh di dalam <span className="font-mono">param</span> oleh proxy untuk setiap
           panggilan, meniru{' '}
           <span className="font-mono">RestServices.insertAuthorizationInterceptor</span> di APK.
         </p>
+        </KeteranganPonsel>
         <dl className="grid grid-cols-1 gap-2.5">
           <Row label="api_key" value="token sesi dari object login" mono />
           <Row label="last_latlong" value='"<lat>,<long>" titik tersimpan atau pilihan peta sementara di Presensi' mono />
           <Row label="imei" value="androidId perangkat — WAJIB ada di login" mono />
         </dl>
 
-        <Alert tone="amber">
+          <KeteranganPonsel>
+          <Alert tone="amber">
               <span className="font-mono">imei</span> mengikat akun ke perangkat dan gate{' '}
               <span className="font-mono">{GATE_PERANGKAH_TERIKAT}</span> itu nyata tapi bisa aktif
               atau dilepas server kapan saja — statusnya berbeda antar akun, bahkan berubah di tengah
@@ -186,6 +225,7 @@ function Transport({ onCopy }: { onCopy: (teks: string, label: string) => void }
               satu-satunya jalan adalah androidId perangkat yang benar. Menghilangkannya memberi{' '}
               <span className="font-mono">-32602</span>.
         </Alert>
+        </KeteranganPonsel>
       </Card>
 
       <Card>
@@ -278,6 +318,7 @@ function Objects({ onCopy }: { onCopy: (teks: string, label: string) => void }) 
           </table>
         </div>
 
+        <KeteranganPonsel>
         <Alert tone="blue">
           Kolom di atas adalah param khusus tiap object; selainnya hanya{' '}
           <span className="font-mono">api_key</span>, <span className="font-mono">last_latlong</span>,
@@ -285,34 +326,40 @@ function Objects({ onCopy }: { onCopy: (teks: string, label: string) => void }) 
           <span className="font-mono">param</span> yang tidak dikenal — superset 29.394 kandidat
           diterima tanpa error.
         </Alert>
+        </KeteranganPonsel>
       </Card>
 
       <Card>
         <CardTitle action={<Badge tone="violet">Non-JSON-RPC</Badge>}>
           Endpoint di luar /service
         </CardTitle>
+        <KeteranganPonsel>
         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Satu-satunya path selain <span className="font-mono">/service</span> yang dipakai APK
           v89 — ditemukan lewat decompilasi, bukan lewat probe nama object (karena ia bukan object
           JSON-RPC sama sekali):
         </p>
+        </KeteranganPonsel>
         <div className="p-3.5 rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-700">
           <pre className="text-[11px] font-mono text-emerald-300 whitespace-pre-wrap break-all">
 {`POST /service/importfile   multipart/form-data
   api_key · id · last_latlong (kosong) · type=ijin · image`}
           </pre>
         </div>
+        <KeteranganPonsel label="Rincian respons">
         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-3">
           Dipakai untuk lampiran pengajuan izin. ⚠️ Path-nya terbukti hidup (200 + JSON-RPC),
           tetapi gateway menjawab <span className="font-mono">-32605</span> untuk semua variasi
           body — lihat tab <strong>Perizinan</strong> untuk detailnya.
         </p>
+        </KeteranganPonsel>
       </Card>
 
       <Card>
         <CardTitle action={<Badge tone="rose">{RPC_OBJECTS_LEGACY.length} nama</Badge>}>
           Object yang sudah tidak ada
         </CardTitle>
+        <KeteranganPonsel>
         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Semua dijawab <span className="font-mono">-32601 Object not found</span>, termasuk 2.378
           nama lain dari string-pool APK v89. Decompilasi v89 mengonfirmasi hal ini: tidak ada
@@ -320,6 +367,7 @@ function Objects({ onCopy }: { onCopy: (teks: string, label: string) => void }) 
           <span className="font-mono">PerizinanFragment</span>, dan tidak ada endpoint approve
           sama sekali.
         </p>
+        </KeteranganPonsel>
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
           {RPC_OBJECTS_LEGACY.map(nama => (
             <span
@@ -368,16 +416,19 @@ function Absensi() {
           <Row label="2 — Pulang" value={String(ABSEN_CHECK_TYPE.PULANG)} mono />
           <Row label="3 — Absen siang" value="hanya pukul 12:00 – 13:00" mono />
         </div>
+        <KeteranganPonsel>
         <Alert tone="amber">
           Nilai lain (termasuk <span className="font-mono">0</span> dan{' '}
           <span className="font-mono">99</span>) ditolak dengan{' '}
           <span className="font-mono">"Tidak diperbolehkan melakukan absensi saat ini."</span>{' '}
           <span className="font-mono">iswfh</span> hanya boleh aktif hari Jumat.
         </Alert>
+        </KeteranganPonsel>
       </Card>
 
       <Card>
         <CardTitle>history_absen</CardTitle>
+        <KeteranganPonsel>
         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Satu baris per <span className="font-semibold">rekaman</span>, bukan per hari — satu baris
           &ldquo;Datang&rdquo;, satu baris &ldquo;Pulang&rdquo;. Envelope{' '}
@@ -386,6 +437,7 @@ function Absensi() {
           jam keluar; keterlambatan harus dihitung lokal terhadap{' '}
           <span className="font-mono">jam_masuk_awal</span> work code.
         </p>
+        </KeteranganPonsel>
         <div className="p-3.5 rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-700">
           <pre className="text-[11px] font-mono text-sky-300 whitespace-pre-wrap break-all">
 {BALASAN_HISTORY}
@@ -395,6 +447,7 @@ function Absensi() {
 
       <Card>
         <CardTitle>Koordinat</CardTitle>
+        <KeteranganPonsel>
         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
           <span className="font-mono">absen</span> dan <span className="font-mono">cekabsen</span>{' '}
           menerima <span className="font-mono">last_latlong</span> sebagai teks{' '}
@@ -403,6 +456,7 @@ function Absensi() {
           karena itu membiarkan pengguna memilih titik di peta dan mengirim titik itu, sehingga GPS
           tidak perlu dinyalakan.
         </p>
+        </KeteranganPonsel>
       </Card>
     </>
   );
@@ -417,6 +471,7 @@ function Izin({ onCopy }: { onCopy: (teks: string, label: string) => void }) {
     <>
       <Card>
         <CardTitle>Tiga tingkat katalog izin</CardTitle>
+        <KeteranganPonsel>
         <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
           <p>
             <span className="font-mono text-slate-700 dark:text-slate-200">getmastertipeijin</span>{' '}
@@ -435,6 +490,7 @@ function Izin({ onCopy }: { onCopy: (teks: string, label: string) => void }) {
             <span className="font-semibold">peta label</span> id tipe izin:
           </p>
         </div>
+        </KeteranganPonsel>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
           {Object.entries(TIPE_IJIN_LABEL).map(([id, label]) => (
             <div
@@ -452,6 +508,7 @@ function Izin({ onCopy }: { onCopy: (teks: string, label: string) => void }) {
 
       <Card>
         <CardTitle>list_ijin</CardTitle>
+        <KeteranganPonsel>
         <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
           {[
             'Hanya menerima page + limit — tidak ada filter tanggal, status, atau pegawai.',
@@ -466,6 +523,7 @@ function Izin({ onCopy }: { onCopy: (teks: string, label: string) => void }) {
             </li>
           ))}
         </ul>
+        </KeteranganPonsel>
       </Card>
 
       <Card>
@@ -505,6 +563,7 @@ function Izin({ onCopy }: { onCopy: (teks: string, label: string) => void }) {
         >
           POST /service/importfile — lampiran izin
         </CardTitle>
+        <KeteranganPonsel>
         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Satu-satunya endpoint di luar <span className="font-mono">/service</span> itu sendiri,
           dan bukan JSON-RPC — formatnya{' '}
@@ -517,6 +576,8 @@ function Izin({ onCopy }: { onCopy: (teks: string, label: string) => void }) {
           </span>
           , jadi URL akhirnya <span className="font-mono">/service/importfile</span>.
         </p>
+        </KeteranganPonsel>
+        <KeteranganPonsel label="Hasil pengujian lampiran">
         <Alert tone="amber">
               ⚠️ <strong>Path-nya hidup, tapi bentuk request-nya belum diterima.</strong> Diuji
               live 2026-09-28: <span className="font-mono">/service/importfile</span> menjawab 200
@@ -528,6 +589,7 @@ function Izin({ onCopy }: { onCopy: (teks: string, label: string) => void }) {
               bahwa penolakan ini murni soal autentikasi. Konsekuensinya: pengajuan izin tetap
               tercatat walau lampiran gagal, dan UI melapor keduanya secara terpisah.
         </Alert>
+        </KeteranganPonsel>
         <div className="p-3.5 rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-700">
           <pre className="text-[11px] font-mono text-emerald-300 whitespace-pre-wrap break-all">
 {CONTOH_IMPORTFILE}
@@ -552,6 +614,7 @@ function Referensi() {
 {BALASAN_WORKCODE}
           </pre>
         </div>
+        <KeteranganPonsel>
         <Alert tone="amber">
           Jam bersarang <span className="font-semibold">tiga tingkat</span> (
           <span className="font-mono">[].hari.jam.jam_masuk</span>) dan nilai{' '}
@@ -560,6 +623,7 @@ function Referensi() {
           harus memakai awalan <span className="font-mono">nama</span>, bukan{' '}
           <span className="font-mono">hari.nama</span>.
         </Alert>
+        </KeteranganPonsel>
       </Card>
 
       <Card>
@@ -569,10 +633,14 @@ function Referensi() {
 {BALASAN_LOKASI}
           </pre>
         </div>
+        <KeteranganPonsel>
+        <KeteranganPonsel>
         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
           Koordinat datang sebagai satu string <span className="font-mono">latlong</span>, bukan dua
           field terpisah. Server hanya menyediakan operasi baca.
         </p>
+        </KeteranganPonsel>
+        </KeteranganPonsel>
       </Card>
     </>
   );
@@ -642,6 +710,7 @@ function Kode({ onCopy }: { onCopy: (teks: string, label: string) => void }) {
 
       <Card>
         <CardTitle>Cara daftar param wajib diverifikasi</CardTitle>
+        <KeteranganPonsel>
         <ol className="space-y-2.5 text-sm text-slate-600 dark:text-slate-300">
           {[
             'Kirim hanya param base (api_key, last_latlong, imei) → catat hasilnya.',
@@ -661,6 +730,7 @@ function Kode({ onCopy }: { onCopy: (teks: string, label: string) => void }) {
           berarti ada yang <span className="font-semibold">wajib hilang</span>, bukan ada yang{' '}
           <span className="font-semibold">dilebihkan</span>.
         </p>
+        </KeteranganPonsel>
       </Card>
     </>
   );
@@ -706,10 +776,12 @@ function Batas() {
 
   return (
     <>
+      <KeteranganPonsel>
       <Alert tone="amber">
             Semua yang terverifikasi di bawah berasal dari probe black-box ke gateway produksi dengan
             satu akun NIP nyata. Yang tidak terverifikasi diberi tanda ⚠ beserta alasannya.
       </Alert>
+      </KeteranganPonsel>
 
       <div className="grid grid-cols-1 gap-4">
         {batasan.map(item => (
@@ -721,7 +793,9 @@ function Batas() {
             >
               {item.judul}
             </CardTitle>
-            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{item.detail}</p>
+            <KeteranganPonsel label="Buka rincian">
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{item.detail}</p>
+            </KeteranganPonsel>
           </Card>
         ))}
       </div>
@@ -745,6 +819,7 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
         <CardTitle action={<Badge tone="blue">Portal Presensi BKD Jatim</Badge>}>
           Gambaran Umum Menu WEB
         </CardTitle>
+        <KeteranganPonsel>
         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
           Menu <span className="font-semibold">WEB</span> mengakses langsung portal web resmi
           BKD Jatim di{' '}
@@ -752,6 +827,7 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
           Presensi & Perizinan yang memakai JSON-RPC. Portal web ini berbasis PHP/Symfony,
           menggunakan form login + CAPTCHA, dan mengembalikan HTML — bukan JSON.
         </p>
+        </KeteranganPonsel>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <RowWeb label="Target" value="https://presensi.bkd.jatimprov.go.id" mono />
           <RowWeb label="Autentikasi" value="Form login + CAPTCHA (4 digit numerik, GIF)" />
@@ -767,11 +843,13 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
         <CardTitle action={<Badge tone="violet">Same-origin proxy</Badge>}>
           Arsitektur Proxy
         </CardTitle>
+        <KeteranganPonsel>
         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Browser tidak bisa fetch langsung ke domain lain karena CORS. Semua request ke{' '}
           <span className="font-mono">/ep/*</span> diproksikan ke upstream — di lokal oleh Vite,
           di Vercel oleh serverless function <span className="font-mono">api/ep.js</span>.
         </p>
+        </KeteranganPonsel>
         <div className="p-3.5 rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-700 mb-3">
           <pre className="text-[11px] font-mono text-emerald-300 whitespace-pre-wrap break-all">
 {WEB_PROXY_DIAGRAM}
@@ -788,6 +866,7 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
       {/* Login & Captcha */}
       <Card>
         <CardTitle>Login & Captcha</CardTitle>
+        <KeteranganPonsel>
         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Login ke portal web melalui dua tahap: ambil gambar captcha lalu kirim form login.
           Captcha bersifat satu kali pakai dan terikat ke session cookie.
@@ -810,6 +889,8 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
             </li>
           ))}
         </ol>
+        </KeteranganPonsel>
+        <KeteranganPonsel label="Catatan OCR produksi">
         <Alert tone="blue">
           <strong className="font-semibold">Captcha di produksi diketik manual.</strong>{' '}
           Dulu ada <span className="font-mono">api/ocr.ts</span> yang menjalankan model ddddocr via{' '}
@@ -817,6 +898,8 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
           dan itu penyebab storage Function Vercel melonjak. Model 13 MB untuk memecah
           empat digit tidak sebanding dengan biaya tersebut.
         </Alert>
+        </KeteranganPonsel>
+        <KeteranganPonsel label="Catatan OCR lokal">
         <Alert tone="blue">
           Di <span className="font-mono">npm run dev</span> OCR tetap otomatis:{' '}
           <span className="font-mono">ocr_service.py</span> (ddddocr, port 8791) melayaninya lewat
@@ -825,6 +908,7 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
           <span className="font-mono">false</span>, jadi <span className="font-mono">/api/ocr</span> tidak
           ada di bundle yang ter-deploy.
         </Alert>
+        </KeteranganPonsel>
       </Card>
 
       {/* Endpoint IMEI */}
@@ -832,10 +916,12 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
         <CardTitle action={<Badge tone="emerald">Tab: IMEI</Badge>}>
           Pengambilan IMEI
         </CardTitle>
+        <KeteranganPonsel>
         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           IMEI diambil dari baris paling atas tabel kehadiran halaman pertama. Seluruh riwayat
           di halaman itu milik akun yang sedang login.
         </p>
+        </KeteranganPonsel>
         <div className="p-3.5 rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-700 mb-3">
           <pre className="text-[11px] font-mono text-sky-300 whitespace-pre-wrap break-all">
 {WEB_ENDPOINT_IMEI}
@@ -854,10 +940,12 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
         <CardTitle action={<Badge tone="emerald">Tab: Kehadiran</Badge>}>
           Riwayat Kehadiran
         </CardTitle>
+        <KeteranganPonsel>
         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Tabel kehadiran dipaginasi server-side. Setiap baris diurai dari HTML menjadi objek
           terstruktur. Koordinat presisi tersedia via endpoint terpisah.
         </p>
+        </KeteranganPonsel>
         <div className="p-3.5 rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-700 mb-3">
           <pre className="text-[11px] font-mono text-sky-300 whitespace-pre-wrap break-all">
 {WEB_ENDPOINT_KEHADIRAN}
@@ -883,12 +971,14 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
             </tbody>
           </table>
         </div>
+        <KeteranganPonsel label="Koordinat presisi">
         <Alert tone="amber">
           Koordinat di kolom <span className="font-mono">latlong</span> adalah perkiraan.
           Koordinat presisi dimuat via{' '}
           <span className="font-mono">/index.php/checkinout/load/action?latlong=ID</span> — hanya
           saat tombol Peta ditekan (lazy load).
         </Alert>
+        </KeteranganPonsel>
       </Card>
 
       {/* Endpoint Detail Pegawai */}
@@ -896,10 +986,12 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
         <CardTitle action={<Badge tone="emerald">Tab: Detail Pegawai</Badge>}>
           Detail Pegawai
         </CardTitle>
+        <KeteranganPonsel>
         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Halaman profil pegawai — berisi data identitas, riwayat login perangkat, foto terunggah,
           dan daftar ijin via ajax.
         </p>
+        </KeteranganPonsel>
         <div className="p-3.5 rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-700 mb-3">
           <pre className="text-[11px] font-mono text-violet-300 whitespace-pre-wrap break-all">
 {WEB_ENDPOINT_DETAIL}
@@ -919,10 +1011,12 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
         <CardTitle action={<Badge tone="emerald">Tab: Perizinan</Badge>}>
           Perizinan / Cuti (Portal Web)
         </CardTitle>
+        <KeteranganPonsel>
         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Tabel perizinan portal web — berbeda dari <span className="font-mono">list_ijin</span> JSON-RPC.
           Dipaginasi server-side, mendukung muat semua halaman sekaligus.
         </p>
+        </KeteranganPonsel>
         <div className="p-3.5 rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-700 mb-3">
           <pre className="text-[11px] font-mono text-violet-300 whitespace-pre-wrap break-all">
 {WEB_ENDPOINT_PERIZINAN}
@@ -948,22 +1042,26 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
             </tbody>
           </table>
         </div>
+        <KeteranganPonsel>
         <Alert tone="blue">
           Portal web punya dua bentuk tabel perizinan: (a) <span className="font-mono">/index.php/perizinan</span>{' '}
           berkelas <span className="font-mono">sf_admin_list_td_*</span>, dan (b) fragmen ajax{' '}
           <span className="font-mono">/pegawai/N/ijins</span> yang posisional. Parser mendeteksi
           otomatis dan menangani keduanya.
         </Alert>
+        </KeteranganPonsel>
       </Card>
 
       {/* Berkas lampiran */}
       <Card>
         <CardTitle>Berkas Lampiran (Viewer)</CardTitle>
+        <KeteranganPonsel>
         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Berkas izin (PDF/gambar) diproksikan lewat <span className="font-mono">/ep/</span>{' '}
           agar session cookie ikut dikirim. Setelah dimuat, URL object-URL sementara dibuat dan
           ditampilkan dalam modal viewer.
         </p>
+        </KeteranganPonsel>
         <div className="p-3.5 rounded-xl bg-slate-900 dark:bg-slate-950 border border-slate-700 mb-3">
           <pre className="text-[11px] font-mono text-amber-300 whitespace-pre-wrap break-all">
 {WEB_BERKAS}
@@ -995,10 +1093,12 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
         >
           Parser HTML — teknik & fungsi utilitas
         </CardTitle>
+        <KeteranganPonsel>
         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Semua parsing HTML dilakukan tanpa DOMParser (agar bisa dipakai di Node.js/test).
           Hanya regex dan string manipulation.
         </p>
+        </KeteranganPonsel>
         <div className="grid grid-cols-1 gap-2.5 mb-4">
           {PARSER_UTILS.map(u => (
             <div key={u.fn} className="rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/50 px-3.5 py-2.5">
@@ -1079,10 +1179,12 @@ function WebResmi({ onCopy }: { onCopy: (teks: string, label: string) => void })
         <CardTitle action={<Badge tone="emerald">Data eksklusif</Badge>}>
           Kolom hanya tersedia di portal web
         </CardTitle>
+        <KeteranganPonsel>
         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Data berikut ada di tabel HTML portal web tapi tidak tersedia via JSON-RPC — alasan utama
           menu WEB dibuat sebagai akses langsung ke portal.
         </p>
+        </KeteranganPonsel>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {KOLOM_EKSKLUSIF.map(k => (
             <div key={k.nama} className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 px-3.5 py-2.5">

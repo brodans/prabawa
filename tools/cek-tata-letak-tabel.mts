@@ -686,8 +686,14 @@ console.log('\n=== 10. Grid >=3 kolom tetap di dalam panel sempit');
   cek('field harga menyembunyikan stepper hanya di mobile agar nominal muat',
     /hideSteppersBelowSm/.test(langganan) &&
       /hideSteppersBelowSm \? 'hidden sm:flex'/.test(surface));
+  cek('prefix Rp menyatu dalam satu field harga, bukan kotak terpisah',
+    /prefix\s*\?[\s\S]{0,500}overflow-hidden rounded-xl border border-slate-200 bg-white/.test(surface) &&
+      /items-center px-3 text-xs font-semibold text-slate-500/.test(surface) &&
+      /prefix[\s\S]{0,250}border-0 bg-transparent/.test(surface));
   cek('tombol Simpan Pengaturan berada di tengah pada mobile',
     /flex justify-center sm:justify-end/.test(langganan));
+  cek('nomor WhatsApp memakai keypad numerik mobile',
+    /label="Nomor WhatsApp"[\s\S]{0,600}inputMode="numeric"/.test(langganan));
 }
 
 console.log(fail === 0 ? '\nSEMUA LULUS' : `\n${fail} KEGAGALAN`);

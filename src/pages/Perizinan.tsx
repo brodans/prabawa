@@ -632,7 +632,7 @@ function RiwayatIzinPanel({ aktif }: { aktif: boolean }) {
 
         <div className="flex flex-col gap-2 border-t border-slate-100 pt-3 dark:border-slate-700/60 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Status Pengajuan</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
             {FILTER_STATUS.map(item => {
               const jumlah = jumlahStatus(item.value, inWindow);
               return (
@@ -641,7 +641,7 @@ function RiwayatIzinPanel({ aktif }: { aktif: boolean }) {
                   type="button"
                   onClick={() => setFilter(item.value)}
                   aria-pressed={filter === item.value}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-bold uppercase transition-colors ${
+                  className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] font-bold uppercase transition-colors sm:w-auto sm:px-3 sm:text-[11px] ${
                     filter === item.value
                       ? 'border-blue-600 bg-blue-600 text-white'
                       : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
@@ -666,21 +666,38 @@ function RiwayatIzinPanel({ aktif }: { aktif: boolean }) {
       </div>
 
       <Card padded={false} className="p-5 sm:p-6">
-        <CardTitle
-          action={
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Badge tone="slate">{filtered.length} baris</Badge>
-              <ActionButton variant="ghost" size="sm" onClick={() => void loadData()} loading={loading} icon={<RefreshCw className="h-4 w-4" />}>
-                Muat Ulang
-              </ActionButton>
-              <ActionButton variant="secondary" size="sm" onClick={exportCsv} disabled={filtered.length === 0} icon={<Download className="h-4 w-4" />}>
-                CSV
-              </ActionButton>
-            </div>
-          }
-        >
+        <CardTitle>
           Daftar Pengajuan
         </CardTitle>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <Badge tone="slate">{filtered.length} baris</Badge>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <ActionButton
+              variant="ghost"
+              size="sm"
+              block
+              onClick={() => void loadData()}
+              loading={loading}
+              icon={<RefreshCw className="h-4 w-4" />}
+              aria-label="Muat ulang riwayat izin"
+              title="Muat ulang"
+              className="sm:w-auto"
+            >
+              <span className="hidden sm:inline">Muat Ulang</span>
+            </ActionButton>
+            <ActionButton
+              variant="secondary"
+              size="sm"
+              block
+              onClick={exportCsv}
+              disabled={filtered.length === 0}
+              icon={<Download className="h-4 w-4" />}
+              className="sm:w-auto"
+            >
+              CSV
+            </ActionButton>
+          </div>
+        </div>
         {loading ? (
           <SkeletonTable columns={columns.length} rows={6} />
         ) : filtered.length === 0 ? (

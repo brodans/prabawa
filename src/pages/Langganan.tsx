@@ -535,8 +535,10 @@ function LanggananInner({
                   onClick={() => void muat(true)}
                   loading={menyegarkan || loading}
                   icon={<RefreshCw className="h-4 w-4" />}
+                  aria-label="Muat ulang riwayat pembayaran"
+                  title="Muat ulang"
                 >
-                  Muat Ulang
+                  <span className="hidden sm:inline">Muat Ulang</span>
                 </ActionButton>
                 <ActionButton
                   size="sm"
@@ -544,8 +546,10 @@ function LanggananInner({
                   disabled={tagihan.length === 0 || menghapusSemua}
                   onClick={() => setKonfirmasiHapusSemua(true)}
                   icon={<Trash2 className="h-4 w-4" />}
+                  aria-label="Hapus semua pembayaran"
+                  title="Hapus semua"
                 >
-                  Hapus Semua
+                  <span className="hidden sm:inline">Hapus Semua</span>
                 </ActionButton>
               </div>
             }
@@ -817,8 +821,10 @@ function PengaturanBillingForm({
               onClick={onMuatUlang}
               loading={menyegarkan}
               icon={<RefreshCw className="h-4 w-4" />}
+              aria-label="Muat ulang metode pembayaran"
+              title="Muat ulang"
             >
-              Muat Ulang
+              <span className="hidden sm:inline">Muat Ulang</span>
             </ActionButton>
           }
         >
@@ -1000,7 +1006,7 @@ function PengaturanBillingForm({
               onChange={event => setDraft(prev => ({ ...prev, nomorWa: event.target.value }))}
               placeholder="0812-3456-7890"
               className="font-mono"
-              inputMode="tel"
+              inputMode="numeric"
             />
           </Field>
         </div>

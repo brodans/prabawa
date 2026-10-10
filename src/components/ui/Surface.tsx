@@ -399,10 +399,16 @@ export function NumberField({
   const turun = () => onChange(kunci(value - step));
 
   return (
-    <div className={`flex items-stretch gap-1.5 ${className}`}>
+    <div
+      className={`flex min-w-0 items-stretch ${
+        prefix
+          ? 'overflow-hidden rounded-xl border border-slate-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900/50'
+          : 'gap-1.5'
+      } ${className}`}
+    >
       {prefix && (
         <span
-          className="flex items-center rounded-xl border border-r-0 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0"
+          className="flex shrink-0 items-center px-3 text-xs font-semibold text-slate-500 dark:text-slate-400"
           aria-hidden="true"
         >
           {prefix}
@@ -435,7 +441,11 @@ export function NumberField({
         disabled={disabled}
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className={`font-mono tabular-nums ${prefix ? 'rounded-l-none text-left' : 'text-center'}`}
+        className={`font-mono tabular-nums ${
+          prefix
+            ? 'min-w-0 rounded-none border-0 bg-transparent px-2 text-left shadow-none focus:border-transparent focus:ring-0 dark:bg-transparent'
+            : 'text-center'
+        }`}
       />
       {!disabled && (
         <div className={`flex flex-col gap-1 shrink-0 ${hideSteppersBelowSm ? 'hidden sm:flex' : ''}`}>

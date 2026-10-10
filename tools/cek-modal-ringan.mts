@@ -117,8 +117,17 @@ cek('peta Lokasi Absen persegi di mobile dan menghilangkan badge object teknis',
     !/Badge tone="blue">object: getlokasiabsen/.test(readFileSync(join(root, 'src/pages/LokasiAbsen.tsx'), 'utf8')));
 const docsSrc = readFileSync(join(root, 'src/pages/Docs.tsx'), 'utf8');
 cek('navigasi bagian Dokumentasi memakai grid simetris pada mobile',
-  /grid grid-cols-2 gap-1\.5[\s\S]{0,160}sm:grid-cols-4 xl:grid-cols-8/.test(docsSrc) &&
-    /min-h-11 min-w-0 items-center justify-center/.test(docsSrc));
+  /grid grid-cols-2 gap-1 rounded-2xl/.test(docsSrc) &&
+    /min-h-9 min-w-0 items-center justify-center/.test(docsSrc));
+cek('keterangan Dokumentasi bisa dilipat di mobile dan tetap terbuka di desktop',
+  /function KeteranganPonsel/.test(docsSrc) &&
+    /useMediaQuery\('\(max-width: 767px\)'\)/.test(docsSrc) &&
+    /const \[open, setOpen\] = useState\(!mobile\)/.test(docsSrc) &&
+    /md:hidden/.test(docsSrc) &&
+    /<KeteranganPonsel>[\s\S]{0,500}<Alert tone="amber">[\s\S]{0,300}GATE_PERANGKAH_TERIKAT/.test(docsSrc));
+cek('tab Dokumentasi tetap satu baris di desktop',
+  /md:flex md:flex-nowrap md:justify-between/.test(docsSrc) &&
+    /md:flex-none md:whitespace-nowrap/.test(docsSrc));
 cek('daftar object mati Dokumentasi rapi di grid pada mobile',
   /grid grid-cols-2 gap-1\.5 sm:grid-cols-3 lg:grid-cols-4/.test(docsSrc));
 cek('skeleton tanpa judul halaman mengikuti header yang benar-benar dirender',
@@ -136,6 +145,10 @@ cek('input dan gambar captcha memakai lebar kolom penuh',
   /id="web-captcha"[\s\S]{0,500}className="w-full/.test(webSrc) &&
     /h-14 min-w-0 flex-1 overflow-hidden/.test(webSrc) &&
     /h-full w-full object-contain/.test(webSrc));
+cek('semua dropdown mengikuti lebar pemicu dan dibatasi viewport',
+  /absolute left-0[\s\S]{0,120}w-full min-w-0 max-w-\[calc\(100vw-1rem\)\]/.test(
+    tanpaKomentar(readFileSync(join(root, 'src/components/ui/Dropdown.tsx'), 'utf8'))
+  ));
 cek('captcha loading memakai shimmer tanpa spinner pada gambar',
   /captcha-shimmer absolute inset-0/.test(webSrc) &&
     /@keyframes captchaShimmer/.test(cssSrc) &&

@@ -310,28 +310,32 @@ export default function Laporan() {
           />
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-slate-100 dark:border-slate-700/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <div className="flex flex-col gap-3 border-t border-slate-100 dark:border-slate-700/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
+            <span className="col-span-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:col-span-1">
               Rentang cepat
             </span>
             <ActionButton
               variant="ghost"
               size="sm"
+              block
               onClick={() => patch({ dateStart: getTodayWIBWithDaysOffset(-7), dateEnd: getTodayWIB() })}
+              className="sm:w-auto"
             >
               7 Hari
             </ActionButton>
             <ActionButton
               variant="ghost"
               size="sm"
+              block
               onClick={() => patch({ dateStart: getTodayWIBWithDaysOffset(-30), dateEnd: getTodayWIB() })}
+              className="sm:w-auto"
             >
               30 Hari
             </ActionButton>
           </div>
 
-          <ActionButton onClick={() => void loadData()} loading={loading} icon={<BarChart3 className="w-4 h-4" />}>
+            <ActionButton block className="sm:w-auto" onClick={() => void loadData()} loading={loading} icon={<BarChart3 className="w-4 h-4" />}>
             Tampilkan Laporan
           </ActionButton>
         </div>
@@ -355,15 +359,19 @@ export default function Laporan() {
       <Card padded={false} className="p-5 sm:p-6 print:shadow-none print:border-0">
         <CardTitle
           action={
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
               <ActionButton
                 variant="ghost"
                 size="sm"
+                block
                 onClick={() => void loadData()}
                 loading={loading}
                 icon={<RefreshCw className="w-4 h-4" />}
+                aria-label="Muat ulang laporan"
+                title="Muat ulang"
+                className="sm:w-auto"
               >
-                Muat Ulang
+                <span className="hidden sm:inline">Muat Ulang</span>
               </ActionButton>
               <TombolMenu
                 label="Ekspor"
@@ -371,6 +379,9 @@ export default function Laporan() {
                 variant="primary"
                 disabled={visible.length === 0}
                 loading={sibukPdf}
+                ariaLabel="Ekspor laporan"
+                labelClassName="hidden sm:inline"
+                className="w-full sm:w-auto"
                 items={[
                   {
                     id: 'excel',
