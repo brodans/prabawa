@@ -37,7 +37,6 @@ const laporan = kode(baca('src/pages/Laporan.tsx'));
 const manajemen = kode(baca('src/pages/ManajemenAkun.tsx'));
 const login = kode(baca('src/components/LoginScreen.tsx'));
 const statusMidtrans = kode(baca('src/components/StatusMidtrans.tsx'));
-const riwayatIzin = kode(baca('src/pages/RiwayatIzin.tsx'));
 const perizinan = kode(baca('src/pages/Perizinan.tsx'));
 const surface = kode(baca('src/components/ui/Surface.tsx'));
 
@@ -180,7 +179,6 @@ cek('kolom Pegawai tetap boleh truncate',
 console.log('\n=== 3b. Setiap kolom ber-truncate wajib punya plafon lebar');
 for (const [namaBerkas, sumber] of [
   ['Laporan', laporan],
-  ['Riwayat Izin', riwayatIzin],
   ['Perizinan', perizinan],
   ['Langganan', langganan],
   ['Manajemen Akun', manajemen],

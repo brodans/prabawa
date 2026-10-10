@@ -9,7 +9,6 @@ import {
   ChevronRight,
   FileCheck,
   FileText,
-  History,
   Home,
   KeyRound,
   LogOut,
@@ -63,7 +62,6 @@ const pageImporters = {
   tabBeranda: () => import('./pages/Beranda'),
   tabPresensi: () => import('./pages/Presensi'),
   tabPerizinan: () => import('./pages/Perizinan'),
-  tabRiwayatIzin: () => import('./pages/RiwayatIzin'),
   tabLaporan: () => import('./pages/Laporan'),
   tabLokasiAbsen: () => import('./pages/LokasiAbsen'),
   tabManajemenAkun: () => import('./pages/ManajemenAkun'),
@@ -96,7 +94,6 @@ const lazyPage = (pageId: string): React.ComponentType => () => <LazyPage pageId
 const Beranda = lazyPage('tabBeranda');
 const Presensi = lazyPage('tabPresensi');
 const Perizinan = lazyPage('tabPerizinan');
-const RiwayatIzin = lazyPage('tabRiwayatIzin');
 const Laporan = lazyPage('tabLaporan');
 const LokasiAbsen = lazyPage('tabLokasiAbsen');
 const ManajemenAkun = lazyPage('tabManajemenAkun');
@@ -120,7 +117,6 @@ const PAGES: PageDefinition[] = [
   { id: 'tabBeranda', icon: Home, label: 'Beranda', component: Beranda, path: PAGE_PATHS.tabBeranda, group: 'utama' },
   { id: 'tabPresensi', icon: Camera, label: 'Presensi', component: Presensi, path: PAGE_PATHS.tabPresensi, group: 'utama' },
   { id: 'tabPerizinan', icon: FileCheck, label: 'Perizinan', component: Perizinan, path: PAGE_PATHS.tabPerizinan, group: 'utama' },
-  { id: 'tabRiwayatIzin', icon: History, label: 'Riwayat Izin', component: RiwayatIzin, path: PAGE_PATHS.tabRiwayatIzin, group: 'utama' },
   { id: 'tabLaporan', icon: FileText, label: 'Laporan', component: Laporan, path: PAGE_PATHS.tabLaporan, group: 'utama' },
   { id: 'tabLokasiAbsen', icon: MapPin, label: 'Lokasi Absen', component: LokasiAbsen, path: PAGE_PATHS.tabLokasiAbsen, group: 'utama' },
   { id: 'tabWeb', icon: Globe, label: 'WEB', component: WebPresensi, path: PAGE_PATHS.tabWeb, group: 'utama' },
@@ -326,35 +322,6 @@ function PageLoading({ pageId }: { pageId: string }) {
         </div>
       </div>
     );
-  } else if (pageId === 'tabBeranda') {
-    content = (
-      <>
-        {stats(4)}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {[0, 1].map(card => (
-            <div key={card} className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
-              <Skeleton className="mb-4 h-4 w-40" />
-              {card === 0 ? (
-                <>
-                  <div className="mb-4 flex items-center gap-4">
-                    <Skeleton className="h-16 w-16 shrink-0 rounded-2xl" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-4 w-2/3" />
-                      <Skeleton className="h-3 w-1/2" />
-                      <Skeleton className="h-5 w-20 rounded-full" />
-                    </div>
-                  </div>
-                  <SkeletonList rows={6} />
-                </>
-              ) : (
-                <SkeletonList rows={3} />
-              )}
-            </div>
-          ))}
-        </div>
-      </>
-    );
-  } else if (pageId === 'tabPresensi') {
     content = (
       <>
         {stats(4)}
@@ -487,6 +454,10 @@ function PageLoading({ pageId }: { pageId: string }) {
   } else if (pageId === 'tabPerizinan') {
     content = (
       <>
+        <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-900/70">
+          <Skeleton className="h-12 rounded-lg bg-white dark:bg-slate-800" />
+          <Skeleton className="h-12 rounded-lg" />
+        </div>
         <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
           <Skeleton className="mb-4 h-4 w-36" />
           <div className="space-y-4">
@@ -505,45 +476,6 @@ function PageLoading({ pageId }: { pageId: string }) {
               <Skeleton className="h-10 w-28 rounded-xl" />
             </div>
           </div>
-        </div>
-        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <Skeleton className="h-4 w-52" />
-            <div className="flex gap-2">
-              <Skeleton className="h-6 w-24 rounded-full" />
-              <Skeleton className="h-8 w-28 rounded-lg" />
-            </div>
-          </div>
-          <SkeletonTable columns={6} rows={5} />
-        </div>
-      </>
-    );
-  } else if (pageId === 'tabRiwayatIzin') {
-    content = (
-      <>
-        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <div className="grid flex-1 gap-3 sm:grid-cols-2 sm:max-w-md">
-              {filterFields(2)}
-            </div>
-            <Skeleton className="h-10 w-28 rounded-xl" />
-          </div>
-          <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-3 dark:border-slate-700/60 sm:flex-row sm:items-center sm:justify-between">
-            <Skeleton className="h-3 w-32" />
-            <div className="flex flex-wrap gap-1.5">
-              {[0, 1, 2, 3].map(item => <Skeleton key={item} className="h-7 w-20 rounded-lg" />)}
-            </div>
-          </div>
-        </div>
-        {stats(4)}
-        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <Skeleton className="h-4 w-36" />
-            <div className="flex gap-2">
-              {[0, 1, 2].map(item => <Skeleton key={item} className="h-8 w-24 rounded-lg" />)}
-            </div>
-          </div>
-          <SkeletonTable columns={6} rows={6} />
         </div>
       </>
     );
@@ -697,6 +629,52 @@ function PageLoading({ pageId }: { pageId: string }) {
       {pageId !== 'tabWeb' && pageId !== 'tabManajemenAkun' && header}
       {content}
       <span className="sr-only">Memuat halaman...</span>
+    </div>
+  );
+}
+
+function StartupShell({ pageId }: { pageId: string }) {
+  return (
+    <div className="flex h-dvh w-full overflow-hidden bg-slate-50 text-slate-800 dark:bg-[#0B1120] dark:text-slate-200" aria-hidden="true">
+      <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-slate-800/50 bg-[#0F172A] lg:flex dark:bg-[#070B14]">
+        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-800/60 px-5">
+          <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-700/50 p-1">
+            <img src={APP_LOGO} alt="" className="h-full w-full object-contain" />
+          </div>
+          <Skeleton className="h-4 w-28 bg-slate-700/60" />
+        </div>
+        <nav className="flex-1 space-y-5 px-3.5 py-5">
+          {GROUP_ORDER.map(group => (
+            <div key={group} className="space-y-2">
+              <Skeleton className="mb-3 h-3 w-24 bg-slate-700/60" />
+              {PAGES.filter(page => page.group === group).map(page => (
+                <div key={page.id} className="flex h-10 items-center gap-3 rounded-xl px-3">
+                  <Skeleton className="h-5 w-5 shrink-0 rounded bg-slate-700/60" />
+                  <Skeleton className="h-3 w-28 bg-slate-700/60" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </nav>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-slate-100/80 px-4 dark:border-slate-800/80 dark:bg-[#0B1120]/80 sm:px-6">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-9 w-9 rounded-xl lg:hidden" />
+            <div className="space-y-1.5">
+              <Skeleton className="h-3.5 w-28" />
+              <Skeleton className="h-2.5 w-40" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Skeleton className="hidden h-8 w-24 rounded-full md:block" />
+            <Skeleton className="h-9 w-9 rounded-full" />
+          </div>
+        </header>
+        <main className="poni-konten min-h-0 flex-1 overflow-y-auto">
+          <PageLoading pageId={pageId} />
+        </main>
+      </div>
     </div>
   );
 }
@@ -1467,6 +1445,7 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
     currentUser,
     setCurrentUser,
     adaSesiSaatMuat,
+    activePage,
   } = useAppContext();
   /*
    * `isAuthenticated` TIDAK lagi berarti "ada JSON di sessionStorage".
@@ -1618,10 +1597,10 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
     <>
         {/* Workspace baru dirender setelah server mengonfirmasi sesi tersimpan. */}
       {cekingSesi ? (
-        <div className="fixed inset-0 bg-slate-50 dark:bg-[#0B1120]" aria-hidden="true" />
+        <StartupShell pageId={activePage} />
       ) : !isAuthenticated && !currentUser ? (
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={false}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
           style={{ minHeight: '100svh' }}
@@ -1634,7 +1613,7 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
         </motion.div>
       ) : (
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={false}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.4, ease: 'easeInOut' }}
           className="h-dvh overflow-hidden"
@@ -1648,6 +1627,7 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
           */}
           <GerbangLangganan
             onKeluar={handleLogout}
+            fallbackLoading={<StartupShell pageId={activePage} />}
           >
             <MainApp onLogout={handleLogout} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
           </GerbangLangganan>

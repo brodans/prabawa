@@ -24,6 +24,8 @@ const modalSrc = readFileSync(join(root, 'src/components/ui/Modal.tsx'), 'utf8')
 const appSrc = readFileSync(join(root, 'src/App.tsx'), 'utf8');
 const akunSrc = readFileSync(join(root, 'src/components/SettingAkunModal.tsx'), 'utf8');
 const cssSrc = readFileSync(join(root, 'src/index.css'), 'utf8');
+const webSrc = readFileSync(join(root, 'src/pages/WebPresensi.tsx'), 'utf8');
+const htmlSrc = readFileSync(join(root, 'index.html'), 'utf8');
 
 /**
  * Buang komentar lebih dulu sebelum memeriksa.
@@ -86,6 +88,19 @@ cek('skeleton Lokasi Absen memuat peta, titik pengguna, dan titik server',
 cek('pemeriksaan sesi menampilkan shell workspace tanpa blur latar belakang',
   /GROUP_ORDER\.map\(group =>[\s\S]*?PageLoading pageId=\{pageId\}/.test(appSrc) &&
     !/Menyiapkan ruang kerja Anda/.test(appSrc));
+cek('hard refresh menampilkan boot shell sebelum React mount',
+  /<div id="root">\s*<div class="boot-shell"/.test(htmlSrc) &&
+    /<script type="module" src="\/src\/main\.tsx"><\/script>/.test(htmlSrc));
+cek('captcha punya ukuran slot tetap saat gambar belum/sudah dimuat',
+  /h-11 w-20 shrink-0 overflow-hidden/.test(webSrc) &&
+    /h-full w-full object-contain/.test(webSrc));
+cek('captcha loading memakai shimmer tanpa spinner pada gambar',
+  /captcha-shimmer absolute inset-0/.test(webSrc) &&
+    /@keyframes captchaShimmer/.test(cssSrc) &&
+    !/captchaImg[\s\S]{0,600}Loader2/.test(webSrc));
+cek('captcha hanya punya satu tombol reload',
+  (webSrc.match(/title="Muat ulang captcha"/g) ?? []).length === 1 &&
+    !/Klik untuk muat captcha|Klik untuk ganti captcha/.test(webSrc));
 
 console.log('\n=== SettingAkunModal');
 cek('shell modal tanpa motion.div', !/<motion\.div[^>]*className="modal-layer/.test(akunKode));

@@ -46,6 +46,7 @@ import {
   type HasilPerizinan,
 } from '../lib/webPresensi';
 import { useAppContext, type WebPresensiTab } from '../context/AppContext';
+import { kredensialWebSendiri } from '../lib/akunFirestore';
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Konstanta
@@ -578,7 +579,9 @@ export default function WebPresensi() {
   // ── State UI ephemeral (lokal, boleh hilang saat unmount) ────────────
   // Form login
   const [nip, setNip]               = useState('');
+  const nipDiubahManual = useRef(false);
   const [password, setPassword]     = useState('');
+  const passwordDiubahManual = useRef(false);
   const [lihatPassword, setLihatPassword] = useState(false);
   const [captcha, setCaptcha]       = useState('');
   const [captchaImg, setCaptchaImg] = useState<string | null>(null);
@@ -624,6 +627,27 @@ export default function WebPresensi() {
   useEffect(() => {
     dimuatRef.current = webPresensiState.dimuat;
   }, [webPresensiState.dimuat]);
+
+  useEffect(() => {
+    nipDiubahManual.current = false;
+    passwordDiubahManual.current = false;
+    setNip('');
+    setPassword('');
+    if (!username || sudahLogin) return;
+    let aktif = true;
+    void kredensialWebSendiri()
+      .then(kredensial => {
+        if (!aktif || !kredensial) return;
+        if (!nipDiubahManual.current) setNip(kredensial.nip);
+        if (!passwordDiubahManual.current) setPassword(kredensial.password);
+      })
+      .catch(() => {
+        // Login tetap bisa dilakukan manual bila metadata kredensial belum ada.
+      });
+    return () => {
+      aktif = false;
+    };
+  }, [username, sudahLogin]);
 
   function simpanCaptcha(nilai: string) {
     captchaRef.current = nilai;
@@ -905,6 +929,8 @@ export default function WebPresensi() {
       const kode = captchaRef.current.trim();
       if (!kode) { setError('Captcha belum terisi. Tunggu OCR selesai atau ketik manual.'); return; }
       await login({ nip: nip.trim(), password, captcha: kode });
+      setPassword('');
+      passwordDiubahManual.current = false;
       setStatus('Mengambil IMEI...');
       const data = await ambilImei();
       setHasilImei(data); setSudahLogin(true); setPemilikSesi(username); setTab('imei');
@@ -1055,7 +1081,10 @@ export default function WebPresensi() {
             <div>
               <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-nip">NIP</label>
               <input
-                id="web-nip" value={nip} onChange={(e) => setNip(e.target.value.replace(/\s/g, ''))}
+                id="web-nip" value={nip} onChange={(e) => {
+                  nipDiubahManual.current = true;
+                  setNip(e.target.value.replace(/\s/g, ''));
+                }}
                 placeholder="NIP 18 digit" required autoComplete="off"
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
               />
@@ -1065,9 +1094,12 @@ export default function WebPresensi() {
               <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-password">Password</label>
               <div className="relative">
                 <input
-                  id="web-password" value={password} onChange={(e) => setPassword(e.target.value.replace(/\s/g, ''))}
+                  id="web-password" value={password} onChange={(e) => {
+                    passwordDiubahManual.current = true;
+                    setPassword(e.target.value.replace(/\s/g, ''));
+                  }}
                   type={lihatPassword ? 'text' : 'password'}
-                  placeholder="Password" required autoComplete="new-password"
+                  placeholder="Password" required autoComplete="current-password"
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-4 pr-11 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
                 />
                 <button
@@ -1099,33 +1131,18 @@ export default function WebPresensi() {
               />
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {captchaImg ? (
-                <button type="button" onClick={() => refreshCaptcha()}
-                  className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 hover:border-indigo-400 transition relative"
-                  title="Klik untuk ganti captcha">
-                  <img src={captchaImg} alt="captcha" className="h-11 w-auto" />
-                  {loadingCaptcha && (
-                    <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 flex items-center justify-center">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
-                    </div>
-                  )}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => refreshCaptcha()}
-                  disabled={loadingCaptcha}
-                  title="Klik untuk muat captcha"
-                  className="h-11 w-20 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-center hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition disabled:opacity-40"
-                >
-                  {loadingCaptcha
-                    ? <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                    : <RefreshCw className="w-4 h-4 text-slate-400" />}
-                </button>
-              )}
+              <div
+                className={`relative h-11 w-20 shrink-0 overflow-hidden rounded-xl border bg-slate-50 dark:bg-slate-800/60 ${
+                  captchaImg ? 'border-slate-200 dark:border-slate-700' : 'border-dashed border-slate-300 dark:border-slate-600'
+                }`}
+                aria-busy={loadingCaptcha}
+              >
+                {captchaImg && <img src={captchaImg} alt="Captcha" className="h-full w-full object-contain" />}
+                {loadingCaptcha && <div className="captcha-shimmer absolute inset-0" aria-hidden="true" />}
+              </div>
               <button type="button" onClick={() => refreshCaptcha()} disabled={loadingCaptcha}
-                className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-40 dark:hover:text-indigo-400 transition"
-                title="Ganti captcha">
+                className="h-11 w-11 shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-40 dark:hover:text-indigo-400 transition flex items-center justify-center"
+                title="Muat ulang captcha" aria-label="Muat ulang captcha">
                 <RefreshCw className={`w-4 h-4 ${loadingCaptcha ? 'animate-spin' : ''}`} />
               </button>
             </div>

@@ -21,7 +21,7 @@
  * 6. Dialog pembayaran terbuka otomatis dan tetap ada tombolnya.
  * 7. Admin **tidak** punya tombol mencatat pembayaran.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const baca = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -44,6 +44,7 @@ const appKode = kode(appSrc);
 const gateKode = kode(gateSrc);
 const ctxSrc = kode(baca('../src/context/AppContext.tsx'));
 const userSrc = kode(baca('../src/lib/userManager.ts'));
+const izinSrc = kode(baca('../src/pages/Perizinan.tsx'));
 /*
  * Dua modul, dua sumber kebenaran.
  *
@@ -90,6 +91,19 @@ cek('MainApp tetap memakai onLogout', /<MainApp onLogout=\{handleLogout\}/.test(
 // ═════════════════════════════════════════════════════════════════════
 console.log('\n=== 2. Menu Manajemen Akun hanya untuk admin');
 cek('halaman terdaftar di PAGES', /id: 'tabManajemenAkun'/.test(appKode));
+cek('riwayat izin tidak lagi menjadi menu/sidebar tersendiri',
+  !/id: 'tabRiwayatIzin'/.test(appKode) && !/tabRiwayatIzin:\s*\(\) => import/.test(appKode) &&
+    !/tabRiwayatIzin\s*:/.test(userSrc));
+cek('Perizinan memiliki tab Pengajuan dan Riwayat yang accessible',
+  /role="tablist"[\s\S]*?Pengajuan Izin[\s\S]*?Riwayat Izin/.test(izinSrc) &&
+    /role="tabpanel"/.test(izinSrc));
+cek('fungsi RiwayatIzin tertanam dalam Perizinan.tsx',
+  /function RiwayatIzinPanel/.test(izinSrc) && /rpcListIjin/.test(izinSrc) &&
+    /function jumlahStatus/.test(izinSrc));
+cek('file RiwayatIzin.tsx sudah dihapus',
+  !existsSync(new URL('../src/pages/RiwayatIzin.tsx', import.meta.url)));
+const pathLama = ctxSrc.split('export const PATH_LAMA')[1]?.split('};')[0] ?? '';
+cek('PATH_LAMA tidak lagi memuat route riwayat', !/riwayat/i.test(pathLama));
 /*
  * Polanya `currentUser?.role`, bukan `currentUser.role`.
  *
@@ -432,7 +446,7 @@ console.log('\n=== Sisa: muatan yang tumpang-tindih dan state yang salah tombol'
 {
   const req = [
     ['Laporan', baca('../src/pages/Laporan.tsx')],
-    ['RiwayatIzin', baca('../src/pages/RiwayatIzin.tsx')],
+    ['RiwayatIzinPanel', izinSrc],
     ['GerbangLangganan', baca('../src/components/GerbangLangganan.tsx')],
   ];
   for (const [nama, isi] of req) {
@@ -461,8 +475,7 @@ console.log('\n=== Sisa: muatan yang tumpang-tindih dan state yang salah tombol'
     const m = isi.slice(isi.search(polaMulai)).match(/\},\s*\[([^\]]*)\]\s*\);/);
     return m ? m[1] : '(tidak ketemu)';
   };
-  const riwayat = baca('../src/pages/RiwayatIzin.tsx');
-  const depsRiwayat = depsEfek(riwayat, /if \(hasLoadedOnce\) return;/);
+  const depsRiwayat = depsEfek(izinSrc, /if \(!aktif \|\| state\.hasLoadedOnce\) return;/);
   cek('RiwayatIzin tidak lagi memuat ulang saat tanggal berubah',
     !/dateStart|dateEnd/.test(depsRiwayat),
     `dependensi efek: [${depsRiwayat}]`);

@@ -52,7 +52,7 @@
  * `kunciAkun()` tidak melakukan lowercase. "Budi" dan "budi" jadi dua dokumen
  * untuk satu akun, dan auto-login tidak pernah menemukan kredensialnya.
  */
-export const KONTRAK_VERSI = 4;
+export const KONTRAK_VERSI = 5;
 
 /**
  * Daftar aksi yang **wajib** ada di server.
@@ -69,6 +69,7 @@ export const AKSI_WAJIB = [
   'akun:ubah',
   'kredensial:simpan',
   'kredensial:ringkas',
+  'kredensial:web-sendiri',
   'kredensial:ringkas-semua',
   'kredensial:hapus',
   'pusat:login',

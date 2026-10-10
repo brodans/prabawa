@@ -450,6 +450,22 @@ export async function ringkasanKredensial(
   }
 }
 
+export interface KredensialWebSendiri {
+  nip: string;
+  password: string;
+}
+
+/** Kredensial Web akun yang sedang login, hanya untuk formulir saat ini. */
+export async function kredensialWebSendiri(): Promise<KredensialWebSendiri | null> {
+  try {
+    const hasil = await panel<{ kredensial?: KredensialWebSendiri }>('kredensial:web-sendiri');
+    return hasil.kredensial ?? null;
+  } catch (err) {
+    if (err instanceof PanelAuthError && (err.kode === 404 || err.kode === 422)) return null;
+    throw err;
+  }
+}
+
 /**
  * Metadata kredensial **seluruh akun** — hanya untuk admin.
  *

@@ -33,6 +33,7 @@ import {
   hapusAkun,
   simpanKredensial,
   ringkasKredensial,
+  kredensialWebSendiri,
   ringkasSemuaKredensial,
   hapusKredensial,
   ubahAdminBawaan,
@@ -359,6 +360,12 @@ export async function tanganiPanelAuth(
       }
       case 'kredensial:ringkas': {
         const hasil = await ringkasKredensial(token, str(body.username));
+        return res.status(hasil.kode).json(hasil);
+      }
+      case 'kredensial:web-sendiri': {
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Pragma', 'no-cache');
+        const hasil = await kredensialWebSendiri(token);
         return res.status(hasil.kode).json(hasil);
       }
       /*

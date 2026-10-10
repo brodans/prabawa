@@ -1660,6 +1660,7 @@ cek('saveSession dipanggil dengan token', /saveSession\(user,\s*permissions,\s*t
 const appSrc = kode('src/App.tsx');
 const gateSrc = kode('src/components/GerbangLangganan.tsx');
 const ctxSrc = kode('src/context/AppContext.tsx');
+const webSrc = kode('src/pages/WebPresensi.tsx');
 /*
  * `memeriksaSesi` memang boleh membaca `loadSession()` — itu hanya membandingkan
  * "ada token atau tidak", bukan mempercayai isinya. Yang dilarang adalah memakai
@@ -1681,7 +1682,7 @@ cek('LoginScreen tidak tampil sampai verifikasi sesi selesai',
   'akses workspace baru dibuka setelah server memverifikasi sesi');
 cek('verifikasi sesi tidak menampilkan login atau loading workspace',
   /cekingSesi \? \(/.test(appSrc) &&
-    /bg-slate-50 dark:bg-\[#0B1120\]/.test(appSrc) &&
+    /<StartupShell pageId=\{activePage\} \/>/.test(appSrc) &&
     !/Memulihkan sesi|Menyiapkan workspace|Memeriksa sesi/.test(appSrc + loginSrc));
 cek('login manual langsung membuka aplikasi tanpa overlay workspace',
   /dispatch\(\{ type: 'AUTH_SUCCESS' \}\);\s*onLogin\(\)/.test(loginSrc) &&
@@ -1689,7 +1690,8 @@ cek('login manual langsung membuka aplikasi tanpa overlay workspace',
 cek('pemulihan token menyiapkan auto-login pusat sebelum workspace dibuka',
   /setServerAutoLoginPending\(!sudahKeluarServer\(hasil\.akun\.username\)\)/.test(ctxSrc));
 cek('gerbang menyembunyikan UI hanya selama pemeriksaan data awal',
-  /if \(loading && \(!ringkasan \|\| ringkasan\.username !== username \|\| !pengaturan\)\) return null/.test(gateSrc));
+  /if \(loading && \(!ringkasan \|\| ringkasan\.username !== username \|\| !pengaturan\)\) \{\s*return fallbackLoading \? <>\{fallbackLoading\}<\/> : null/.test(gateSrc) &&
+    /fallbackLoading=\{<StartupShell pageId=\{activePage\} \/>\}/.test(appSrc));
 cek('refresh gerbang tidak menyembunyikan workspace yang sudah siap',
   /loading && \(!ringkasan \|\| ringkasan\.username !== username \|\| !pengaturan\)/.test(gateSrc));
 cek('shell mengunci dokumen sebelum first paint untuk mencegah scrollbar ganda',
@@ -1728,6 +1730,16 @@ const autoSrc = kode('src/lib/serverAutoLogin.ts');
 cek('auto-login tidak mendekripsi password di peramban', !/decryptAppCredential/.test(autoSrc));
 cek('auto-login tidak memanggil rpcLogin sendiri', !/\brpcLogin\b/.test(autoSrc));
 cek('auto-login memakai endpoint server', /autoLoginServerPusat/.test(autoSrc));
+cek('password Web hanya tersedia lewat aksi server khusus akun sendiri',
+  /export async function kredensialWebSendiri/.test(panelSrc) &&
+    /const akun = await akunDariToken\(token\)/.test(panelSrc) &&
+    /case 'kredensial:web-sendiri'/.test(kode('src/serverless/_panel.ts')));
+cek('Web mengisi NIP/password tersimpan dan tetap memberi ruang edit',
+  /kredensialWebSendiri\(\)/.test(webSrc) &&
+    /!nipDiubahManual\.current/.test(webSrc) &&
+    /!passwordDiubahManual\.current/.test(webSrc) &&
+    /passwordDiubahManual\.current = true/.test(webSrc) &&
+    /await login\(\{ nip: nip\.trim\(\), password, captcha: kode \}\);\s*setPassword\(''\)/.test(webSrc));
 
 /*
  * ⚠️ `src/lib/encryption.ts` **sudah tidak ada**.
@@ -1873,6 +1885,17 @@ cek('admin membaca ringkasan milik AKUN YANG DITUJU',
 cek('ringkasan target melaporkan password bisa dibaca',
   ringkasTarget.ringkasan?.terbaca === true,
   'password yang baru disimpan harus bisa didekripsi server');
+
+const kredensialWebBudi = await P.kredensialWebSendiri(tokenBudi);
+cek('form Web menerima kredensial akun sendiri',
+  kredensialWebBudi.ok && kredensialWebBudi.kredensial?.nip === CRED.budi.nip &&
+    kredensialWebBudi.kredensial?.password === CRED.budi.sandi);
+const kredensialWebTanpaSesi = await P.kredensialWebSendiri('token-tidak-valid');
+cek('form Web tidak menerima kredensial tanpa sesi sah',
+  !kredensialWebTanpaSesi.ok && kredensialWebTanpaSesi.kode === 401);
+const kredensialWebAdmin = await P.kredensialWebSendiri(tokenSitiAdmin);
+cek('admin juga hanya menerima kredensial Web miliknya sendiri',
+  !kredensialWebAdmin.ok || kredensialWebAdmin.kredensial?.nip !== CRED.budi.nip);
 
 // Case-insensitive: username disimpan lowercase, jadi "BUDI" harus mendarat
 // di dokumen yang sama. Tanpa `toLowerCase()` di nama dokumen, ini jadi dua
@@ -2109,6 +2132,17 @@ console.log('\n=== 1i. Lewat handler HTTP: yang dipakai peramban sungguhan');
 
   // 4. `pusat:login` — jalur auto-login yang dipakai peramban.
   const tokenBudiHandler = P.terbitkanToken('budi', 'user', partial({ tabBeranda: true }));
+
+  const kredensialWebHandler = await panggil(
+    { aksi: 'kredensial:web-sendiri', username: 'siti' },
+    { token: tokenBudiHandler }
+  );
+  cek('web action memakai kredensial akun dari token, bukan body.username',
+    kredensialWebHandler.status === 200 &&
+      kredensialWebHandler.body?.kredensial?.nip === '222222222222222222' &&
+      kredensialWebHandler.body?.kredensial?.password === 'Sandi-Budi-Handler');
+  const kredensialWebTanpaToken = await panggil({ aksi: 'kredensial:web-sendiri' });
+  cek('web action menolak permintaan tanpa token', kredensialWebTanpaToken.status === 401);
 
   const paramMasuk: { param: Record<string, any> } = { param: {} };
   const fetchAsliHandler = globalThis.fetch;

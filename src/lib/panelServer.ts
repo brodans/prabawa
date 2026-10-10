@@ -1362,9 +1362,9 @@ function dokKredensialTarget(username: string): string {
  * Metadata kredensial tanpa passwordnya.
  *
  * Yang dikembalikan hanya `nip`, `imei`, dan apakah password-nya masih bisa
- * dibaca server. Field `passwordEncrypted` **tidak pernah** dikirim ke peramban
- * — tidak ada bentuk dari endpoint ini yang membutuhkannya, dan mengirimnya
- * hanya membuka pintu yang baru saja ditutup.
+ * dibaca server. Field `passwordEncrypted` tidak ikut respons metadata ini;
+ * pengembalian password hanya terjadi lewat aksi Web tersendiri yang diminta
+ * pengguna dan selalu menentukan akun dari token.
  */
 export async function ringkasKredensial(
   token: string | undefined | null,
@@ -1399,6 +1399,38 @@ export async function ringkasKredensial(
         : 'Kredensial lama belum bisa dibaca server. Simpan ulang password server pusat dari menu Manajemen Akun.',
     }) as RingkasanKredensial,
   };
+}
+
+/**
+ * Kredensial Web untuk akun dari token saat ini.
+ *
+ * Password hanya dikirim ke browser untuk mengisi formulir Web setelah
+ * pemanggil meminta fitur ini. Tidak menerima username dari body: akun target
+ * selalu ditentukan oleh token, sehingga kredensial akun lain tidak dapat
+ * diminta bahkan oleh admin.
+ */
+export async function kredensialWebSendiri(
+  token: string | undefined | null
+): Promise<HasilAksi & { kredensial?: { nip: string; password: string } }> {
+  const akun = await akunDariToken(token);
+  if (!akun) return { ok: false, kode: 401, pesan: 'Sesi tidak valid. Login ulang.' };
+
+  const snap = await (await admin())
+    .collection(COLL_PENGATURAN)
+    .doc(dokKredensialTarget(akun.username))
+    .get();
+  if (!snap.exists) {
+    return { ok: false, kode: 404, pesan: 'Kredensial server belum diatur.' };
+  }
+
+  const data = snap.data() as Record<string, any>;
+  const nip = String(data.nip ?? '');
+  const password = dekripsi(String(data.passwordEncrypted ?? ''));
+  if (!nip || password === null) {
+    return { ok: false, kode: 422, pesan: 'Password server tersimpan tidak dapat dibaca. Simpan ulang kredensial.' };
+  }
+
+  return { ok: true, kode: 200, kredensial: { nip, password } };
 }
 
 /**
@@ -1563,7 +1595,8 @@ export async function hapusKredensial(
  *
  * Jadi sekarang: peramban hanya memberi tahu **akun mana**, server mendekripsi,
  * server yang memanggil gateway, dan yang kembali ke peramban hanya `api_key`
- * plus profil. Password polos tidak pernah melintas jaringan menuju peramban.
+ * plus profil. Password polos tidak pernah dikembalikan oleh aksi ini ke
+ * peramban.
  *
  * `api_key` sendiri memang sudah selalu ada di peramban — itu nature dari sesi
  * gateway, dan tidak berubah karena langkah ini dipindah. Yang hilang adalah

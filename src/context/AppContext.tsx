@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { getTodayWIB } from '../lib/dateFormatter';
 import type { UserRole, TabPermissions, UserAccountSafe } from '../lib/userManager';
+import type { IjinView } from '../lib/viewModels';
 import {
   batasiIzin,
   DEFAULT_ADMIN_PERMISSIONS,
@@ -8,7 +9,6 @@ import {
   UNAUTHENTICATED_PERMISSIONS,
 } from '../lib/userManager';
 import { clearServerSessionCache } from '../lib/cacheManager';
-import type { IjinView } from '../lib/viewModels';
 import type {
   HasilImei,
   HasilKehadiran,
@@ -126,7 +126,7 @@ export interface LaporanLogState {
   hasLoadedOnce: boolean;
 }
 
-export interface RiwayatIzinState {
+export interface RiwayatPerizinanState {
   dateStart: string;
   dateEnd: string;
   rows: IjinView[];
@@ -202,8 +202,8 @@ interface AppContextType {
   pathname: string;
   laporanLogState: LaporanLogState;
   setLaporanLogState: React.Dispatch<React.SetStateAction<LaporanLogState>>;
-  riwayatIzinState: RiwayatIzinState;
-  setRiwayatIzinState: React.Dispatch<React.SetStateAction<RiwayatIzinState>>;
+  riwayatPerizinanState: RiwayatPerizinanState;
+  setRiwayatPerizinanState: React.Dispatch<React.SetStateAction<RiwayatPerizinanState>>;
   webPresensiState: WebPresensiState;
   setWebPresensiState: React.Dispatch<React.SetStateAction<WebPresensiState>>;
 
@@ -277,7 +277,6 @@ const PATH_MAP: Record<string, string> = {
   tabBeranda: '/beranda',
   tabPresensi: '/presensi',
   tabPerizinan: '/perizinan',
-  tabRiwayatIzin: '/riwayat-izin',
   tabLaporan: '/laporan',
   tabDocs: '/docs',
   tabLokasiAbsen: '/lokasi-absen',
@@ -650,7 +649,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     hasLoadedOnce: false,
   }));
 
-  const [riwayatIzinState, setRiwayatIzinState] = useState<RiwayatIzinState>(() => ({
+  const [riwayatPerizinanState, setRiwayatPerizinanState] = useState<RiwayatPerizinanState>(() => ({
     dateStart: getTodayWIB(),
     dateEnd: getTodayWIB(),
     rows: [],
@@ -714,8 +713,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       pathname,
       laporanLogState,
       setLaporanLogState,
-      riwayatIzinState,
-      setRiwayatIzinState,
+      riwayatPerizinanState,
+      setRiwayatPerizinanState,
       webPresensiState,
       setWebPresensiState,
       currentUser,
@@ -729,13 +728,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // State
       pegawai, serverConnected, serverLoginError, serverAutoLoginPending, serverLogoutRequested,
       loginForm, developerMode, config, activePage,
-      pathname, laporanLogState, riwayatIzinState, webPresensiState, currentUser, userRole,
+      pathname, laporanLogState, riwayatPerizinanState, webPresensiState, currentUser, userRole,
       tabPermissions, cekingSesi, adaSesiSaatMuat,
       // Setter
       setDeveloperMode, setActivePage, setSubPath, setCurrentUser,
       // Dispatcher useState — stabil, tapi didaftarkan agar lengkap.
       setPegawai, setServerConnected, setServerLoginError, setServerAutoLoginPending, setServerLogoutRequested,
-      setLoginForm, setConfig, setLaporanLogState, setRiwayatIzinState, setWebPresensiState,
+      setLoginForm, setConfig, setLaporanLogState, setRiwayatPerizinanState, setWebPresensiState,
     ]
   );
 

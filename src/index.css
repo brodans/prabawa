@@ -221,6 +221,20 @@
   50% { opacity: 1; transform: scale(1.02); }
   100% { opacity: 1; transform: scale(1); }
 }
+@keyframes captchaShimmer {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(120%); }
+}
+.captcha-shimmer {
+  background: linear-gradient(100deg, transparent 15%, rgb(99 102 241 / 18%) 50%, transparent 85%);
+  animation: captchaShimmer 1.25s ease-in-out infinite;
+}
+.dark .captcha-shimmer {
+  background: linear-gradient(100deg, transparent 15%, rgb(129 140 248 / 24%) 50%, transparent 85%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .captcha-shimmer { animation-duration: 2.5s; }
+}
 .animate-fade-in {
   animation: fadeIn 0.25s ease-out forwards;
 }

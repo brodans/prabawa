@@ -63,7 +63,7 @@ const PIN_SALT = 'epresensi-jatim-pin-salt-v1';
  * Izin yang diberikan ke akun admin saat pertama dibuat.
  *
  * `Partial`, dan bukan `TabPermissions` penuh, itu disengaja. `TabPermissions`
- * punya 15 kunci; skrip ini menulis **12** saja, dan itulah yang selalu terjadi
+ * punya 14 kunci; skrip ini menulis **12** saja, dan itulah yang selalu terjadi
  * sejak awal. Menulis `TabPermissions` penuh agar typecheck lolos justru akan
  * diam-diam menambah `tabWeb`, `tabManajemenAkun`, dan `aksiSesiServer` ke
  * dokumen yang ditulis — mengubah akun pertama yang created.
@@ -75,7 +75,6 @@ const ADMIN_PERMISSIONS: Partial<TabPermissions> = {
   tabBeranda: true,
   tabPresensi: true,
   tabPerizinan: true,
-  tabRiwayatIzin: true,
   tabLaporan: true,
   tabDocs: true,
   tabLokasiAbsen: true,

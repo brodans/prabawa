@@ -30,7 +30,7 @@ const cek = (nama: string, ok: unknown, detail = ''): void => {
 const baca = (p: string): string => readFileSync(join(root, p), 'utf8');
 const dp = baca('src/components/ui/DatePicker.tsx');
 const css = baca('src/index.css');
-const riwayat = baca('src/pages/RiwayatIzin.tsx');
+const riwayat = baca('src/pages/Perizinan.tsx');
 const laporan = baca('src/pages/Laporan.tsx');
 const perizinan = baca('src/pages/Perizinan.tsx');
 
@@ -96,7 +96,6 @@ cek('tidak ada w-full hardcoded di wrapper', !/className=\{`relative w-full/.tes
 cek('wrapper menerima className', dp.includes('`relative ${className}`'));
 for (const [file, nama] of [
   ['src/pages/Laporan.tsx', 'Laporan'],
-  ['src/pages/RiwayatIzin.tsx', 'RiwayatIzin'],
   ['src/pages/Perizinan.tsx', 'Perizinan'],
 ]) {
   const isi = baca(file);
@@ -113,13 +112,13 @@ cek('kolom Status dipatok', /key: 'status'[\s\S]{0,200}w-\[132px\]/.test(riwayat
 cek('kolom Pengaju ditambahkan', riwayat.includes("key: 'nama'"));
 cek('kolom Periode tidak lagi satu baris nowrap', !/whitespace-nowrap[\s\S]{0,80}→/.test(riwayat));
 cek('PeriodeCell dipakai', riwayat.includes('<PeriodeCell row={row} />'));
-cek('PeriodeCell dua baris', /function PeriodeCell[\s\S]{0,900}<p className="font-semibold/.test(riwayat));
+cek('PeriodeCell dua baris', /function PeriodeCell[\s\S]{0,1000}<p className="font-mono font-semibold/.test(riwayat));
 cek('tanggal satu hari diberi label', /satu hari/.test(riwayat));
 
 // ═════════════════════════════════════════════════════════════════════
 console.log('\n=== RiwayatIzin: tidak ada celah kosong menganga');
 cek('tidak lagi pakai justify-between untuk penyaring', !/sm:items-end sm:justify-between/.test(riwayat));
-cek('kelompok tanggal dikuncilebarnya', /grid grid-cols-1 sm:grid-cols-2 flex-1 max-w-md/.test(riwayat));
+cek('kelompok tanggal dikuncilebarnya', /grid max-w-md flex-1 grid-cols-1 gap-3 sm:grid-cols-2/.test(riwayat));
 cek('filter status dipisah baris', /Status Pengajuan/.test(riwayat));
 cek('filter status menampilkan jumlah', riwayat.includes('jumlahStatus('));
 cek('tombol Tampilkan punya status memuat', riwayat.includes('loading={loading}'));

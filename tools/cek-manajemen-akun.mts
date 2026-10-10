@@ -516,7 +516,6 @@ const berkasHalaman = [
   '../src/pages/Langganan.tsx',
   '../src/pages/Presensi.tsx',
   '../src/pages/Perizinan.tsx',
-  '../src/pages/RiwayatIzin.tsx',
   '../src/pages/Laporan.tsx',
   '../src/pages/Beranda.tsx',
   '../src/components/LoginScreen.tsx',
@@ -960,8 +959,8 @@ cek('error auto-login tidak lagi hanya milik Beranda',
 const kontrakSrc = baca('../src/lib/kontrakServer.ts');
 const panelSrc = baca('../src/serverless/_panel.ts');
 cek('kontrak server punya nomor versi', /export const KONTRAK_VERSI = \d+/.test(kontrakSrc));
-cek('versi saat ini 4 — 2/3/4 = target salah, IMEI kalah, normalisasi hilang',
-  /export const KONTRAK_VERSI = 4;/.test(kontrakSrc));
+cek('versi saat ini 5 — kredensial Web akun sendiri',
+  /export const KONTRAK_VERSI = 5;/.test(kontrakSrc));
 cek('server mengirim versi di setiap respons',
   /res\.json = \(badan: unknown\) =>/.test(panelSrc) && /kontrakVersi: KONTRAK_VERSI/.test(panelSrc),
   'dibungkus res.json di awal = tidak ada jalur keluar yang melewatinya');

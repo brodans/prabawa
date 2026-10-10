@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, FileCheck2, RefreshCw, Send } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CalendarRange, Download, FileCheck2, FileText, History, RefreshCw, Send, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useServerContext } from '../hooks/useServerContext';
 import { useToast } from '../components/ui/Toast';
@@ -13,14 +13,15 @@ import {
   DataTable,
   EmptyState,
   Field,
-  PageHeader,
   SkeletonTable,
+  StatTile,
   Textarea,
   type Column,
 } from '../components/ui/Surface';
 import DatePicker from '../components/ui/DatePicker';
 import {
   rpcAddIjin,
+  rpcDeleteIjin,
   rpcGetMasterTipeIjin,
   rpcJenisIjin,
   rpcListIjin,
@@ -31,13 +32,11 @@ import {
   type MasterTipeIjinView,
   type TipeIjinMap,
 } from '../lib/apiCalls';
-import { getTodayWIB, getTodayWIBWithDaysOffset } from '../lib/dateFormatter';
+import { formatCompactDateTime, getTodayWIB, getTodayWIBWithDaysOffset } from '../lib/dateFormatter';
 import Dropdown from '../components/ui/Dropdown';
+import { selCsv } from '../lib/excelXml';
+import { unduhTeks } from '../lib/unduh';
 
-/** Berapa baris yang diambil per halaman dari `list_ijin`. */
-const LIST_PAGE_LIMIT = 100;
-/** Riwayat yang ditampilkan di bawah formulir. */
-const RECENT_WINDOW_DAYS = 60;
 /**
  * Batas lampiran.
  *
@@ -47,6 +46,16 @@ const RECENT_WINDOW_DAYS = 60;
  * mengikuti limit route `/api/upload`.
  */
 const MAX_ATTACHMENT_BYTES = 5_000_000;
+type TabPerizinan = 'pengajuan' | 'riwayat';
+type StatusFilter = 'all' | 'pending' | 'approved' | 'ditolak';
+
+const LIMIT_RIWAYAT = 200;
+const FILTER_STATUS: { value: StatusFilter; label: string }[] = [
+  { value: 'all', label: 'Semua' },
+  { value: 'pending', label: 'Menunggu' },
+  { value: 'approved', label: 'Disetujui' },
+  { value: 'ditolak', label: 'Ditolak' },
+];
 
 const EMPTY_FORM = {
   jenisIjin: '',
@@ -59,9 +68,10 @@ const EMPTY_FORM = {
 };
 
 export default function Perizinan() {
-  const { pegawai, tabPermissions, setActivePage } = useAppContext();
+  const { pegawai, currentUser, tabPermissions, setActivePage } = useAppContext();
   const { context, ready } = useServerContext();
   const toast = useToast();
+  const [tabAktif, setTabAktif] = useState<TabPerizinan>('pengajuan');
 
   // Katalog izin datang dari tiga endpoint terpisah:
   //   `jenis_ijin`        → daftar jenis izin (Id, Nama, TipeId)
@@ -70,8 +80,6 @@ export default function Perizinan() {
   const [jenisList, setJenisList] = useState<JenisIjinView[]>([]);
   const [masterList, setMasterList] = useState<MasterTipeIjinView[]>([]);
   const [tipeMap, setTipeMap] = useState<TipeIjinMap>({});
-  const [rows, setRows] = useState<IjinView[]>([]);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,30 +89,20 @@ export default function Perizinan() {
 
   const loadData = useCallback(async () => {
     if (!ready) return;
-    setLoading(true);
     setError(null);
     try {
       // `list_ijin` hanya menerima page + limit — penyaringan tanggal
       // dilakukan lokal karena tidak ada param rentang tanggal di server.
-      const [master, jenis, tipe, all] = await Promise.all([
+      const [master, jenis, tipe] = await Promise.all([
         rpcGetMasterTipeIjin(context),
         rpcJenisIjin(context, { masterTipeIjin: 0, absen: 0 }),
         rpcTipeIjin(context),
-        rpcListIjin(context, { page: 1, limit: LIST_PAGE_LIMIT }),
       ]);
       setMasterList(master);
       setJenisList(jenis);
       setTipeMap(tipe);
-
-      const until = getTodayWIB();
-      const since = getTodayWIBWithDaysOffset(-RECENT_WINDOW_DAYS);
-      const recent = all.filter(row => (row.tglDari ?? '') >= since && (row.tglDari ?? '') <= until);
-      recent.sort((a, b) => String(b.tglDari).localeCompare(String(a.tglDari)));
-      setRows(recent);
     } catch (err: any) {
       setError(err?.message ?? 'Gagal memuat data perizinan.');
-    } finally {
-      setLoading(false);
     }
   }, [context, ready]);
 
@@ -214,7 +212,6 @@ export default function Perizinan() {
 
       setForm({ ...EMPTY_FORM, tglIjinDari: getTodayWIB(), tglIjinSampai: getTodayWIB() });
       setLampiran(null);
-      await loadData();
     } catch (err: any) {
       setError(err?.message ?? 'Gagal mengirim pengajuan izin.');
     } finally {
@@ -258,83 +255,63 @@ export default function Perizinan() {
     setForm(prev => ({ ...prev, berkasName: file.name }));
   };
 
-  const columns: Column<IjinView>[] = [
-    {
-      key: 'jenis',
-      header: 'Jenis / Tipe',
-      // `truncate` tanpa plafon `max-width` tidak memotong apa pun: di
-      // `table-layout: auto` min-content sel tetap sebesar teks penuhnya.
-      // Lihat catatan panjang di `DataTable`.
-      className: 'max-w-[220px]',
-      render: row => (
-        <div className="min-w-0">
-          <p className="font-semibold text-slate-700 dark:text-slate-200 truncate">
-            {row.tipeIjinText || '-'}
-          </p>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{row.jenisIjinNama || '-'}</p>
-        </div>
-      ),
-    },
-    {
-      key: 'periode',
-      header: 'Periode',
-      className: 'w-[190px]',
-      render: row => (
-        <span className="font-mono text-xs whitespace-nowrap">
-          {row.tglDari || '-'} → {row.tglSampai || row.tglDari || '-'}
-        </span>
-      ),
-    },
-    {
-      key: 'alasan',
-      header: 'Alasan',
-      /*
-       * Alasan izin bisa satu paragraf. Tanpa plafon, satu alasan panjang
-       * saja sudah cukup untuk jadi lebar tabel itu sendiri, dan kolom
-       * paling kanan (Status) justru yang pertama keluar layar.
-       */
-      className: 'max-w-[260px]',
-      render: row => (
-        <span className="text-xs block min-w-0 truncate">{row.alasan || '-'}</span>
-      ),
-    },
-    {
-      key: 'berkas',
-      header: 'Lampiran',
-      render: row => (row.berkas ? <Badge tone="violet">Ada</Badge> : <span className="text-slate-300">-</span>),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: row => <IjinStatusBadge row={row} />,
-    },
-  ];
-
   if (!ready || !pegawai) {
     return (
-      <div className="space-y-6">
-        <PageHeader title="Perizinan" subtitle="Hubungkan akun ke server pusat terlebih dahulu" icon={<FileCheck2 className="w-5 h-5" />} />
-        <Card>
-          <EmptyState message="Belum terhubung ke server pusat." />
-          <div className="flex justify-center">
-            <ActionButton onClick={() => setActivePage('tabBeranda')}>Ke Beranda</ActionButton>
-          </div>
-        </Card>
-      </div>
+      <Card>
+        {error && <Alert tone="rose">{error}</Alert>}
+        <EmptyState message="Belum terhubung ke server pusat." />
+        <div className="flex justify-center">
+          <ActionButton onClick={() => setActivePage('tabBeranda')}>Ke Beranda</ActionButton>
+        </div>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Perizinan"
-        subtitle="Ajukan izin, cuti, atau izin tidak masuk kantor"
-        icon={<FileCheck2 className="w-5 h-5" />}
-      />
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm dark:border-slate-700/60 dark:bg-slate-800/60">
+        <div className="px-3 py-3 sm:px-5">
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-900/70" role="tablist" aria-label="Bagian Perizinan">
+            {([
+              { id: 'pengajuan', label: 'Pengajuan Izin', icon: FileCheck2 },
+              { id: 'riwayat', label: 'Riwayat Izin', icon: History },
+            ] as const).map(tab => {
+              const Icon = tab.icon;
+              const aktif = tabAktif === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  id={`tab-perizinan-${tab.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={aktif}
+                  aria-controls={`panel-perizinan-${tab.id}`}
+                  onClick={() => setTabAktif(tab.id)}
+                  className={`flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-center text-[11px] font-bold leading-tight transition-colors sm:gap-2 sm:px-3 sm:text-sm ${
+                    aktif
+                      ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-800 dark:text-blue-300'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-      {error && <Alert tone="rose">{error}</Alert>}
+      <section
+        id="panel-perizinan-pengajuan"
+        role="tabpanel"
+        aria-labelledby="tab-perizinan-pengajuan"
+        hidden={tabAktif !== 'pengajuan'}
+        className="min-w-0"
+      >
+        <div className="space-y-6">
+            {error && <Alert tone="rose">{error}</Alert>}
 
-      <div className="grid grid-cols-1 gap-6">
         {/* ── Formulir ────────────────────────────────────────────── */}
         <Card>
           <CardTitle>Formulir Pengajuan</CardTitle>
@@ -468,58 +445,310 @@ export default function Perizinan() {
             )}
           </form>
         </Card>
+        </div>
+      </section>
+      <section
+        id="panel-perizinan-riwayat"
+        role="tabpanel"
+        aria-labelledby="tab-perizinan-riwayat"
+        hidden={tabAktif !== 'riwayat'}
+        className="min-w-0"
+      >
+        <RiwayatIzinPanel key={currentUser?.username ?? ''} aktif={tabAktif === 'riwayat'} />
+      </section>
+    </div>
+  );
+}
+
+function RiwayatIzinPanel({ aktif }: { aktif: boolean }) {
+  const { tabPermissions, riwayatPerizinanState: state, setRiwayatPerizinanState: setState } = useAppContext();
+  const { context, ready } = useServerContext();
+  const toast = useToast();
+  const [filter, setFilter] = useState<StatusFilter>('all');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const muatanSeq = useRef(0);
+
+  const loadData = useCallback(async () => {
+    if (!ready) return;
+    const seq = ++muatanSeq.current;
+    const usang = () => seq !== muatanSeq.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await rpcListIjin(context, { page: 1, limit: LIMIT_RIWAYAT });
+      if (usang()) return;
+      setState(prev => ({ ...prev, rows, hasLoadedOnce: true }));
+    } catch (err: any) {
+      if (usang()) return;
+      setError(err?.message ?? 'Gagal memuat riwayat izin.');
+    } finally {
+      if (!usang()) setLoading(false);
+    }
+  }, [context, ready]);
+
+  useEffect(() => {
+    if (!aktif || state.hasLoadedOnce) return;
+    void loadData();
+  }, [aktif, state.hasLoadedOnce, loadData]);
+
+  const inWindow = state.rows.filter(row => inRange(row, state.dateStart, state.dateEnd));
+  const filtered = inWindow.filter(row => filter === 'all' || row.status === filter);
+  const stats = {
+    total: inWindow.length,
+    pending: inWindow.filter(row => row.status === 'pending').length,
+    approved: inWindow.filter(row => row.status === 'approved').length,
+    sudahDisetujui: inWindow.filter(row => row.status === 'approved' && Boolean(row.approvedAt)).length,
+  };
+
+  const removeRow = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const result = await rpcDeleteIjin(context, id);
+      if (result === null) {
+        toast.error('Server pusat menolak penghapusan pengajuan ini.');
+        return;
+      }
+      toast.success('Pengajuan izin dihapus.');
+      await loadData();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Gagal menghapus pengajuan.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const exportCsv = () => {
+    if (filtered.length === 0) {
+      toast.info('Tidak ada data untuk diekspor.');
+      return;
+    }
+    unduhTeks(
+      `riwayat-izin-${state.dateStart}_${state.dateEnd}.csv`,
+      '\ufeff' + rowsToCsv(filtered),
+      'text/csv'
+    );
+    toast.success(`${filtered.length} baris diekspor ke CSV.`);
+  };
+
+  const columns: Column<IjinView>[] = [
+    {
+      key: 'jenis',
+      header: 'Jenis / Tipe',
+      className: 'max-w-[220px]',
+      render: row => (
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-slate-700 dark:text-slate-200">{row.tipeIjinText || '-'}</p>
+          <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">{row.jenisIjinNama || '-'}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'nama',
+      header: 'Pengaju',
+      className: 'max-w-[220px]',
+      render: row => (
+        <div className="min-w-0">
+          <p className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{row.nama || '-'}</p>
+          <p className="truncate font-mono text-[11px] text-slate-400 dark:text-slate-500">{row.nip || '-'}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'periode',
+      header: 'Periode',
+      className: 'w-[190px]',
+      render: row => <PeriodeCell row={row} />,
+    },
+    {
+      key: 'alasan',
+      header: 'Alasan',
+      render: row => (
+        <div className="min-w-0">
+          <p className="max-w-[220px] truncate text-xs">{row.alasan || '-'}</p>
+          {row.berkas && <p className="max-w-[220px] truncate text-[11px] text-slate-400 dark:text-slate-500">Lampiran: {namaBerkas(row.berkas)}</p>}
+          {row.catatan && <p className="max-w-[220px] truncate text-[11px] text-rose-500 dark:text-rose-400">Catatan: {row.catatan}</p>}
+        </div>
+      ),
+    },
+    {
+      key: 'diajukan',
+      header: 'Diajukan',
+      className: 'w-[120px]',
+      render: row => <span className="whitespace-nowrap text-xs">{formatCompactDateTime(row.createdAt || null)}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      className: 'w-[132px]',
+      render: row => <StatusBadge row={row} />,
+    },
+    {
+      key: 'aksi',
+      header: '',
+      className: 'w-10',
+      render: row => row.status === 'pending' && tabPermissions.aksiAjukanIzin ? (
+        <button
+          type="button"
+          onClick={() => void removeRow(String(row.id))}
+          disabled={deletingId === String(row.id)}
+          className="rounded-lg p-1.5 text-rose-500 transition-colors hover:bg-rose-50 disabled:opacity-40 dark:hover:bg-rose-900/30"
+          aria-label="Hapus pengajuan"
+          title="Hapus pengajuan"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      ) : null,
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {error && <Alert tone="rose">{error}</Alert>}
+      <Card className="space-y-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+          <div className="grid max-w-md flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+            <DatePicker
+              className="w-full"
+              label="Dari Tanggal"
+              value={state.dateStart}
+              onChange={value => setState(prev => ({ ...prev, dateStart: value }))}
+              max={getTodayWIBWithDaysOffset(365)}
+            />
+            <DatePicker
+              className="w-full"
+              label="Sampai Tanggal"
+              value={state.dateEnd}
+              onChange={value => setState(prev => ({ ...prev, dateEnd: value }))}
+              min={state.dateStart}
+              max={getTodayWIB()}
+            />
+          </div>
+          <ActionButton onClick={() => void loadData()} loading={loading} icon={<FileText className="h-4 w-4" />}>
+            Tampilkan
+          </ActionButton>
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-slate-100 pt-3 dark:border-slate-700/60 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Status Pengajuan</p>
+          <div className="flex flex-wrap gap-1.5">
+            {FILTER_STATUS.map(item => {
+              const jumlah = jumlahStatus(item.value, inWindow);
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setFilter(item.value)}
+                  aria-pressed={filter === item.value}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-bold uppercase transition-colors ${
+                    filter === item.value
+                      ? 'border-blue-600 bg-blue-600 text-white'
+                      : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {item.label}
+                  <span className={`rounded-md px-1.5 py-px font-mono text-[10px] ${filter === item.value ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                    {jumlah}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatTile label="Total" value={stats.total} tone="blue" icon={<CalendarRange className="h-4 w-4" />} />
+        <StatTile label="Menunggu" value={stats.pending} tone="amber" />
+        <StatTile label="Disetujui" value={stats.approved} tone="emerald" />
+        <StatTile label="Tanggal Persetujuan" value={stats.sudahDisetujui} tone="slate" />
       </div>
 
-      {/* ── Pengajuan terbaru ──────────────────────────────────── */}
-      <Card>
+      <Card padded={false} className="p-5 sm:p-6">
         <CardTitle
           action={
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <Badge tone="slate">{rows.length} pengajuan</Badge>
-              <ActionButton
-                variant="ghost"
-                size="sm"
-                onClick={() => void loadData()}
-                loading={loading}
-                icon={<RefreshCw className="w-4 h-4" />}
-              >
+              <Badge tone="slate">{filtered.length} baris</Badge>
+              <ActionButton variant="ghost" size="sm" onClick={() => void loadData()} loading={loading} icon={<RefreshCw className="h-4 w-4" />}>
                 Muat Ulang
+              </ActionButton>
+              <ActionButton variant="secondary" size="sm" onClick={exportCsv} disabled={filtered.length === 0} icon={<Download className="h-4 w-4" />}>
+                CSV
               </ActionButton>
             </div>
           }
         >
-          <span className="flex items-center gap-2">
-            <CalendarDays className="w-4 h-4" /> Pengajuan {RECENT_WINDOW_DAYS} Hari Terakhir
-          </span>
+          Daftar Pengajuan
         </CardTitle>
         {loading ? (
-          <SkeletonTable columns={columns.length} rows={5} />
+          <SkeletonTable columns={columns.length} rows={6} />
+        ) : filtered.length === 0 ? (
+          <EmptyState message="Tidak ada pengajuan pada rentang ini." hint="Ubah rentang tanggal atau ajukan izin baru." />
         ) : (
-          <DataTable
-            columns={columns}
-            rows={rows}
-            keyOf={(row, index) => String(row.id || index)}
-            emptyMessage="Belum ada pengajuan izin."
-          />
+          <DataTable columns={columns} rows={filtered} keyOf={(row, index) => String(row.id || index)} />
         )}
       </Card>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-//  Sub-komponen
-// ═══════════════════════════════════════════════════════════════════════
+function inRange(row: IjinView, start: string, end: string): boolean {
+  const from = row.tglDari ?? '';
+  const to = row.tglSampai ?? from;
+  if (!from && !to) return false;
+  return (from || '0000-00-00') <= end && (to || from || '0000-00-00') >= start;
+}
 
-/**
- * Status izin dari server pusat.
- *
- * `list_ijin` mengirim `status` (int: 1 disetujui, 2 menunggu,
- * 3 ditolak) selain `approval` (boolean). Ketiga nilai dipakai di sini;
- * `toIjinView` sudah jatuh ke `approval` bila `status` tidak dikirim.
- */
-function IjinStatusBadge({ row }: { row: IjinView }) {
-  if (row.status === 'approved') return <Badge tone="emerald">Disetujui</Badge>;
+const HEADER_IJIN = [
+  'ID', 'Nama', 'NIP', 'Jenis', 'Tipe', 'Mulai', 'Selesai',
+  'Alasan', 'Berkas', 'Diajukan', 'Status', 'Catatan',
+] as const;
+
+function rowsToCsv(rows: IjinView[]): string {
+  const values = rows.map(row => [
+    row.id,
+    row.nama,
+    row.nip,
+    row.jenisIjinNama,
+    row.tipeIjinText,
+    row.tglDari ?? '',
+    row.tglSampai ?? '',
+    (row.alasan ?? '').replace(/[\r\n]+/g, ' '),
+    namaBerkas(row.berkas),
+    row.createdAt,
+    row.status,
+    (row.catatan ?? '').replace(/[\r\n]+/g, ' '),
+  ]);
+  return [HEADER_IJIN.map(selCsv).join(','), ...values.map(row => row.map(selCsv).join(','))].join('\n');
+}
+
+function jumlahStatus(status: StatusFilter, rows: IjinView[]): number {
+  if (status === 'all') return rows.length;
+  return rows.filter(row => row.status === status).length;
+}
+
+function PeriodeCell({ row }: { row: IjinView }) {
+  const dari = row.tglDari || '-';
+  const sampai = row.tglSampai || row.tglDari || '-';
+  const satuHari = dari === sampai;
+  return (
+    <div className="min-w-0 text-[11px] leading-tight">
+      <p className="font-mono font-semibold text-slate-700 dark:text-slate-200">{dari}</p>
+      <p className="font-mono text-slate-400 dark:text-slate-500">{satuHari ? <span className="italic">satu hari</span> : `s/d ${sampai}`}</p>
+    </div>
+  );
+}
+
+function StatusBadge({ row }: { row: IjinView }) {
+  if (row.status === 'approved') {
+    return <Badge tone="emerald">{row.approvedAt ? 'Disetujui' : 'Disetujui (tanpa tanggal)'}</Badge>;
+  }
   if (row.status === 'ditolak') return <Badge tone="rose">Ditolak</Badge>;
   return <Badge tone="amber">Menunggu</Badge>;
+}
+
+function namaBerkas(value: string): string {
+  const path = value.split(/[\\/]/).pop() ?? value;
+  return path.length > 0 ? path : '-';
 }

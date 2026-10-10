@@ -165,9 +165,11 @@ export function formatHitungMundur(detik: number): string {
 export default function GerbangLangganan({
   children,
   onKeluar,
+  fallbackLoading,
 }: {
   children: ReactNode;
   onKeluar: () => void;
+  fallbackLoading?: ReactNode;
 }) {
   const { currentUser, pegawai } = useAppContext();
   const toast = useToast();
@@ -406,7 +408,9 @@ export default function GerbangLangganan({
 
   const paket = useMemo(() => (pengaturan ? paketEfektif(pengaturan) : []), [pengaturan]);
 
-  if (loading && (!ringkasan || ringkasan.username !== username || !pengaturan)) return null;
+  if (loading && (!ringkasan || ringkasan.username !== username || !pengaturan)) {
+    return fallbackLoading ? <>{fallbackLoading}</> : null;
+  }
 
   /*
    * ⚠️ Tanpa sumber kebenaran, gerbang **dikunci permanen** — jadi dilewati.

@@ -31,7 +31,6 @@ export interface TabPermissions {
   tabBeranda: boolean;
   tabPresensi: boolean;
   tabPerizinan: boolean;
-  tabRiwayatIzin: boolean;
   tabLokasiAbsen: boolean;
   tabLaporan: boolean;
   tabDocs: boolean;
@@ -91,7 +90,6 @@ export const TAB_PERMISSION_LABELS: Record<keyof TabPermissions, string> = {
   tabBeranda: 'Beranda',
   tabPresensi: 'Presensi',
   tabPerizinan: 'Pengajuan Izin',
-  tabRiwayatIzin: 'Riwayat Izin',
   tabLaporan: 'Laporan',
   tabLokasiAbsen: 'Lokasi Absen',
   tabDocs: 'Dokumentasi',
@@ -112,7 +110,6 @@ export const PERMISSION_GROUPS: { label: string; keys: (keyof TabPermissions)[] 
       'tabBeranda',
       'tabPresensi',
       'tabPerizinan',
-      'tabRiwayatIzin',
       'tabLaporan',
       'tabLokasiAbsen',
       'tabDocs',
@@ -143,7 +140,6 @@ export const DEFAULT_ADMIN_PERMISSIONS: TabPermissions = {
   tabBeranda: true,
   tabPresensi: true,
   tabPerizinan: true,
-  tabRiwayatIzin: true,
   tabLaporan: true,
   tabLokasiAbsen: true,
   tabDocs: true,
@@ -162,7 +158,6 @@ export const DEFAULT_USER_PERMISSIONS: TabPermissions = {
   tabBeranda: true,
   tabPresensi: true,
   tabPerizinan: true,
-  tabRiwayatIzin: true,
   tabLokasiAbsen: true,
   tabLaporan: false,
   tabDocs: false,
