@@ -62,6 +62,15 @@
       `.boot-shell`.
     -->
     <style>
+      /*
+       * Preflight Tailwind (`index.css`) baru aktif setelah bundel JS dijalankan
+       * — yaitu setelah React mengambil alih. Tanpa baris ini, kerangka boot
+       * memakai `content-box` milik peramban, sehingga elemen yang punya ukuran
+       * tetap **dan** padding/border (logo sidebar, header, dsb.) melebar keluar
+       * kotaknya. Disamakan dengan preflight Tailwind supaya tidak ada lompatan
+       * ukuran saat React masuk.
+       */
+      *, *::before, *::after { box-sizing: border-box; }
       html, body, #root { min-height: 100%; margin: 0; }
       :root {
         --poni-kiri: env(safe-area-inset-left, 0px);

@@ -161,6 +161,12 @@ cek('boot shell hanya tampil saat ada sesi tersimpan yang sah',
   /app-shell-active/.test(htmlSrc) &&
     /s\.version !== VERSI/.test(htmlSrc) &&
     /s\.currentUser\.role !== s\.boundRole/.test(htmlSrc));
+// Preflight Tailwind (`index.css`) baru aktif setelah bundel JS jalan. Tanpa
+// `border-box` di CSS boot, elemen berukuran tetap + padding (logo sidebar)
+// melebar keluar kotaknya saat refresh.
+cek('boot shell memakai box-sizing border-box seperti preflight Tailwind',
+  /\*,\s*\*::before,\s*\*::after\s*\{\s*box-sizing:\s*border-box/.test(htmlSrc) &&
+    /\.boot-logo\s*\{[^}]*height:\s*2\.5rem[^}]*width:\s*2\.5rem/.test(htmlSrc));
 cek('input captcha lebar penuh, kotak captcha berukuran tetap',
   /id="web-captcha"[\s\S]{0,500}className="w-full/.test(webSrc) &&
     /h-11 w-\[191px\][\s\S]{0,80}overflow-hidden rounded-none border/.test(webSrc) &&
