@@ -1,7 +1,6 @@
 import React, { useEffect, useReducer, useRef, useState } from 'react';
 import {
   AlertCircle,
-  CheckCircle2,
   Clock,
   Eye,
   EyeOff,
@@ -24,7 +23,6 @@ interface LoginScreenProps {
   onLogin: () => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
-  checkingSession?: boolean;
 }
 
 // ─── Rate limiting sisi klien ─────────────────────────────────────
@@ -111,7 +109,7 @@ function sanitizePassword(value: string): string {
 const formatCountdown = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
-export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode, checkingSession = false }: LoginScreenProps) {
+export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode }: LoginScreenProps) {
   const { setCurrentUser } = useAppContext();
 
   const [state, dispatch] = useReducer(authReducer, {
@@ -175,7 +173,7 @@ export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode, check
   // ── Autentikasi ────────────────────────────────────────────────
   const handleAuthentication = async (event?: React.FormEvent) => {
     event?.preventDefault();
-    if (checkingSession || authInFlight.current) return;
+    if (authInFlight.current) return;
 
     if (state.status === 'LOCKED' || state.cooldownUntil) {
       dispatch({
@@ -251,7 +249,7 @@ export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode, check
 
       setCurrentUser(akun, token);
       dispatch({ type: 'AUTH_SUCCESS' });
-      setTimeout(onLogin, 400);
+      onLogin();
     } catch (err) {
       await ensureMinDelay();
 
@@ -321,7 +319,7 @@ export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode, check
   const isLocked = state.status === 'LOCKED';
   const isAuthing = state.status === 'AUTHENTICATING';
   const canSubmit =
-    !checkingSession && !isLocked && !isAuthing && sanitizeUsername(state.username).length > 0 && sanitizePassword(state.pin).length > 0;
+    !isLocked && !isAuthing && sanitizeUsername(state.username).length > 0 && sanitizePassword(state.pin).length > 0;
 
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4 sm:p-8 font-sans transition-colors duration-500 bg-slate-200/80 dark:bg-[#0a0f1c] overflow-hidden selection:bg-indigo-500/30">
@@ -427,17 +425,7 @@ export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode, check
         </div>
 
         <div className="px-8 pb-10 relative">
-          {state.status === 'SUCCESS' && (
-            <div className="absolute inset-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm flex flex-col justify-center items-center rounded-b-[2rem] animate-in fade-in zoom-in-95 duration-300">
-              <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-50/50 dark:ring-emerald-500/5">
-                <CheckCircle2 className="w-10 h-10 text-emerald-500" />
-              </div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Autentikasi Berhasil</h2>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400 animate-pulse">Menyiapkan workspace...</p>
-            </div>
-          )}
-
-          <form onSubmit={handleAuthentication} className="space-y-6" autoComplete="off" aria-busy={checkingSession || isAuthing}>
+          <form onSubmit={handleAuthentication} className="space-y-6" autoComplete="off" aria-busy={isAuthing}>
             {state.errorMessage && (
               <div
                 className={`flex items-start gap-3 p-4 rounded-xl text-sm font-medium shadow-sm border animate-in fade-in slide-in-from-top-2 duration-300 ${
@@ -467,7 +455,7 @@ export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode, check
                     id="login-username"
                     type="text"
                     value={state.username}
-                    disabled={checkingSession || isLocked || isAuthing}
+                    disabled={isLocked || isAuthing}
                     onChange={event => dispatch({ type: 'SET_USERNAME', payload: event.target.value.replace(/\s/g, '') })}
                     className="block w-full pl-11 pr-4 py-3.5 bg-white/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all disabled:opacity-50"
                     placeholder="Masukkan ID Anda"
@@ -498,7 +486,7 @@ export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode, check
                     id="login-password"
                     type={showPin ? 'text' : 'password'}
                     value={state.pin}
-                    disabled={checkingSession || isLocked || isAuthing}
+                    disabled={isLocked || isAuthing}
                     onChange={event => dispatch({ type: 'SET_PIN', payload: event.target.value.replace(/\s/g, '') })}
                     className="block w-full pl-11 pr-12 py-3.5 bg-white/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl text-base font-mono tracking-widest text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all disabled:opacity-50"
                     placeholder={isLocked ? 'TERKUNCI' : '••••••••'}
@@ -508,7 +496,7 @@ export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode, check
                     <button
                       type="button"
                       onClick={() => setShowPin(!showPin)}
-                      disabled={checkingSession || isLocked || isAuthing}
+                      disabled={isLocked || isAuthing}
                       className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-300 dark:hover:bg-slate-800 transition-all focus:outline-none"
                       aria-label={showPin ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
                       aria-pressed={showPin}
@@ -524,17 +512,17 @@ export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode, check
               type="submit"
               disabled={!canSubmit}
               className={`relative w-full flex justify-center items-center gap-2 py-3.5 px-6 rounded-xl text-sm font-bold text-white transition-all duration-300 overflow-hidden ${
-                isAuthing || checkingSession
+                isAuthing
                   ? 'bg-indigo-500 cursor-wait'
                   : isLocked || !canSubmit
                     ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
                     : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 shadow-[0_8px_20px_rgb(79,70,229,0.25)] hover:-translate-y-0.5 active:translate-y-0 group'
               }`}
             >
-                {checkingSession || isAuthing ? (
+                {isAuthing ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>{checkingSession ? 'Memulihkan sesi…' : 'Memverifikasi...'}</span>
+                    <span>Memverifikasi...</span>
                 </>
               ) : isLocked ? (
                 <>

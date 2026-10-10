@@ -1674,33 +1674,24 @@ cek('isAuthenticated dimulai false, bukan dari storage',
   'isAuthenticated dari storage = render aplikasi dengan role yang belum diverifikasi');
 cek('tidak ada setIsAuthenticated yang membaca storage',
   !/setIsAuthenticated\(\s*\(\)\s*=>\s*!!loadSession/.test(appSrc));
-cek('LoginScreen tetap tampil selama verifikasi sesi',
-  /cekingSesi \|\| \(!isAuthenticated && !currentUser\) \?/.test(appSrc) &&
-    /checkingSession=\{cekingSesi\}/.test(appSrc) &&
+cek('LoginScreen tidak tampil sampai verifikasi sesi selesai',
+  appSrc.indexOf('cekingSesi ?') >= 0 &&
+    appSrc.indexOf('cekingSesi ?') < appSrc.indexOf('!isAuthenticated && !currentUser ?') &&
     /if \(cekingSesi\) return;\s*setIsAuthenticated\(currentUser !== null\)/.test(appSrc),
   'akses workspace baru dibuka setelah server memverifikasi sesi');
-cek('login dikunci dan menampilkan progress selama pemulihan sesi',
-  /checkingSession \|\| authInFlight\.current/.test(loginSrc) &&
-    /disabled=\{checkingSession \|\| isLocked \|\| isAuthing\}/.test(loginSrc) &&
-    /Memulihkan sesi/.test(loginSrc));
-cek('tidak ada layar khusus bertuliskan Memeriksa sesi',
-  !/LayarPemeriksaanSesi|Memeriksa sesi/.test(appSrc));
+cek('verifikasi sesi tidak menampilkan login atau loading workspace',
+  /cekingSesi \? \(/.test(appSrc) &&
+    /bg-slate-50 dark:bg-\[#0B1120\]/.test(appSrc) &&
+    !/Memulihkan sesi|Menyiapkan workspace|Memeriksa sesi/.test(appSrc + loginSrc));
+cek('login manual langsung membuka aplikasi tanpa overlay workspace',
+  /dispatch\(\{ type: 'AUTH_SUCCESS' \}\);\s*onLogin\(\)/.test(loginSrc) &&
+    !/Menyiapkan workspace/.test(loginSrc));
 cek('pemulihan token menyiapkan auto-login pusat sebelum workspace dibuka',
   /setServerAutoLoginPending\(!sudahKeluarServer\(hasil\.akun\.username\)\)/.test(ctxSrc));
-cek('fallback langganan memakai shell workspace generik',
-  /fallbackLoading=\{fallbackWorkspace\}/.test(appSrc) &&
-    /fallbackLoading\) return <>\{fallbackLoading\}<\/>/.test(gateSrc));
-cek('fallback tidak menyebut pemeriksaan sesi',
-  /Menyiapkan workspace/.test(appSrc) && !/Memeriksa sesi/.test(appSrc));
-cek('loader meniru shell workspace di desktop dan mobile',
-    /hidden h-full w-64[\s\S]{0,100}lg:flex/.test(appSrc) &&
-      /lg:hidden/.test(appSrc) &&
-      /poni-konten min-h-0 flex-1 overflow-hidden/.test(appSrc) &&
-      /APP_LOGO/.test(appSrc));
-cek('kerangka loader tidak berkedip dan ukuran nyaman pada layar kecil',
-    /\[\&_\*\]:!animate-none/.test(appSrc) &&
-      /w-\[min\(22rem,100%\)\]/.test(appSrc) &&
-      /safe-area-inset-left/.test(appSrc));
+cek('gerbang menyembunyikan UI hanya selama pemeriksaan data awal',
+  /if \(loading && \(!ringkasan \|\| ringkasan\.username !== username \|\| !pengaturan\)\) return null/.test(gateSrc));
+cek('refresh gerbang tidak menyembunyikan workspace yang sudah siap',
+  /loading && \(!ringkasan \|\| ringkasan\.username !== username \|\| !pengaturan\)/.test(gateSrc));
 cek('shell mengunci dokumen sebelum first paint untuk mencegah scrollbar ganda',
   /React\.useLayoutEffect\(\(\) => \{\s*if \(adaSesiSaatMuat \|\| isAuthenticated\) \{\s*document\.documentElement\.classList\.add\('app-shell-active'\)/.test(appSrc));
 cek('request panel-auth punya timeout dan AbortSignal',

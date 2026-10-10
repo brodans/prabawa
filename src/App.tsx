@@ -12,7 +12,6 @@ import {
   History,
   Home,
   KeyRound,
-  LoaderCircle,
   LogOut,
   Menu,
   Moon,
@@ -1451,87 +1450,6 @@ function MainApp({ onLogout, isDarkMode, toggleDarkMode }: { onLogout: () => voi
 //  Root
 // ═══════════════════════════════════════════════════════════════════════
 
-function LayarMenyiapkanWorkspace({ pageId }: { pageId: string }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex h-dvh w-full overflow-hidden bg-slate-50 text-slate-800 dark:bg-[#0B1120] dark:text-slate-200"
-      aria-busy="true"
-    >
-      <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-slate-800/50 bg-[#0F172A] lg:flex dark:bg-[#070B14]">
-        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-800/60 px-5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-500 p-0.5 shadow-lg shadow-blue-500/20">
-            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[0.7rem] bg-[#0F172A] p-1 dark:bg-[#070B14]">
-              <img src={APP_LOGO} alt="" className="h-full w-full object-contain" />
-            </div>
-          </div>
-          <span className="truncate text-lg font-bold tracking-tight text-white">{APP_NAME}</span>
-        </div>
-        <nav aria-hidden="true" className="flex-1 space-y-5 overflow-y-auto px-3.5 py-5 custom-scrollbar">
-          {GROUP_ORDER.map(group => (
-            <div key={group} className="space-y-1.5">
-              <div className="mb-2 h-3 w-24 rounded bg-slate-700/60" />
-              {PAGES.filter(page => page.group === group).map(page => (
-                <div
-                  key={page.id}
-                  className={`flex h-11 items-center gap-3.5 rounded-xl px-3.5 ${
-                    page.id === pageId ? 'bg-blue-600/10' : ''
-                  }`}
-                >
-                  <Skeleton className={`h-5 w-5 shrink-0 rounded ${page.id === pageId ? 'bg-blue-500/30' : 'bg-slate-700/60'}`} />
-                  <Skeleton className="h-3 w-28 max-w-[70%] bg-slate-700/60" />
-                </div>
-              ))}
-            </div>
-          ))}
-        </nav>
-        <div className="mt-auto shrink-0 space-y-2.5 border-t border-slate-800/60 bg-gradient-to-b from-transparent to-slate-900/50 p-3.5">
-          <div className="min-h-[58px] rounded-xl border border-slate-700/50 bg-[#1E293B]/50 p-3">
-            <Skeleton className="h-3 w-2/3 bg-slate-700/70" />
-            <Skeleton className="mt-2 h-3 w-1/2 bg-slate-700/70" />
-          </div>
-          <Skeleton className="h-11 w-full rounded-xl bg-slate-800/60" />
-        </div>
-      </aside>
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-slate-200/80 bg-slate-100/80 px-4 shadow-sm dark:border-slate-800/80 dark:bg-[#0B1120]/80 sm:px-6">
-          <div className="flex min-w-0 flex-1 items-center gap-3" aria-hidden="true">
-            <Skeleton className="h-9 w-9 shrink-0 rounded-xl lg:hidden" />
-            <div className="min-w-0 space-y-1">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-3 w-40" />
-            </div>
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-3 sm:gap-4" aria-hidden="true">
-            <Skeleton className="hidden h-8 w-24 rounded-full md:block" />
-            <Skeleton className="h-9 w-9 rounded-full" />
-            <Skeleton className="h-9 w-9 rounded-full" />
-          </div>
-        </header>
-        <main className="poni-konten min-h-0 flex-1 overflow-hidden">
-          <div className="[&_*]:!animate-none">
-            <PageLoading pageId={pageId} />
-          </div>
-        </main>
-      </div>
-      <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/10 px-4 py-6 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))] dark:bg-slate-950/25">
-        <div
-          className="flex w-[min(22rem,100%)] items-center gap-4 rounded-2xl border border-white/80 bg-white/95 p-4 shadow-[0_20px_70px_-24px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 dark:border-slate-700/80 dark:bg-slate-900/95 dark:ring-white/5 sm:gap-4 sm:p-5"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
-            <span className="absolute inset-0 rounded-2xl ring-1 ring-indigo-200/80 dark:ring-indigo-400/20" />
-            <LoaderCircle className="h-6 w-6 animate-spin" strokeWidth={2.4} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Menyiapkan workspace</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   return (
@@ -1549,7 +1467,6 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
     currentUser,
     setCurrentUser,
     adaSesiSaatMuat,
-    activePage,
   } = useAppContext();
   /*
    * `isAuthenticated` TIDAK lagi berarti "ada JSON di sessionStorage".
@@ -1565,9 +1482,9 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
    * di provider menyatakan `true` sampai server memverifikasi token itu dan
    * mengembalikan peran yang dibaca ulang dari dokumen.
    *
-  * Selama `cekingSesi`, layar login tetap terlihat dan form dikunci. Setelah
-  * verifikasi berhasil, akun tampil; bila gagal, form login kembali aktif.
-  * `MainApp` tidak pernah dirender dengan hak yang belum diverifikasi.
+    * Selama `cekingSesi`, tampilan disembunyikan tanpa layar login atau loader.
+    * Setelah verifikasi, akun tampil; bila gagal, layar login kembali aktif.
+    * `MainApp` tidak pernah dirender dengan hak yang belum diverifikasi.
    */
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   React.useLayoutEffect(() => {
@@ -1577,8 +1494,6 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
     }
     document.documentElement.classList.remove('app-shell-active');
   }, [adaSesiSaatMuat, isAuthenticated]);
-  const fallbackWorkspace = <LayarMenyiapkanWorkspace pageId={activePage} />;
-
   React.useEffect(() => {
     if (cekingSesi) return;
     setIsAuthenticated(currentUser !== null);
@@ -1701,13 +1616,10 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
 
   return (
     <>
-      {/*
-          `cekingSesi` diperiksa sebelum aplikasi dibuka, tanpa mempercayai
-          role dari storage. Saat memulihkan sesi, placeholder halaman terakhir
-          dipertahankan tanpa interaksi; pada login awal, status pemeriksaan
-          tampil di atas viewport yang tetap terisi.
-      */}
-      {cekingSesi || (!isAuthenticated && !currentUser) ? (
+        {/* Workspace baru dirender setelah server mengonfirmasi sesi tersimpan. */}
+      {cekingSesi ? (
+        <div className="fixed inset-0 bg-slate-50 dark:bg-[#0B1120]" aria-hidden="true" />
+      ) : !isAuthenticated && !currentUser ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -1718,7 +1630,6 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
             onLogin={handleLogin}
             isDarkMode={isDarkMode}
             toggleDarkMode={toggleDarkMode}
-            checkingSession={cekingSesi}
           />
         </motion.div>
       ) : (
@@ -1737,7 +1648,6 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
           */}
           <GerbangLangganan
             onKeluar={handleLogout}
-            fallbackLoading={fallbackWorkspace}
           >
             <MainApp onLogout={handleLogout} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
           </GerbangLangganan>

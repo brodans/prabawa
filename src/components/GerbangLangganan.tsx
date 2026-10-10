@@ -165,11 +165,9 @@ export function formatHitungMundur(detik: number): string {
 export default function GerbangLangganan({
   children,
   onKeluar,
-  fallbackLoading,
 }: {
   children: ReactNode;
   onKeluar: () => void;
-  fallbackLoading?: ReactNode;
 }) {
   const { currentUser, pegawai } = useAppContext();
   const toast = useToast();
@@ -408,19 +406,7 @@ export default function GerbangLangganan({
 
   const paket = useMemo(() => (pengaturan ? paketEfektif(pengaturan) : []), [pengaturan]);
 
-  if (loading) {
-    if (fallbackLoading) return <>{fallbackLoading}</>;
-    return (
-      <div
-        className="fixed inset-0 flex flex-col items-center justify-center gap-3 overflow-hidden bg-slate-50 dark:bg-[#0a0f1c]"
-        role="status"
-        aria-live="polite"
-      >
-        <div className="w-8 h-8 border-[2.5px] border-slate-200 dark:border-slate-700 border-t-indigo-500 dark:border-t-indigo-400 rounded-full animate-spin" />
-        <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Memeriksa sesi…</p>
-      </div>
-    );
-  }
+  if (loading && (!ringkasan || ringkasan.username !== username || !pengaturan)) return null;
 
   /*
    * ⚠️ Tanpa sumber kebenaran, gerbang **dikunci permanen** — jadi dilewati.
