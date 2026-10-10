@@ -63,6 +63,42 @@ const CHECK_TYPES = [
 /** Opsi `type_ijin` ketika absensi dikirim bersama pengajuan izin. */
 const TIPE_IJIN_OPTIONS = Object.entries(TIPE_IJIN_LABEL);
 
+/**
+ * Kalimat saat data Presensi tidak berhasil dimuat karena server pusat.
+ *
+ * Hulu sesekali membalas badan kosong atau halaman galat HTML — keadaan itu
+ * berulang dan mudah terlihat di `getlokasiabsen`. Pada keadaan itu proxy
+ * mengirim pesan singkat yang, dibaca sekilas, gampang disalahartikan sebagai
+ * masalah akun. Kalimat di sini menegaskan asalnya (server pusat) lebih dulu,
+ * lalu menyarankan mencoba lagi — supaya jelas tidak ada yang perlu diperbaiki
+ * di akun atau perangkat.
+ */
+const PESAN_SERVER_PUSAT =
+  'Server pusat sedang tidak melayani. Data belum berhasil dimuat — ' +
+  'ini gangguan sesaat di sisi server pusat, bukan pada akun atau perangkat ini. ' +
+  'Coba lagi beberapa saat lagi.';
+
+/**
+ * Apakah galat berasal dari server pusat, bukan dari akun atau perangkat.
+ *
+ * Dipisah dari pesannya supaya batasnya terbaca: koneksi perangkat terputus
+ * (`Koneksi gagal: …`) dan origin ditolak sengaja **tidak** masuk ke sini —
+ * penyebab dan saran lanjutannya berbeda, jadi pesannya juga jangan disamakan.
+ */
+function galatServerPusat(err: unknown): boolean {
+  const e = err as { message?: string; huluStatus?: number } | undefined;
+  if (!e) return false;
+  if (typeof e.huluStatus === 'number' && e.huluStatus >= 502) return true;
+  return /server pusat/i.test(e.message ?? '');
+}
+
+/** Pesan galat muat data Presensi yang siap ditampilkan. */
+function pesanGagalMuat(err: unknown): string {
+  if (galatServerPusat(err)) return PESAN_SERVER_PUSAT;
+  const pesan = (err as { message?: string } | undefined)?.message?.trim();
+  return pesan || 'Gagal memuat data presensi.';
+}
+
 export default function Presensi() {
   const { pegawai, tabPermissions, setActivePage, currentUser } = useAppContext();
 
@@ -124,8 +160,8 @@ export default function Presensi() {
       setWorkCodes(codes);
       setLocations(lokasis);
       setHistory(riwayat);
-    } catch (err: any) {
-      setError(err?.message ?? 'Gagal memuat data presensi.');
+    } catch (err) {
+      setError(pesanGagalMuat(err));
     } finally {
       setLoading(false);
     }

@@ -1092,9 +1092,8 @@ export function galatHulu(
       // Klien memakai status ini untuk memutuskan apakah perlu mencoba lagi,
       // jadi 503 (hulu) dipetakan ke 503 (proxy) — bukan ke 502.
       error:
-        'Server pusat sedang tidak melayani. Data belum berhasil ' +
-        'dimuat — ini gangguan sesaat di sisi server pusat, bukan pada ' +
-        'akun atau perangkat ini. Coba lagi beberapa saat lagi.',
+        'Server pusat sedang tidak melayani. Ini gangguan sesaat — ' +
+        'coba lagi beberapa saat lagi.',
       huluStatus: status,
       huluKosong: true,
       cuplikan: '',
