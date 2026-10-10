@@ -36,7 +36,7 @@ import IkonWa from './ui/IkonWa';
 export const TUNGGU_VERIFIKASI_DETIK = 300;
 
 /** Berapa sering status langganan dicek ulang selama masa tunggu. */
-const JEDA_CEK_VERIFIKASI_MS = 3000;
+const JEDA_CEK_VERIFIKASI_MS = 5000;
 
 /**
  * `sessionStorage` hanya ada di peramban.
@@ -277,6 +277,20 @@ export default function GerbangLangganan({
     }
   }, [username, role, toast]);
 
+  const muatStatusLangganan = useCallback(async () => {
+    if (!username || !pengaturan) return;
+    const seq = ++muatanSeq.current;
+    try {
+      const { loadLangganan } = await import('../lib/langgananFirestore');
+      const doc = await loadLangganan(username, true);
+      if (seq !== muatanSeq.current) return;
+      setRingkasan(ringkasanLangganan(username, doc, paketEfektif(pengaturan), role));
+    } catch (err) {
+      if (seq !== muatanSeq.current) return;
+      console.warn('[langganan] Gagal memeriksa status pembayaran:', err);
+    }
+  }, [username, pengaturan, role]);
+
   useEffect(() => {
     setLoading(true);
     void muat();
@@ -332,10 +346,10 @@ export default function GerbangLangganan({
   useEffect(() => {
     if (!tunggu) return;
     const id = setInterval(() => {
-      void muat();
+      void muatStatusLangganan();
     }, JEDA_CEK_VERIFIKASI_MS);
     return () => clearInterval(id);
-  }, [tunggu, muat]);
+  }, [tunggu, muatStatusLangganan]);
 
   /**
    * Keluar dari masa tunggu begitu langganan benar-benar aktif.

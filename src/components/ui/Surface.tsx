@@ -542,8 +542,8 @@ export function Checkbox({
  * ## Kenapa komponen, bukan `<Input type="password">` + tombol seadanya
  *
  * Tombolnya sudah ditulis ulang di lima tempat (Beranda, LoginScreen,
- * SettingAkunModal ×2, ProfilServerModal, KredensialServerModal,
- * ManajemenAkun) dan setiap tulisan sedikit berbeda: ukuran `p-2` atau
+ * SettingAkunModal ×2, ProfilServerModal, ManajemenAkun) dan setiap tulisan
+ * sedikit berbeda: ukuran `p-2` atau
  * `p-1.5`, `right-1` atau `right-3`, satu yang lupa `aria-label`.
  *
  * Yang paling penting bukan keseragaman, tapi **penyejajaran**: di sebagian

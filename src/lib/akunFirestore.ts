@@ -417,7 +417,7 @@ export async function autoLoginServerPusat(
 /**
  * Metadata kredensial server pusat — **tanpa passwordnya**.
  *
- * Ini yang dipakai tiga tempat di UI (Beranda, Langganan, KredensialServerModal).
+ * Ini yang dipakai di UI (Beranda, Langganan, dan ManajemenAkun).
  * Semula ekspornya mengembalikan `passwordEncrypted` yang bisa didekripsi di
  * peramban, karena kuncinya ada di bundle. Sekarang dokumennya hanya dibaca
  * server dan field password tidak pernah dikirim keluar — pemanggil hanya perlu
@@ -470,9 +470,8 @@ export async function kredensialWebSendiri(): Promise<KredensialWebSendiri | nul
  * Metadata kredensial **seluruh akun** — hanya untuk admin.
  *
  * Menggantikan pemanggilan `ringkasanKredensial()` dalam `loop` di
- * `ManajemenAkun`. Bentuk per-akun tetap ada untuk dialog satu akun
- * (`KredensialServerModal`) dan form admin; bentuk batch ini khusus tabel
- * yang menampilkan semua akun sekaligus.
+ * `ManajemenAkun`. Bentuk per-akun tetap ada untuk form admin; bentuk batch
+ * ini khusus tabel yang menampilkan semua akun sekaligus.
  *
  * Akun tanpa dokumen kredensial **tidak muncul** di hasil — persis seperti
  * `ringkasanKredensial()` yang mengembalikan `null` untuk mereka.

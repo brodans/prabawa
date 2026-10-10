@@ -24,7 +24,6 @@ import {
   DataTable,
   EmptyState,
   Field,
-  PageHeader,
   SkeletonTable,
   StatTile,
   type Column,
@@ -276,12 +275,6 @@ export default function Laporan() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Laporan"
-        subtitle={`${activeReport.label} · ${dateStart} s/d ${dateEnd}`}
-        icon={<FileText className="w-5 h-5" />}
-      />
-
       {error && <Alert tone="rose">{error}</Alert>}
 
       {/* Jenis laporan dan rentang tanggal berbagi lebar yang seimbang. */}

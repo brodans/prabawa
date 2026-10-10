@@ -248,7 +248,15 @@ cek('kunci diverifikasi milik akun yang sama', /info\.username !== username/.tes
 cek('hitung mundur dihitung dari tenggat, bukan dikurangi', /berakhirAt - Date\.now\(\)/.test(gateKode));
 cek('batas 5 menit', /TUNGGU_VERIFIKASI_DETIK = 300/.test(gateSrc));
 cek('lalu dihitung ulang tiap detik', /}, 1000\);/.test(gateKode));
-cek('status dicek ulang selama menunggu', /JEDA_CEK_VERIFIKASI_MS/.test(gateKode));
+cek('status dicek ulang selama menunggu dengan interval hemat',
+  /JEDA_CEK_VERIFIKASI_MS = 5000/.test(gateSrc) &&
+    /setInterval\(\(\) => \{\s*void muatStatusLangganan\(\);/.test(gateSrc));
+cek('polling status hanya membaca langganan dan bukan seluruh billing/tagihan',
+  /const muatStatusLangganan = useCallback[\s\S]*?loadLangganan\(username, true\)[\s\S]*?setRingkasan/.test(gateSrc) &&
+    !/setInterval\(\(\) => \{\s*void muat\(\);/.test(gateSrc));
+cek('polling meneruskan galat jaringan dan mempertahankan status terakhir',
+  /teruskanGalatJaringan = false/.test(baca('../src/lib/langgananFirestore.ts')) &&
+    /teruskanGalatJaringan\s*\?\s*await panelBatal/.test(baca('../src/lib/langgananFirestore.ts')));
 cek('keluar begitu langganan aktif', /if \(!bolehMasuk\(ringkasan, role\)\) return;\s*hapusTungguVerifikasi\(\);\s*setTunggu\(null\);/.test(gateKode));
 cek('kehabisan waktu mengembalikan ke pembayaran', /setBayar\(true\);\s*toast\.info\(/.test(gateKode));
 cek('layar tunggu dirender sebelum cek boleh-masuk', gateKode.indexOf('<LayarTungguVerifikasi') < gateKode.indexOf('if (bolehMasuk(ringkasan, role)) {\n    return <>{children}</>;'));
@@ -491,14 +499,11 @@ console.log('\n=== Sisa: muatan yang tumpang-tindih dan state yang salah tombol'
     !/^\s*\}, \[ringkasan\]\);/m.test(modal),
     'ini yang membuatnya terhapus tiap "Cek lagi"');
 
-  const kred = baca('../src/components/KredensialServerModal.tsx');
-  cek('kredensial server punya penjaga double-submit di luar state',
-    /const sedangKerja = useRef\(false\)/.test(kred) &&
-      [...kred.matchAll(/if \(sedangKerja\.current\) return;/g)].length >= 2,
-    '`disabled={bekerja}` baru berlaku pada render berikutnya, jadi dua klik cepat tetap terkirim');
-  cek('tombol Batal tidak bisa menutup modal selagi operasi berjalan',
-    /onClick=\{onClose\}\s*\n\s*disabled=\{bekerja\}/.test(kred),
-    'menutup di tengah operasi membiarkan penulisan selesai pada komponen yang sudah tidak terlihat');
+  const kelolaAkun = baca('../src/pages/ManajemenAkun.tsx');
+  cek('kredensial server dikelola dari form akun admin',
+    /Password Server/.test(kelolaAkun) && /saveServerCredential\(target/.test(kelolaAkun));
+  cek('penghapusan kredensial menyegarkan ringkasan akun',
+    /await hapusServerCredential\(akun!\.username\);\s*onDataBerubah\(\);/.test(kelolaAkun));
 }
 
 console.log(fail === 0 ? '\nSEMUA LULUS' : `\n${fail} KEGAGALAN`);

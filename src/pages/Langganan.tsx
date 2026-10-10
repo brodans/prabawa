@@ -105,6 +105,32 @@ const METODE_ICON: Record<MetodePembayaran, typeof QrCode> = {
   transfer: Landmark,
 };
 
+const CACHE_ADMIN_MS = 30_000;
+
+interface CacheLanggananAdmin {
+  username: string;
+  cachedAt: number;
+  tagihan: DokumenTagihan[];
+  pengaturan: PengaturanBilling;
+}
+
+let cacheLanggananAdmin: CacheLanggananAdmin | null = null;
+
+function cacheAdminTerbaru(username: string): CacheLanggananAdmin | null {
+  if (
+    !cacheLanggananAdmin ||
+    cacheLanggananAdmin.username !== username ||
+    Date.now() - cacheLanggananAdmin.cachedAt >= CACHE_ADMIN_MS
+  ) {
+    return null;
+  }
+  return cacheLanggananAdmin;
+}
+
+function invalidasiCacheAdmin(): void {
+  cacheLanggananAdmin = null;
+}
+
 export type LanggananSection = 'pembayaran' | 'metode';
 
 export default function Langganan({ section }: { section: LanggananSection }) {
@@ -141,23 +167,29 @@ export default function Langganan({ section }: { section: LanggananSection }) {
     );
   }
 
-  return <LanggananInner toast={toast} section={section} />;
+  return <LanggananInner toast={toast} section={section} username={currentUser.username} />;
 }
 
 /** Isi halaman — dipisah supaya aturan admin dievaluasi sekali di awal render. */
 function LanggananInner({
   toast,
   section,
+  username,
 }: {
   toast: ReturnType<typeof useToast>;
   section: LanggananSection;
+  username: string;
 }) {
-  const [loading, setLoading] = useState(true);
+  const cacheAwal = cacheAdminTerbaru(username);
+  const [loading, setLoading] = useState(() => cacheAwal === null);
   /** Muat ulang diam-diam setelah data pertama sampai — lihat `muat()`. */
   const [menyegarkan, setMenyegarkan] = useState(false);
-  const sudahPernahMuat = useRef(false);
-  const [tagihan, setTagihan] = useState<DokumenTagihan[]>([]);
-  const [pengaturan, setPengaturan] = useState<PengaturanBilling>(BILLING_DEFAULT);
+  const sudahPernahMuat = useRef(cacheAwal !== null);
+  const [tagihan, setTagihan] = useState<DokumenTagihan[]>(() => cacheAwal?.tagihan ?? []);
+  const [pengaturan, setPengaturan] = useState<PengaturanBilling>(
+    () => cacheAwal?.pengaturan ?? BILLING_DEFAULT
+  );
+  const muatanRef = useRef<Promise<void> | null>(null);
 
   // ── Dialog ────────────────────────────────────────────────────────
   const [dialogRekening, setDialogRekening] = useState<RekeningBank | null>(null);
@@ -187,28 +219,59 @@ function LanggananInner({
    * diperbarui di tempat dan tabel tetap di DOM — tidak ada yang bergeser.
    * `menyegarkan` tetap memberi tanda bahwa ada yang sedang jalan.
    */
-  const muat = useCallback(async () => {
+  const muat = useCallback(async (paksa = false) => {
+    const cache = cacheAdminTerbaru(username);
+    if (!paksa && cache) {
+      setTagihan(cache.tagihan);
+      setPengaturan(cache.pengaturan);
+      sudahPernahMuat.current = true;
+      setLoading(false);
+      return;
+    }
+    if (muatanRef.current) return muatanRef.current;
     if (!sudahPernahMuat.current) setLoading(true);
     else setMenyegarkan(true);
-    try {
+    const muatan = (async () => {
+      try {
       const [semuaTagihan, setting] = await Promise.all([
         loadSemuaTagihan(),
         loadPengaturanBilling(),
       ]);
       setTagihan(semuaTagihan);
       setPengaturan(setting);
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Gagal memuat data langganan.');
+      cacheLanggananAdmin = { username, cachedAt: Date.now(), tagihan: semuaTagihan, pengaturan: setting };
+      } catch (err: any) {
+        toast.error(err?.message ?? 'Gagal memuat data langganan.');
+      } finally {
+        sudahPernahMuat.current = true;
+        setLoading(false);
+        setMenyegarkan(false);
+      }
+    })();
+    muatanRef.current = muatan;
+    try {
+      await muatan;
     } finally {
-      sudahPernahMuat.current = true;
-      setLoading(false);
-      setMenyegarkan(false);
+      if (muatanRef.current === muatan) muatanRef.current = null;
     }
-  }, [toast]);
+  }, [toast, username]);
 
   useEffect(() => {
     void muat();
   }, [muat]);
+
+  useEffect(() => {
+    const segarkanJikaPerlu = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!cacheAdminTerbaru(username)) void muat();
+    };
+    window.addEventListener('focus', segarkanJikaPerlu);
+    document.addEventListener('visibilitychange', segarkanJikaPerlu);
+    return () => {
+      window.removeEventListener('focus', segarkanJikaPerlu);
+      document.removeEventListener('visibilitychange', segarkanJikaPerlu);
+    };
+  }, [muat, username]);
 
   const paket = useMemo(() => paketEfektif(pengaturan), [pengaturan]);
 
@@ -221,17 +284,18 @@ function LanggananInner({
    * berpindah tempat, jadi mata admin kehilangan targetnya di detik
    * terakhir. Memperbarui satu baris di state menjaga tabel diam.
    *
-   * `muat()` tetap dipanggil di latar (`void muat()`) supaya angka statistik
-   * dan total pendapatan ikut benar. Sifatnya "mengejar", bukan "menunggu".
+  * Statistik dihitung dari state `tagihan` yang sama, jadi perubahan lokal
+  * sudah memperbarui tabel dan angkanya. Tidak perlu membaca ulang seluruh
+  * koleksi hanya untuk mengonfirmasi perubahan yang baru saja berhasil.
    */
   const aksiHapusTagihan = async (orderId: string) => {
     setMenghapusTagihanId(orderId);
     try {
       await hapusTagihan(orderId);
+      invalidasiCacheAdmin();
       setTagihan(prev => prev.filter(item => item.orderId !== orderId));
       setKonfirmasiHapus(null);
       toast.success('Tagihan dihapus.');
-      void muat();
     } catch (err: any) {
       toast.error(err?.message ?? 'Gagal menghapus tagihan.');
     } finally {
@@ -243,10 +307,10 @@ function LanggananInner({
     setMenghapusSemua(true);
     try {
       const jumlah = await hapusSemuaTagihan();
+      invalidasiCacheAdmin();
       setTagihan([]);
       setKonfirmasiHapusSemua(false);
       toast.success(jumlah > 0 ? `${jumlah} tagihan dihapus.` : 'Tidak ada tagihan untuk dihapus.');
-      void muat();
     } catch (err: any) {
       toast.error(err?.message ?? 'Gagal menghapus seluruh riwayat pembayaran.');
     } finally {
@@ -257,11 +321,11 @@ function LanggananInner({
   const aksiSetStatusTagihan = async (orderId: string, status: 'lunas' | 'batal') => {
     try {
       await setStatusTagihan(orderId, status);
+      invalidasiCacheAdmin();
       setTagihan(prev =>
         prev.map(item => (item.orderId === orderId ? { ...item, status } : item))
       );
       toast.success(status === 'lunas' ? 'Tagihan ditandai lunas.' : 'Tagihan dibatalkan.');
-      void muat();
     } catch (err: any) {
       toast.error(err?.message ?? 'Gagal mengubah status tagihan.');
     }
@@ -468,7 +532,7 @@ function LanggananInner({
                 <ActionButton
                   size="sm"
                   variant="ghost"
-                  onClick={() => void muat()}
+                  onClick={() => void muat(true)}
                   loading={menyegarkan || loading}
                   icon={<RefreshCw className="h-4 w-4" />}
                 >
@@ -497,13 +561,13 @@ function LanggananInner({
       ) : (
         <PengaturanPaket
           pengaturan={pengaturan}
-          onMuatUlang={() => void muat()}
+          onMuatUlang={() => void muat(true)}
           menyegarkan={menyegarkan || loading}
           onSimpan={async nilai => {
             await savePengaturanBilling(nilai);
+            invalidasiCacheAdmin();
             setPengaturan(nilai);
             toast.success('Pengaturan pembayaran disimpan.');
-            await muat();
           }}
           onEditRekening={rek => setDialogRekening(rek)}
         />
@@ -519,6 +583,7 @@ function LanggananInner({
           else adaRekening.push(nilai);
           const baru = { ...pengaturan, rekening: adaRekening };
           await savePengaturanBilling(baru);
+          invalidasiCacheAdmin();
           setPengaturan(baru);
           setDialogRekening(null);
           toast.success('Rekening disimpan.');

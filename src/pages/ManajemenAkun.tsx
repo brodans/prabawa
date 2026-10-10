@@ -100,6 +100,33 @@ interface BarisAkun {
 
 /**rottle: `null` = semua, angka = hanya indeks halaman itu. */
 const UKURAN_HALAMAN = 25;
+const CACHE_MANAJEMEN_MS = 30_000;
+
+interface CacheManajemenAkun {
+  username: string;
+  cachedAt: number;
+  akun: UserAccount[];
+  langganan: Map<string, DokumenLangganan>;
+  kredensial: Map<string, RingkasanKredensial>;
+  galatKredensial: string | null;
+}
+
+let cacheManajemenAkun: CacheManajemenAkun | null = null;
+
+function cacheManajemenTerbaru(username: string): CacheManajemenAkun | null {
+  if (
+    !cacheManajemenAkun ||
+    cacheManajemenAkun.username !== username ||
+    Date.now() - cacheManajemenAkun.cachedAt >= CACHE_MANAJEMEN_MS
+  ) {
+    return null;
+  }
+  return cacheManajemenAkun;
+}
+
+function invalidasiCacheManajemen(): void {
+  cacheManajemenAkun = null;
+}
 
 /**
  * Menu Manajemen Akun terpadu untuk daftar akun dan seluruh pengelolaan
@@ -223,13 +250,18 @@ type FilterPeran = 'semua' | UserRole;
 function KelolaAkun({ toast }: {
   toast: ReturnType<typeof useToast>;
 }) {
-  const [akun, setAkun] = useState<UserAccount[]>([]);
-  const [langgananMap, setLanggananMap] = useState<Map<string, DokumenLangganan>>(new Map());
+  const { currentUser } = useAppContext();
+  const usernameAdmin = currentUser?.username ?? '';
+  const cacheAwal = cacheManajemenTerbaru(usernameAdmin);
+  const [akun, setAkun] = useState<UserAccount[]>(() => cacheAwal?.akun ?? []);
+  const [langgananMap, setLanggananMap] = useState<Map<string, DokumenLangganan>>(
+    () => cacheAwal?.langganan ?? new Map()
+  );
   /** Metadata NIP + IMEI, dibaca sekali untuk semua akun. */
   const [kredensialMap, setKredensialMap] = useState<Map<string, RingkasanKredensial>>(
-    new Map()
+    () => cacheAwal?.kredensial ?? new Map()
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => cacheAwal === null);
   const [cari, setCari] = useState('');
   const [filterPeran, setFilterPeran] = useState<FilterPeran>('semua');
   // Bawaan `nama`: daftar ini dibaca manusia. `username` adalah kunci teknis
@@ -242,16 +274,31 @@ function KelolaAkun({ toast }: {
   const [dialogPerpanjang, setDialogPerpanjang] = useState<RingkasanLangganan | null>(null);
   const [dialogMasa, setDialogMasa] = useState<RingkasanLangganan | null>(null);
   const [dialogRiwayat, setDialogRiwayat] = useState<RingkasanLangganan | null>(null);
-  const sudahMuatRef = useRef(false);
+  const sudahMuatRef = useRef(cacheAwal !== null);
   /**
    * `null` = belum ada yang gagal. String = status kredensial **tidak diketahui**,
    * yang Very berbeda dari "belum diatur".
    */
-  const [galatKredensial, setGalatKredensial] = useState<string | null>(null);
+  const [galatKredensial, setGalatKredensial] = useState<string | null>(
+    () => cacheAwal?.galatKredensial ?? null
+  );
+  const muatanRef = useRef<Promise<void> | null>(null);
 
-  const muat = useCallback(async () => {
+  const muat = useCallback(async (paksa = false) => {
+    const cached = cacheManajemenTerbaru(usernameAdmin);
+    if (!paksa && cached) {
+      setAkun(cached.akun);
+      setLanggananMap(cached.langganan);
+      setKredensialMap(cached.kredensial);
+      setGalatKredensial(cached.galatKredensial);
+      sudahMuatRef.current = true;
+      setLoading(false);
+      return;
+    }
+    if (muatanRef.current) return muatanRef.current;
     if (!sudahMuatRef.current) setLoading(true);
-    try {
+    const muatan = (async () => {
+      try {
       /*
        * Tiga request, bukan 2 + N.
        *
@@ -290,22 +337,51 @@ function KelolaAkun({ toast }: {
             galat: err?.message ?? 'Gagal membaca status kredensial server.',
           })),
       ]);
+      const cacheBaru: CacheManajemenAkun = {
+        username: usernameAdmin,
+        cachedAt: Date.now(),
+        akun: daftar,
+        langganan: peta,
+        kredensial: kred.peta,
+        galatKredensial: kred.galat,
+      };
+      cacheManajemenAkun = cacheBaru;
       setAkun(daftar);
       setLanggananMap(peta);
       setKredensialMap(kred.peta);
       setGalatKredensial(kred.galat);
-    } catch (err: any) {
-      setGalatKredensial(null);
-      toast.error(err?.message ?? 'Gagal memuat daftar akun.');
+      } catch (err: any) {
+        setGalatKredensial(null);
+        toast.error(err?.message ?? 'Gagal memuat daftar akun.');
+      } finally {
+        sudahMuatRef.current = true;
+        setLoading(false);
+      }
+    })();
+    muatanRef.current = muatan;
+    try {
+      await muatan;
     } finally {
-      sudahMuatRef.current = true;
-      setLoading(false);
+      if (muatanRef.current === muatan) muatanRef.current = null;
     }
-  }, [toast]);
+  }, [toast, usernameAdmin]);
 
   useEffect(() => {
     void muat();
   }, [muat]);
+
+  useEffect(() => {
+    const segarkanJikaPerlu = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!cacheManajemenTerbaru(usernameAdmin)) void muat();
+    };
+    window.addEventListener('focus', segarkanJikaPerlu);
+    document.addEventListener('visibilitychange', segarkanJikaPerlu);
+    return () => {
+      window.removeEventListener('focus', segarkanJikaPerlu);
+      document.removeEventListener('visibilitychange', segarkanJikaPerlu);
+    };
+  }, [muat, usernameAdmin]);
 
   const aksiGratis = async () => {
     if (!dialogGratis) return;
@@ -321,7 +397,8 @@ function KelolaAkun({ toast }: {
           : `${dialogGratis.ringkasan.username} kembali wajib berlangganan.`
       );
       setDialogGratis(null);
-      await muat();
+      invalidasiCacheManajemen();
+      await muat(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Gagal mengubah status langganan.');
     }
@@ -335,7 +412,8 @@ function KelolaAkun({ toast }: {
         `Masa aktif ${dialogPerpanjang.username} diperpanjang sampai ${formatTanggalLokal(hasil.masaAkhir)}.`
       );
       setDialogPerpanjang(null);
-      await muat();
+      invalidasiCacheManajemen();
+      await muat(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Gagal memperpanjang masa aktif.');
     }
@@ -347,7 +425,8 @@ function KelolaAkun({ toast }: {
       await setMasaAkhir(dialogMasa.username, iso);
       toast.success(`Masa aktif ${dialogMasa.username} diperbarui.`);
       setDialogMasa(null);
-      await muat();
+      invalidasiCacheManajemen();
+      await muat(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Gagal mengubah masa aktif.');
     }
@@ -914,7 +993,7 @@ function KelolaAkun({ toast }: {
               variant="ghost"
               size="sm"
               block
-              onClick={() => void muat()}
+              onClick={() => void muat(true)}
               loading={loading}
               icon={<RefreshCw className="w-3.5 h-3.5" />}
               className="h-[42px]"
@@ -1030,10 +1109,15 @@ function KelolaAkun({ toast }: {
         <DialogAkun
           akun={dialog.akun}
           onClose={() => setDialog(null)}
+          onDataBerubah={() => {
+            invalidasiCacheManajemen();
+            void muat(true);
+          }}
           onSelesai={async pesan => {
             setDialog(null);
             toast.success(pesan);
-            await muat();
+            invalidasiCacheManajemen();
+            await muat(true);
           }}
         />
       )}
@@ -1087,7 +1171,8 @@ function KelolaAkun({ toast }: {
     try {
       await deleteUserAccount(target.username);
       toast.success(`Akun ${target.username} dihapus.`);
-      await muat();
+      invalidasiCacheManajemen();
+      await muat(true);
     } catch (err: any) {
       toast.error(err?.message ?? 'Gagal menghapus akun.');
     }
@@ -1130,10 +1215,12 @@ function AksiIkon({
 function DialogAkun({
   akun,
   onClose,
+  onDataBerubah,
   onSelesai,
 }: {
   akun: UserAccount | null;
   onClose: () => void;
+  onDataBerubah: () => void;
   onSelesai: (pesan: string) => Promise<void>;
 }) {
   const toast = useToast();
@@ -1476,6 +1563,7 @@ function DialogAkun({
               onClick={async () => {
                 try {
                   await hapusServerCredential(akun!.username);
+                  onDataBerubah();
                   setTersimpan(null);
                   setNipServer('');
                   setImei('');

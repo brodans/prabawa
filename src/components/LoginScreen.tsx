@@ -21,6 +21,7 @@ import { bacaStorage, tulisStorage, hapusStorage } from '../lib/storageAman';
 
 interface LoginScreenProps {
   onLogin: () => void;
+  onLoginStart: () => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
 }
@@ -109,7 +110,7 @@ function sanitizePassword(value: string): string {
 const formatCountdown = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
-export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode }: LoginScreenProps) {
+export default function LoginScreen({ onLogin, onLoginStart, isDarkMode, toggleDarkMode }: LoginScreenProps) {
   const { setCurrentUser } = useAppContext();
 
   const [state, dispatch] = useReducer(authReducer, {
@@ -198,6 +199,7 @@ export default function LoginScreen({ onLogin, isDarkMode, toggleDarkMode }: Log
     }
 
     authInFlight.current = true;
+    onLoginStart();
     dispatch({ type: 'START_AUTH' });
     const startedAt = Date.now();
 

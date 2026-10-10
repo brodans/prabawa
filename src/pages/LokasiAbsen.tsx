@@ -11,7 +11,6 @@ import {
   EmptyState,
   Field,
   Input,
-  PageHeader,
   Skeleton,
   SkeletonList,
 } from '../components/ui/Surface';
@@ -257,12 +256,6 @@ export default function LokasiAbsen() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Lokasi Absen"
-        subtitle="Pilih koordinat absen langsung di peta"
-        icon={<Building2 className="w-5 h-5" />}
-      />
-
       {error && <Alert tone="rose">{error}</Alert>}
 
       {/* ── Peta ─────────────────────────────────────────────────── */}

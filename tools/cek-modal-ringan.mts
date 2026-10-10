@@ -81,10 +81,23 @@ cek('skeleton Web mengikuti status sesi dan tidak menampilkan tab sebelum login'
   /webPresensiState\.sudahLogin[\s\S]*?login;/.test(appSrc));
 cek('skeleton Web mengikuti tab aktif setelah login',
   /switch \(webPresensiState\.tab\)[\s\S]*?case 'imei'[\s\S]*?case 'kehadiran'[\s\S]*?case 'detail'[\s\S]*?case 'perizinan'/.test(appSrc));
-cek('skeleton Perizinan mengikuti formulir dan tabel pengajuan',
-  /pageId === 'tabPerizinan'[\s\S]*?filterFields\(2\)[\s\S]*?SkeletonTable columns=\{6\} rows=\{5\}/.test(appSrc));
+const skeletonPerizinan = appSrc.match(/pageId === 'tabPerizinan'([\s\S]*?)pageId === 'tabLaporan'/)?.[1] ?? '';
+cek('skeleton Perizinan mengikuti tab formulir awal',
+  /grid grid-cols-2 gap-1[\s\S]*?filterFields\(2\)[\s\S]*?h-28 w-full rounded-xl[\s\S]*?h-10 w-36 rounded-xl/.test(skeletonPerizinan) &&
+    !/SkeletonTable/.test(skeletonPerizinan));
+cek('skeleton Laporan mengikuti tabel enam kolom tanpa badge duplikat',
+  /pageId === 'tabLaporan'[\s\S]*?SkeletonTable[\s\S]*?columns=\{6\}/.test(appSrc) &&
+    /stats\(4, \[0\]\)/.test(appSrc) &&
+    !/pageId === 'tabLaporan'[\s\S]*?Skeleton className="h-6 w-24 rounded-full"/.test(appSrc));
+cek('skeleton Presensi mengikuti kartu statistik dan seluruh kontrol formulir',
+  /pageId === 'tabPresensi' && pegawai[\s\S]*?stats\(4, \[2, 3\]\)[\s\S]*?grid grid-cols-1 gap-2 sm:grid-cols-3[\s\S]*?SkeletonList rows=\{4\}/.test(appSrc));
 cek('skeleton Lokasi Absen memuat peta, titik pengguna, dan titik server',
-  /pageId === 'tabLokasiAbsen'[\s\S]*?h-\[min\(480px,65vh\)\][\s\S]*?w-44[\s\S]*?SkeletonList rows=\{3\}/.test(appSrc));
+  /pageId === 'tabLokasiAbsen'[\s\S]*?h-\[480px\][\s\S]*?w-44[\s\S]*?SkeletonList rows=\{3\}/.test(appSrc));
+cek('skeleton tanpa judul halaman mengikuti header yang benar-benar dirender',
+  /const adaHeaderHalaman =\s*pageId === 'tabBeranda' \|\| pageId === 'tabPresensi' \|\| pageId === 'tabDocs'/.test(appSrc) &&
+    /\{adaHeaderHalaman && header\}/.test(appSrc));
+cek('rute aktif mulai di-prefetch selama login atau verifikasi sesi',
+  /loadPageModule\(activePage\)\.catch\(\(\) => undefined\)/.test(appSrc));
 cek('pemeriksaan sesi menampilkan shell workspace tanpa blur latar belakang',
   /GROUP_ORDER\.map\(group =>[\s\S]*?PageLoading pageId=\{pageId\}/.test(appSrc) &&
     !/Menyiapkan ruang kerja Anda/.test(appSrc));

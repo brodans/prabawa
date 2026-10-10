@@ -697,7 +697,6 @@ export default function BayarLanggananModal({
         }
         icon={langkah === 'selesai' ? undefined : <Banknote className="w-5 h-5 text-blue-500" />}
         size="md"
-        hideClose
         hideFooter
       >
         <div className="space-y-4">

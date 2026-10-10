@@ -153,9 +153,14 @@ export async function loadPengaturanBilling(): Promise<PengaturanBilling> {
  * tidak bisa dihubungi. keduanya menghasilkan tampilan yang sama dari sisi
  * gerbang, dan itu tidak berubah dari perilaku sebelumnya.
  */
-export async function loadLangganan(username: string): Promise<DokumenLangganan | null> {
+export async function loadLangganan(
+  username: string,
+  teruskanGalatJaringan = false
+): Promise<DokumenLangganan | null> {
   void username;
-  const hasil = await minta<{ dokumen?: DokumenLangganan }>('langganan:saya');
+  const hasil = teruskanGalatJaringan
+    ? await panelBatal<{ dokumen?: DokumenLangganan }>('langganan:saya')
+    : await minta<{ dokumen?: DokumenLangganan }>('langganan:saya');
   return hasil?.dokumen ?? null;
 }
 

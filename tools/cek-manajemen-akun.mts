@@ -308,6 +308,17 @@ const skeletonAkun = appSrc.split("pageId === 'tabManajemenAkun'")[1]?.split("pa
 cek('loader Manajemen Akun hanya mengikuti tab awal, bukan semua tab sekaligus',
   /SkeletonTable columns=\{8\} rows=\{7\}/.test(skeletonAkun) &&
     !/\[0, 1, 2\]\.map\(section/.test(skeletonAkun));
+cek('data Manajemen Akun di-cache 30 detik di memori per admin',
+  /CACHE_MANAJEMEN_MS = 30_000/.test(akunSrc) &&
+    /cacheManajemenAkun\.username !== username/.test(akunSrc) &&
+    /cacheManajemenAkun = cacheBaru/.test(akunSrc));
+cek('mutasi akun memperbarui cache dengan muat paksa',
+  /invalidasiCacheManajemen\(\);\s*await muat\(true\)/.test(akunSrc) &&
+    /onDataBerubah=\{\(\) => \{\s*invalidasiCacheManajemen\(\);\s*void muat\(true\)/.test(akunSrc));
+cek('billing admin memakai cache singkat dan memeriksa basi saat tab aktif lagi',
+  /CACHE_ADMIN_MS = 30_000/.test(langSrc) &&
+    /cacheAdminTerbaru\(username\)/.test(langSrc) &&
+    /addEventListener\('focus', segarkanJikaPerlu\)/.test(langSrc));
 cek('loader menu panjang dan halaman memakai satu scrollbar global yang stabil',
   /konten-gulir[^"]*overflow-y-scroll/.test(appSrc) &&
     /poni-konten min-h-full flex-none/.test(appSrc) &&
@@ -337,7 +348,11 @@ cek('muat() hanya set loading pada pemuatan pertama', /if \(!sudahPernahMuat\.cu
 cek('setiap muat() menandai sudah pernah muat', /sudahPernahMuat\.current = true;/.test(langSrc));
 cek('status tagihan diubah di state, bukan muat ulang', /setTagihan\(prev =>\s*prev\.map\(item => \(item\.orderId === orderId \? \{ \.\.\.item, status \} : item\)\)/.test(langSrc));
 cek('hapus tagihan mengubah state langsung', /setTagihan\(prev => prev\.filter\(item => item\.orderId !== orderId\)\)/.test(langSrc));
-cek('muat() dipanggil di latar setelah update', /void muat\(\);/.test(langSrc));
+const aksiTagihan = langSrc.match(/const aksiHapusTagihan =([\s\S]*?)const kolomTagihan:/)?.[1] ?? '';
+cek('mutasi tagihan memperbarui tampilan tanpa scan ulang koleksi',
+  /setTagihan\(prev => prev\.filter/.test(aksiTagihan) &&
+    /setTagihan\(prev =>\s*prev\.map/.test(aksiTagihan) &&
+    !/void muat\(\)/.test(aksiTagihan));
 cek('tombol muat ulang memakai menyegarkan', /loading=\{menyegarkan \|\| loading\}/.test(langSrc));
 
 // ═════════════════════════════════════════════════════════════════════
@@ -521,7 +536,6 @@ const berkasHalaman = [
   '../src/components/LoginScreen.tsx',
   '../src/components/SettingAkunModal.tsx',
   '../src/components/ProfilServerModal.tsx',
-  '../src/components/KredensialServerModal.tsx',
   '../src/components/BayarLanggananModal.tsx',
   '../src/components/GerbangLangganan.tsx',
 ];
@@ -863,7 +877,7 @@ cek('semua kendali disejajarkan di dasar', /sm:items-end/.test(akunSrc));
 // Diambil per blok <ActionButton>...</ActionButton>: urutan atribut tidak
 // penting, dan mematch posisi `size=` hanya menguji urutan yang kebetulan dipakai.
 const blokTombol = [...akunSrc.matchAll(/<ActionButton[\s\S]*?<\/ActionButton>/g)].map(m => m[0]);
-const tombolMuat = blokTombol.find(b => /onClick=\{\(\) => void muat\(\)\}/.test(b));
+const tombolMuat = blokTombol.find(b => /onClick=\{\(\) => void muat\((?:true)?\)\}/.test(b));
 const tombolBaru = blokTombol.find(b => /setDialog\(\{ akun: null \}\)/.test(b));
 
 /*
@@ -904,7 +918,7 @@ cek('kedua tombol berbobot sama (tidak ada varian primary bertingkat)',
     (tombolBaru?.match(/variant="(\w+)"/) || [])[1] === 'secondary',
   'varian berbeda bikin satu tombol terlihat lebih penting dari yang lain');
 cek('dua tombol memakai grid-cols-2 supaya lebarnya sama',
-  /<div className="grid grid-cols-2 gap-2">\s*<ActionButton[\s\S]{0,400}void muat\(\)[\s\S]{0,700}Akun Baru/.test(akunSrc),
+  /<div className="grid grid-cols-2 gap-2">\s*<ActionButton[\s\S]{0,400}void muat\((?:true)?\)[\s\S]{0,700}Akun Baru/.test(akunSrc),
   'dua blok terpisah tidak dijamin lebarnya sama');
 
 cek('lebar dropdown ditetapkan, bukan mengikuti isi',

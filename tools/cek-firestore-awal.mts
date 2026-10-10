@@ -96,9 +96,12 @@ cek('langgananFirestore bicara ke /api/panel-auth', /from '\.\/akunFirestore'/.t
 cek('tidak ada requireDb lagi', !/requireDb/.test(langgananSrc));
 cek(
   'nama akun diabaikan pada pembacaan per-akun',
-  /loadLangganan\(username: string\)[\s\S]{0,200}?void username;/.test(langgananSrc),
+  /loadLangganan\([\s\S]{0,200}?username: string[\s\S]{0,120}?void username;/.test(langgananSrc),
   'kalau username diteruskan, satu akun bisa mengarahkan pembacaan ke dokumen orang lain'
 );
+cek('polling langganan meneruskan galat sementara tanpa menelan status',
+  /teruskanGalatJaringan = false[\s\S]{0,180}?teruskanGalatJaringan\s*\?\s*await panelBatal/.test(langgananSrc),
+  'kegagalan jaringan tidak boleh berubah menjadi langganan kosong dan mengunci pengguna');
 
 // ═══ 4. Sisi server memverifikasi token ═════════════════════════════
 
