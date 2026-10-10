@@ -20,7 +20,7 @@
  * Yang diperiksa di sini: setiap grid harus balance, dan harga harus
  * diformat saat tampil **tanpa** mengubah apa yang tersimpan.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const root = new URL('..', import.meta.url).pathname;
 const baca = (p: string): string => readFileSync(`${root}${p}`, 'utf8');
@@ -66,8 +66,8 @@ console.log('\n=== 1. Setiap grid di baris paket seimbang');
    * total_span % jumlah_kolom == 0
    * ```
    *
-   * Contoh: 4+3+2+2+1 = 12 pada 12 kolom → satu baris penuh (12 % 12 = 0).
-   * 2+1+1+1+1 = 6 pada 2 kolom → tiga baris penuh (6 % 2 = 0).
+   * Contoh: 4+3+2+3 = 12 pada 12 kolom → satu baris penuh (12 % 12 = 0).
+   * 2+1+1+2 = 6 pada 2 kolom → tiga baris penuh (6 % 2 = 0).
    */
 
   // Lebar grid per breakpoint, taken straight from the class.
@@ -95,7 +95,7 @@ console.log('\n=== 1. Setiap grid di baris paket seimbang');
       : /["'\s]col-span-(\d+)/g;
     return [...blok.matchAll(pola)].map(m => Number(m[1]));
   };
-  const JUMLAH_ANAK = 5; // Nama, Harga, Durasi, Satuan, Hapus
+  const JUMLAH_ANAK = 4; // Nama, Harga, Durasi, Satuan (+ Hapus dalam satu sel)
 
   for (const g of titikBreak) {
     const prefix = g[3] ?? '';
@@ -171,7 +171,7 @@ console.log('\n=== 3. NumberField: format hanya tampilan, tidak mengubah nilai')
 
   cek('NumberField menerima prop `prefix`', /prefix\?: string/.test(surface));
   cek('NumberField menerima prop `format`', /format\?: \(value: number\) => string/.test(surface));
-  cek('prefix dipakai di markup', /\{prefix && \(/.test(surfaceKode));
+  cek('prefix dipakai di markup', /\{prefix \? \(/.test(surfaceKode));
   cek('format dipakai untuk nilai input',
     /format \? format\(Math\.round\(value\)\)/.test(surfaceKode));
   /*
@@ -200,21 +200,16 @@ console.log('\n=== 4. AksiIcon punya area sentuh yang layak');
 }
 
 // ═════════════════════════════════════════════════════════════════════
-console.log('\n=== 5. Status Midtrans ditampilkan apa adanya');
+console.log('\n=== 5. Status Midtrans dihapus total');
 {
-  cek('StatusMidtrans dipakai di Pengaturan', /<StatusMidtrans/.test(langgananKode),
-    'toggle saja tidak cukup — Midtrans butuh tiga syarat, bukan satu');
-  cek('StatusMidtrans menerima status toggle', /aktif=\{draft\.midtransAktif\}/.test(langgananKode));
-
-  const status = baca('src/components/StatusMidtrans.tsx');
-  cek('menyebut ketiga syarat yang berbeda tempat',
-    /VITE_MIDTRANS_CLIENT_KEY/.test(status) && /MIDTRANS_SERVER_KEY/.test(status));
-  cek('menyatakan belum-tahu sebagai keadaan tersendiri',
-    /useState<boolean \| null>\(null\)/.test(status),
-    'null = belum dicek; kalau langsung false, layar sempat berbohong');
-  cek('tidak pernah mengirim nilai key ke peramban',
-    !/import\.meta\.env\?\.(MIDTRANS_SERVER_KEY)/.test(status),
-    'Server Key tidak boleh masuk bundle');
+  cek('tidak ada lagi StatusMidtrans di Pengaturan', !/<StatusMidtrans/.test(langgananKode),
+    'permintaan terakhir: teks "Midtrans siap" tidak perlu lagi');
+  cek('komponen StatusMidtrans sudah tidak ada berkasnya',
+    !existsSync(`${root}src/components/StatusMidtrans.tsx`),
+    'menghapus pemakaian tanpa menghapus berkasnya menyisakan komponen mati');
+  cek('checkbox "Aktifkan QRIS via Midtrans" juga tidak ada',
+    !/Aktifkan QRIS via Midtrans/.test(langgananKode),
+    'mengaktifkan Midtrans lewat kartu "QRIS via Midtrans" di atasnya saja');
 }
 
 console.log(fail === 0 ? '\nSEMUA LULUS' : `\n${fail} KEGAGALAN`);

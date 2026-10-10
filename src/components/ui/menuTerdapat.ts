@@ -72,21 +72,31 @@ export const LEBAR_PANEL_HINT = 280;
 /** Jarak aman dari tepi layar, sama seperti `Dropdown.tsx`. */
 export const JARAK_TEPI = 8;
 
-/** Tinggi perkiraan satu item tanpa `hint` — dipakai sebelum pengukuran. */
-export const TINGGI_ITEM = 34;
+/**
+ * Tinggi perkiraan satu item tanpa `hint` — dipakai sebelum pengukuran.
+ *
+ * Diukur dari item sungguhan: `py-2` (16 px) + satu baris `text-[13px]`
+ * dengan `line-height: 1.5` (±19,5 px) ≈ 36 px. Versi lama 34 px membuat
+ * menu yang dibuka ke atas **terlalu tinggi** dari ruang yang diperkirakan,
+ * sehingga tepi bawahnya menyilang tombol pemicunya.
+ */
+export const TINGGI_ITEM = 36;
 
 /**
  * Tinggi perkiraan item **ber-`hint`**.
  *
- * 34 px + dua baris (label + hint yang membungkus) + `py-2` 16 px. Angka ini
+ * 36 px + dua baris (label + hint yang membungkus) + `py-2` 16 px. Angka ini
  * hanya untuk menentukan tinggi saat menu dibuka ke atas dan lantai
  * `maxHeight` — panelnya sendiri diukur browser, jadi kelewatan berarti
  * panel mulai sedikit lebih tinggi dari perlu, bukan salah tempat.
  */
 export const TINGGI_ITEM_HINT = 62;
 
-/** `py-1` panel atas + bawah. */
-const PADDING_PANEL = 12;
+/**
+ * `py-1` panel atas + bawah (8 px) plus kelonggaran untuk garis pemisah
+ * (`pemisah` menambah `my-1 border-t` ± 9 px) yang tidak dihitung per item.
+ */
+const PADDING_PANEL = 20;
 
 /**
  * Ruang minimum di bawah agar menu tetap dibuka ke bawah.
@@ -284,6 +294,16 @@ export function kelasItemMenu(item: ItemMenu): string {
   return 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700/60';
 }
 
-/** Kelas panel menu, dipakai kedua komponen agar identik. */
+/**
+ * Kelas panel menu, dipakai kedua komponen agar identik.
+ *
+ * `z-[63]` lebih tinggi dari tombol pemicu (`z-[62]`) — bukan sekadar lebih
+ * tinggi dari penutup layar (`z-[60]`). Saat ruang di bawah sempit, panel
+ * dibuka ke atas dan tepi bawahnya bisa bersinggungan dengan tombolnya;
+ * dengan z lebih rendah, tombol "⋯" akan **menutupi** baris menu terakhir dan
+ * terlihat seolah tombol berada di atas menunya. Urutan yang benar: penutup
+ * (60) < tombol (62) < panel (63), supaya penutup tetap tidak menghalangi
+ * tombol dan panel tetap tampil di atas tombol.
+ */
 export const KELAS_PANEL_MENU =
-  'fixed z-[61] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white py-1 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-800 dark:shadow-black/40';
+  'fixed z-[63] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white py-1 shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-800 dark:shadow-black/40';

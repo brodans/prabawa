@@ -118,7 +118,9 @@ cek('tanggal satu hari diberi label', /satu hari/.test(riwayat));
 // ═════════════════════════════════════════════════════════════════════
 console.log('\n=== RiwayatIzin: tidak ada celah kosong menganga');
 cek('tidak lagi pakai justify-between untuk penyaring', !/sm:items-end sm:justify-between/.test(riwayat));
-cek('kelompok tanggal dikuncilebarnya', /grid max-w-md flex-1 grid-cols-1 gap-3 sm:grid-cols-2/.test(riwayat));
+cek('penyaring mengisi penuh tiga kolom rata',
+  /grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-end/.test(riwayat),
+  'dua tanggal + tombol berbagi lebar sama supaya kanan tidak kosong');
 cek('filter status dipisah baris', /Status Pengajuan/.test(riwayat));
 cek('filter status menampilkan jumlah', riwayat.includes('jumlahStatus('));
 cek('tombol Tampilkan punya status memuat', riwayat.includes('loading={loading}'));
@@ -160,7 +162,8 @@ cek('grid tiga kolom sejak layar kecil', /grid grid-cols-1 sm:grid-cols-3 gap-4/
     ![...laporan.matchAll(/lg:col-span-([12])\b/g)].length,
     'porsi satu atau dua kolom tidak pernah dipakai untuk field penyaring');
 }
-cek('ada label Rentang cepat', laporan.includes('Rentang cepat'));
+cek('label rentang memakai kata "Rentang", bukan "Rentang cepat"',
+  laporan.includes('Rentang') && !laporan.includes('Rentang cepat'));
 cek('baris aksi dipisah dengan border', /border-t border-slate-100 dark:border-slate-700\/60 pt-4/.test(laporan));
 cek('Dari tidak lagi dibatasi ke +365 hari', /label="Dari Tanggal"[\s\S]{0,300}max=\{dateEnd\}/.test(laporan));
 cek('Sampai dibatasi ke +365 hari', /label="Sampai Tanggal"[\s\S]{0,300}max=\{getTodayWIBWithDaysOffset\(365\)\}/.test(laporan));
@@ -298,9 +301,10 @@ console.log('\n=== Laporan: tiga format unduhan, semuanya benar-benar jalan');
    * 30 px, dan terakhir hurufnya terpotong. Itu tampilan yang paling sering
    * dilaporkan sebagai "mepet di kanan".
    */
-  cek('grup aksi PageHeader boleh membungkus di layar sempit',
-    /flex[^"']*flex-wrap[^"']*items-center[^"']*gap-2[^"']*sm:justify-end/.test(baca('src/components/ui/Surface.tsx')),
-    'tanpa wrap tombol terakhir terdorong keluar layar');
+  cek('grup aksi PageHeader sejajar kanan judul, bukan turun ke bawah',
+    /flex[^"']*items-start[^"']*justify-between/.test(baca('src/components/ui/Surface.tsx')) &&
+      /flex[^"']*shrink-0[^"']*flex-wrap[^"']*items-center[^"']*justify-end[^"']*gap-2/.test(baca('src/components/ui/Surface.tsx')),
+    'di ponsel tombol aksi harus di kanan judul, bukan di bawahnya');
   cek('grup aksi PageHeader tidak boleh ikut tergesot',
     /flex[^"']*shrink-0[^"']*flex-wrap/.test(baca('src/components/ui/Surface.tsx')),
     'tanpa shrink-0, tombol yang menyusut lebih dulu dari judul — labelnya jadi dua baris');

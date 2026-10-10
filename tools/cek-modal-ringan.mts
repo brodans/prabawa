@@ -116,15 +116,18 @@ cek('peta Lokasi Absen persegi di mobile dan menghilangkan badge object teknis',
     ) &&
     !/Badge tone="blue">object: getlokasiabsen/.test(readFileSync(join(root, 'src/pages/LokasiAbsen.tsx'), 'utf8')));
 const docsSrc = readFileSync(join(root, 'src/pages/Docs.tsx'), 'utf8');
-cek('navigasi bagian Dokumentasi memakai grid simetris pada mobile',
+cek('navigasi bagian Dokumentasi rata kiri pada mobile',
   /grid grid-cols-2 gap-1 rounded-2xl/.test(docsSrc) &&
-    /min-h-9 min-w-0 items-center justify-center/.test(docsSrc));
+    /min-h-9 min-w-0 items-center justify-start/.test(docsSrc));
 cek('keterangan Dokumentasi bisa dilipat di mobile dan tetap terbuka di desktop',
   /function KeteranganPonsel/.test(docsSrc) &&
     /useMediaQuery\('\(max-width: 767px\)'\)/.test(docsSrc) &&
     /const \[open, setOpen\] = useState\(!mobile\)/.test(docsSrc) &&
     /md:hidden/.test(docsSrc) &&
     /<KeteranganPonsel>[\s\S]{0,500}<Alert tone="amber">[\s\S]{0,300}GATE_PERANGKAH_TERIKAT/.test(docsSrc));
+cek('hanya card berwarna (Alert) yang dilipat, paragraf tetap utuh',
+  /tunggal\.type === Alert/.test(docsSrc) &&
+    /if \(!kotakBerwarna\) return <>\{children\}<\/>/.test(docsSrc));
 cek('tab Dokumentasi tetap satu baris di desktop',
   /md:flex md:flex-nowrap md:justify-between/.test(docsSrc) &&
     /md:flex-none md:whitespace-nowrap/.test(docsSrc));
@@ -158,10 +161,15 @@ cek('boot shell hanya tampil saat ada sesi tersimpan yang sah',
   /app-shell-active/.test(htmlSrc) &&
     /s\.version !== VERSI/.test(htmlSrc) &&
     /s\.currentUser\.role !== s\.boundRole/.test(htmlSrc));
-cek('input dan gambar captcha memakai lebar kolom penuh',
+cek('input captcha lebar penuh, kotak captcha berukuran tetap',
   /id="web-captcha"[\s\S]{0,500}className="w-full/.test(webSrc) &&
-    /h-14 min-w-0 flex-1 overflow-hidden/.test(webSrc) &&
-    /h-full w-full object-contain/.test(webSrc));
+    /h-11 w-\[191px\][\s\S]{0,80}overflow-hidden rounded-none border/.test(webSrc) &&
+    /h-full w-full object-contain/.test(webSrc) &&
+    /sm:grid-cols-\[1fr_auto\]/.test(webSrc));
+cek('kotak captcha hitam saat terisi, putih saat memuat',
+  /captchaImg \? 'border-black bg-black' : 'border-dashed[\s\S]{0,60}bg-white/.test(webSrc));
+cek('tombol refresh captcha melebar di ponsel dan persegi di desktop',
+  /h-11 w-11 shrink-0 grow[\s\S]{0,220}sm:grow-0 sm:w-11/.test(webSrc));
 cek('semua dropdown mengikuti lebar pemicu dan dibatasi viewport',
   /absolute left-0[\s\S]{0,120}w-full min-w-0 max-w-\[calc\(100vw-1rem\)\]/.test(
     tanpaKomentar(readFileSync(join(root, 'src/components/ui/Dropdown.tsx'), 'utf8'))

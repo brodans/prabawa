@@ -396,7 +396,7 @@ export default function Presensi() {
         subtitle={`${pegawai.nama} · ${today}`}
         icon={<Fingerprint className="w-5 h-5" />}
         action={
-          <ActionButton variant="ghost" size="sm" onClick={() => void loadData()} icon={<RefreshCw className="w-4 h-4" />} aria-label="Muat ulang presensi" title="Muat ulang presensi">
+          <ActionButton variant="ghost" size="sm" onClick={() => void loadData()} icon={<RefreshCw className="w-4 h-4" />} aria-label="Muat ulang presensi" title="Muat ulang presensi" className="!p-2 sm:!px-3 sm:!py-1.5">
             <span className="hidden sm:inline">Muat Ulang</span>
           </ActionButton>
         }

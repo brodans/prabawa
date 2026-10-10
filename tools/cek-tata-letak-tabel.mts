@@ -36,7 +36,6 @@ const langganan = kode(baca('src/pages/Langganan.tsx'));
 const laporan = kode(baca('src/pages/Laporan.tsx'));
 const manajemen = kode(baca('src/pages/ManajemenAkun.tsx'));
 const login = kode(baca('src/components/LoginScreen.tsx'));
-const statusMidtrans = kode(baca('src/components/StatusMidtrans.tsx'));
 const perizinan = kode(baca('src/pages/Perizinan.tsx'));
 const surface = kode(baca('src/components/ui/Surface.tsx'));
 
@@ -104,8 +103,19 @@ console.log('\n=== 2. Menu melayang (AksiMenu & TombolMenu)');
     !/getBoundingClientRect/.test(aksi) && !/getBoundingClientRect/.test(tombol),
     'mengukur sendiri di pemanggil berarti aturan placement bocor lagi');
   cek('menu diposisikan fixed, bukan absolute',
-    /KELAS_PANEL_MENU =[\s\S]*?'fixed /.test(menu) && /z-\[61\]/.test(menu),
+    /KELAS_PANEL_MENU =[\s\S]*?'fixed /.test(menu) && /z-\[63\]/.test(menu),
     'absolute akan terpotong oleh overflow-x-auto pada DataTable');
+  /*
+   * ⚠️ Panel harus lebih tinggi dari tombolnya (`z-[62]`).
+   *
+   * Saat ruang bawah sempit, panel dibuka ke atas dan tepi bawahnya bisa
+   * menyentuh tombol "⋯". Kalau panel berada di bawah tombol, tombol justru
+   * menutupi baris terakhir — persis "tombol di atas menunya" yang
+   * dilaporkan.
+   */
+  cek('panel lebih tinggi dari tombol pemicunya',
+    /z-\[6[3-9]\]/.test(menu) && /relative z-\[62\]/.test(aksi),
+    'penutup (60) < tombol (62) < panel (>62)');
   cek('ada penutup layar penuh di kedua menu',
     /fixed inset-0/.test(aksi) && /fixed inset-0/.test(tombol),
     'tanpa itu menu hanya bisa ditutup dengan klik tepat di panel');
@@ -366,9 +376,9 @@ console.log('\n=== 6. Kolom baris paket sejajar');
   cek('penjelasan durasi tetap ada di baris ringkasan',
     /Dipakai pengguna sebagai/.test(blok) && /deskripsiDurasi/.test(blok),
     'hint satuan dihapus, jadi ringkasannya yang memikul penjelasannya');
-  cek('tombol hapus setinggi Input dan melebar aman di mobile sempit',
-    /className="h-10 w-full min-w-0 sm:w-10"/.test(blok),
-    'tinggi 40 px sama dengan Input; lebar ikut sel pada mobile dan kembali 40 px di desktop');
+  cek('tombol hapus setinggi Input dan menempel pada Satuan',
+    /className="h-10 w-10 shrink-0"/.test(blok),
+    'tinggi 40 px sama dengan Input; satu sel dengan Satuan agar tidak ada celah menganga');
   cek('AksiIcon menerima className',
     /className = ''/.test(langganan) && /\$\{className\}/.test(langganan),
     'tanpa ini penyesuaian tinggi tidak bisa lewat dari pemanggil');
@@ -380,15 +390,9 @@ console.log('\n=== 7. Teks yang diminta untuk dihapus');
 cek('nomor versi tidak lagi di layar login',
   !/v\{APP_VERSION\}/.test(login),
   'user meminta "1.0.0" di login screen dihapus');
-cek('StatusMidtrans tidak lagi menampilkan nama env var',
-  !/VITE_MIDTRANS_CLIENT_KEY/.test(statusMidtrans) &&
-    !/label: 'MIDTRANS_SERVER_KEY'/.test(statusMidtrans),
-  'nama env var tidak bisa diisi dari panel, jadi tidak membantu');
-cek('StatusMidtrans tidak lagi mengulang status toggle',
-  !/label: 'Toggle di halaman ini'/.test(statusMidtrans),
-  'mengulang checkbox 20 px di atasnya');
-cek('StatusMidtrans tidak lagi mengulang "metode akan muncul"',
-  (statusMidtrans.match(/Metode ini tampil untuk pengguna/g) ?? []).length === 1);
+cek('status "Midtrans siap" sudah tidak dipakai lagi',
+  !/<StatusMidtrans/.test(langganan) && !/Midtrans siap/.test(langganan),
+  'permintaan terakhir: teks "Midtrans siap" dihapus bersih');
 
 // ═══ 8. Panel developer: tombol tutup & ketahanan layout ═════════════
 
@@ -676,20 +680,24 @@ console.log('\n=== 10. Grid >=3 kolom tetap di dalam panel sempit');
   cek('nama bank membungkus, bukan memaksa lebar minimum',
     /break-words[\s\S]{0,80}\{item\.nama\}/.test(langganan),
     'kata panjang pada tombol bank menaikkan min-content dan melebarkan grid');
-  cek('paket mobile menempatkan nama/harga lalu durasi/satuan/hapus',
+  cek('paket mobile menempatkan nama/harga lalu durasi/satuan-hapus',
     /grid grid-cols-6 gap-2 items-end sm:grid-cols-2 sm:gap-2\.5 xl:grid-cols-12/.test(langganan) &&
       /col-span-2 sm:col-span-2 xl:col-span-4/.test(langganan) &&
       /col-span-4 min-w-0 sm:col-span-1 xl:col-span-3/.test(langganan) &&
       /col-span-2 min-w-0 sm:col-span-1 xl:col-span-2/.test(langganan) &&
-      /col-span-3 min-w-0 sm:col-span-1 xl:col-span-2/.test(langganan) &&
-      /h-10 w-full min-w-0 sm:w-10/.test(langganan));
+      /col-span-4 min-w-0 sm:col-span-2 xl:col-span-3/.test(langganan) &&
+      /h-10 w-10 shrink-0/.test(langganan));
   cek('field harga menyembunyikan stepper hanya di mobile agar nominal muat',
     /hideSteppersBelowSm/.test(langganan) &&
       /hideSteppersBelowSm \? 'hidden sm:flex'/.test(surface));
-  cek('prefix Rp menyatu dalam satu field harga, bukan kotak terpisah',
-    /prefix\s*\?[\s\S]{0,500}overflow-hidden rounded-xl border border-slate-200 bg-white/.test(surface) &&
+  cek('prefix Rp menyatu sekolom dengan nominal, stepper di luar kotak',
+    /prefix \? \([\s\S]{0,400}overflow-hidden rounded-xl border border-slate-200 bg-white/.test(surface) &&
       /items-center px-3 text-xs font-semibold text-slate-500/.test(surface) &&
-      /prefix[\s\S]{0,250}border-0 bg-transparent/.test(surface));
+      /!border-0 bg-transparent/.test(surface) &&
+      // Garis fokus hanya di kotak pembungkus (sekolom dengan Rp), bukan di input.
+      /focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500\/20/.test(surface) &&
+      // Tombol naik/turun adalah saudara dari kotak itu, bukan di dalamnya.
+      /\)\}\s*\{!disabled && \(/.test(surface));
   cek('tombol Simpan Pengaturan berada di tengah pada mobile',
     /flex justify-center sm:justify-end/.test(langganan));
   cek('nomor WhatsApp memakai keypad numerik mobile',

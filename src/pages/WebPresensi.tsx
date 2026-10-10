@@ -162,10 +162,10 @@ function adaSesiWebTersimpan(username: string): boolean {
 const OCR_LOKAL = import.meta.env.DEV;
 
 const DAFTAR_TAB = [
-  { id: 'imei',      label: 'IMEI',          icon: Cpu },
-  { id: 'kehadiran', label: 'Kehadiran',      icon: Monitor },
+  { id: 'imei',      label: 'IMEI',           icon: Cpu },
   { id: 'detail',    label: 'Detail Pegawai', icon: UserSquare2 },
-  { id: 'perizinan', label: 'Perizinan',      icon: FileText },
+  { id: 'kehadiran', label: 'Kehadiran',       icon: Monitor },
+  { id: 'perizinan', label: 'Perizinan',       icon: FileText },
 ] as const;
 
 // TabId sekarang dari context (WebPresensiTab)
@@ -1118,24 +1118,19 @@ export default function WebPresensi() {
 
         {/* Captcha */}
         {!sudahLogin && !memulihkanSesi && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end">
-            <div className="flex items-center gap-2">
-              <div
-                className={`relative h-14 min-w-0 flex-1 overflow-hidden rounded-xl border bg-slate-50 dark:bg-slate-800/60 ${
-                  captchaImg ? 'border-slate-200 dark:border-slate-700' : 'border-dashed border-slate-300 dark:border-slate-600'
-                }`}
-                aria-busy={loadingCaptcha}
-              >
-                {captchaImg && <img src={captchaImg} alt="Captcha" className="h-full w-full object-contain" />}
-                {loadingCaptcha && <div className="captcha-shimmer absolute inset-0" aria-hidden="true" />}
-              </div>
-              <button type="button" onClick={() => refreshCaptcha()} disabled={loadingCaptcha}
-                className="h-11 w-11 shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-40 dark:hover:text-indigo-400 transition flex items-center justify-center"
-                title="Muat ulang captcha" aria-label="Muat ulang captcha">
-                <RefreshCw className={`w-4 h-4 ${loadingCaptcha ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-            <div>
+          /*
+           * `sm:grid-cols-[1fr_auto]` — kolom isian mengisi sisa lebar sampai
+           * hampir menyentuh kotak captcha di kanan, jadi lebih panjang dari
+           * kolom NIP (yang hanya separuh lebar). Kolom captcha mengikuti besar
+           * kotaknya, bukan separuh grid.
+           *
+           * `gap-3 sm:gap-2`: di ponsel kotak captcha ada di atas sehingga
+           * jarak vertikal lebih lega; di desktop ia berdempet dengan kolom
+           * isian.
+           */
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end sm:gap-2">
+            {/* Kolom isian — di kiri pada desktop, di bawah pada ponsel */}
+            <div className="order-2 sm:order-1">
               <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5" htmlFor="web-captcha">
                 Captcha
               </label>
@@ -1145,6 +1140,45 @@ export default function WebPresensi() {
                 autoComplete="off" inputMode="numeric" maxLength={4}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition"
               />
+            </div>
+            {/*
+             * Gambar captcha + refresh — di kanan pada desktop, di atas pada
+             * ponsel.
+             *
+             * Ukuran kotak **tetap** (`h-11 w-[191px]`) supaya tidak melompat
+             * saat gambar selesai dimuat: gambar dari server berukuran 180×40
+             * (rasio 4,5), jadi pada tinggi 44 px lebarnya seharusnya 198 px —
+             * tapi `border` 1 px di kiri-kanan ikut memakan kotak (`box-sizing:
+             * border-box`), sehingga isinya cuma 196×42 dan rasionya jadi 4,67.
+             * Akibatnya `object-contain` menyisakan pita **hitam tebal hanya
+             * di kiri-kanan** (karena latar kotak hitam), sementara atas-bawah
+             * tipis. Lebar 191 px membuat isi kotaknya 189×42 = tepat 4,5,
+             * jadi gambar menutup penuh dan bingkai hitamnya rata semua sisi.
+             *
+             * Saat gambar sudah tampil, kotak memakai bingkai & latar **hitam**
+             * agar menyatu dengan garis hitam milik captcha sendiri — tidak ada
+             * lagi lapis putih di sekelilingnya. Saat memuat, latar tetap putih
+             * supaya berbaur dengan captcha yang belum muncul.
+             *
+             * Tombol refresh melebar (`grow`) di ponsel agar tepi kanannya
+             * sejajar dengan kolom di atasnya; di desktop dikunci persegi
+             * (`sm:grow-0 sm:w-11`).
+             */}
+            <div className="order-1 flex items-center gap-2 sm:order-2">
+              <div
+                className={`relative h-11 w-[191px] shrink-0 overflow-hidden rounded-none border ${
+                  captchaImg ? 'border-black bg-black' : 'border-dashed border-slate-300 bg-white dark:border-slate-600'
+                }`}
+                aria-busy={loadingCaptcha}
+              >
+                {captchaImg && <img src={captchaImg} alt="Captcha" className="h-full w-full object-contain" />}
+                {loadingCaptcha && <div className="captcha-shimmer absolute inset-0" aria-hidden="true" />}
+              </div>
+              <button type="button" onClick={() => refreshCaptcha()} disabled={loadingCaptcha}
+                className="h-11 w-11 shrink-0 grow rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-40 dark:hover:text-indigo-400 transition flex items-center justify-center sm:grow-0 sm:w-11"
+                title="Muat ulang captcha" aria-label="Muat ulang captcha">
+                <RefreshCw className={`w-4 h-4 ${loadingCaptcha ? 'animate-spin' : ''}`} />
+              </button>
             </div>
           </div>
         )}
@@ -1189,7 +1223,7 @@ export default function WebPresensi() {
               const Icon = t.icon;
               return (
                 <button key={t.id} type="button" onClick={() => setTab(t.id)}
-                  className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all sm:flex-none ${
                     tab === t.id
                       ? 'bg-indigo-600 text-white'
                       : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800'
@@ -1210,13 +1244,13 @@ export default function WebPresensi() {
               {hasilImei?.imei ? (
                 <div className="flex items-center gap-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-5 py-4">
                   <code className="flex-1 font-mono text-base font-semibold text-indigo-600 dark:text-indigo-400 tracking-wider break-all">{hasilImei.imei}</code>
-                  <button type="button" onClick={() => salin(hasilImei.imei!)}
-                    className={`shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                  <button type="button" onClick={() => salin(hasilImei.imei!)} aria-label="Salin IMEI" title="Salin IMEI"
+                    className={`shrink-0 flex items-center gap-1.5 rounded-lg !p-2 sm:!px-3 sm:!py-2 text-sm font-medium transition-all ${
                       copied === hasilImei.imei
                         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                         : 'bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600'
                     }`}>
-                    {copied === hasilImei.imei ? <><Check className="w-4 h-4" />Tersalin!</> : <><Copy className="w-4 h-4" />Salin</>}
+                    {copied === hasilImei.imei ? <><Check className="w-4 h-4" /><span className="hidden sm:inline">Tersalin!</span></> : <><Copy className="w-4 h-4" /><span className="hidden sm:inline">Salin</span></>}
                   </button>
                 </div>
               ) : (
@@ -1233,9 +1267,10 @@ export default function WebPresensi() {
                   <Monitor className="w-5 h-5 text-indigo-500" />Riwayat Kehadiran
                 </h2>
                 <button type="button" onClick={() => muatKehadiran(kehadiran?.halaman ?? 1)} disabled={kehadiranLoading}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors">
+                  aria-label="Muat ulang riwayat kehadiran" title="Muat ulang"
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg !p-2 sm:!px-3 sm:!py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors">
                   <RefreshCw className={`w-3.5 h-3.5 ${kehadiranLoading ? 'animate-spin' : ''}`} />
-                  {kehadiranLoading ? 'Memuat...' : 'Muat ulang'}
+                  <span className="hidden sm:inline">{kehadiranLoading ? 'Memuat...' : 'Muat ulang'}</span>
                 </button>
               </div>
 
@@ -1315,9 +1350,10 @@ export default function WebPresensi() {
                   <UserSquare2 className="w-5 h-5 text-indigo-500" />Detail Pegawai
                 </h2>
                 <button type="button" onClick={muatDetail} disabled={detailLoading}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors">
+                  aria-label="Muat ulang detail pegawai" title="Muat ulang"
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg !p-2 sm:!px-3 sm:!py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors">
                   <RefreshCw className={`w-3.5 h-3.5 ${detailLoading ? 'animate-spin' : ''}`} />
-                  {detailLoading ? 'Memuat...' : 'Muat ulang'}
+                  <span className="hidden sm:inline">{detailLoading ? 'Memuat...' : 'Muat ulang'}</span>
                 </button>
               </div>
 
@@ -1419,14 +1455,16 @@ export default function WebPresensi() {
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={() => { setSemuaPerizinan(null); muatPerizinan(perizinan?.halaman ?? 1); }}
                     disabled={perizinanLoading || memuatSemua}
-                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700">
+                    aria-label="Muat ulang perizinan" title="Muat ulang"
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg !p-2 sm:!px-3 sm:!py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-40 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700">
                     <RefreshCw className={`w-3.5 h-3.5 ${perizinanLoading ? 'animate-spin' : ''}`} />
-                    {perizinanLoading ? 'Memuat...' : 'Muat ulang'}
+                    <span className="hidden sm:inline">{perizinanLoading ? 'Memuat...' : 'Muat ulang'}</span>
                   </button>
                   <button type="button" onClick={muatSemuaPerizinan} disabled={memuatSemua || perizinanLoading}
-                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-40 dark:text-indigo-400 dark:hover:bg-indigo-950/30 transition-colors border border-indigo-200 dark:border-indigo-800/40">
+                    aria-label="Muat semua halaman perizinan" title="Semua halaman"
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg !p-2 sm:!px-3 sm:!py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-40 dark:text-indigo-400 dark:hover:bg-indigo-950/30 transition-colors border border-indigo-200 dark:border-indigo-800/40">
                     {memuatSemua ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                    {memuatSemua ? 'Memuat...' : 'Semua halaman'}
+                    <span className="hidden sm:inline">{memuatSemua ? 'Memuat...' : 'Semua halaman'}</span>
                   </button>
                 </div>
               </div>

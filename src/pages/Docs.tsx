@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, isValidElement, useMemo, useState, type ReactNode } from 'react';
 import {
   BookOpen,
   ChevronDown,
@@ -102,7 +102,7 @@ export default function Docs() {
             key={item.id}
             type="button"
             onClick={() => setBagian(item.id)}
-            className={`flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-center text-[10px] font-semibold leading-tight transition-colors sm:min-h-10 sm:gap-1.5 sm:rounded-xl sm:px-2 sm:text-xs md:flex-none md:whitespace-nowrap ${
+            className={`flex min-h-9 min-w-0 items-center justify-start gap-1 rounded-lg px-1.5 py-1.5 text-left text-[10px] font-semibold leading-tight transition-colors sm:min-h-10 sm:gap-1.5 sm:rounded-xl sm:px-2 sm:text-xs md:flex-none md:whitespace-nowrap ${
               bagian === item.id
                 ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
@@ -131,6 +131,18 @@ function useBagianAwal() {
   return useState<Bagian>('transport');
 }
 
+/**
+ * Lipatan keterangan — **hanya untuk kotak berwarna (Alert)**.
+ *
+ * Di ponsel, keterangan panjang berupa `Alert` (card berwarna) boleh dilipat
+ * supaya tidak mendorong kartu lain jauh ke bawah. Paragraf, daftar, dan tabel
+ * biasa **tidak** dilipat: isinya selalu tampil utuh di semua ukuran layar,
+ * sehingga tidak ada bar "buka keterangan" yang menyembunyikan teks yang justru
+ * ingin dibaca.
+ *
+ * Deteksi dilakukan dari `children`: kalau bukan tepat satu elemen Alert,
+ * komponen ini tidak memasang `<details>` sama sekali.
+ */
 function KeteranganPonsel({
   children,
   label = 'Buka keterangan lengkap',
@@ -145,6 +157,14 @@ function KeteranganPonsel({
   useEffect(() => {
     setOpen(!mobile);
   }, [mobile]);
+
+  const tunggal = Array.isArray(children) ? children[0] : children;
+  const kotakBerwarna =
+    (!Array.isArray(children) || children.length === 1) &&
+    isValidElement(tunggal) &&
+    tunggal.type === Alert;
+
+  if (!kotakBerwarna) return <>{children}</>;
 
   return (
     <details
@@ -203,13 +223,13 @@ function Transport({ onCopy }: { onCopy: (teks: string, label: string) => void }
 
       <Card>
         <CardTitle>Field yang selalu disuntik</CardTitle>
-        <KeteranganPonsel>
+        {/* Teks pengantar ini selalu tampil — bukan bagian yang bisa dilipat.
+            Hanya kotak berwarna (Alert) di bawahnya yang kolapsibel di ponsel. */}
         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
           Ditaruh di dalam <span className="font-mono">param</span> oleh proxy untuk setiap
           panggilan, meniru{' '}
           <span className="font-mono">RestServices.insertAuthorizationInterceptor</span> di APK.
         </p>
-        </KeteranganPonsel>
         <dl className="grid grid-cols-1 gap-2.5">
           <Row label="api_key" value="token sesi dari object login" mono />
           <Row label="last_latlong" value='"<lat>,<long>" titik tersimpan atau pilihan peta sementara di Presensi' mono />

@@ -43,8 +43,8 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3 min-w-0">
+    <div className="flex items-start justify-between gap-3 sm:items-center">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         {icon && (
           <div className="w-11 h-11 rounded-2xl bg-blue-500/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/10">
             {icon}
@@ -60,25 +60,22 @@ export function PageHeader({
         </div>
       </div>
       {/*
-       * ⚠️ `flex-wrap` **dan** `shrink-0` — keduanya wajib, dan alasan keduanya
-       * berbeda.
-       *
-       * `flex-wrap`: kelompok aksi pernah lewat tiga tombol. Empat tombol
-       * "Muat Ulang, Cetak, Excel, CSV" totaled ±354 px, dan di layar 360 px
-       * yang tersedia hanya 328 px — tombol terakhir terdorong keluar viewport
-       * tanpa ada yang memberi tahu.
+       * Kelompok aksi berdiri **di kanan judul pada semua lebar layar** — bukan
+       * turun ke bawah judul di ponsel. Itu yang membuat tombol Muat Ulang /
+       * Sync di Beranda dan Presensi sejajar dengan judul.
        *
        * `shrink-0`: tanpa itu, yang ditekan lebih dulu adalah **tombolnya**,
        * bukan judul. Judul sudah punya `min-w-0` + `truncate`, jadi aman
        * menyusut; tombol tidak — label "Muat Ulang" lalu turun ke dua baris di
-       * dalam tombol setinggi 30 px, dan terakhir hurufnya terpotong. Itu
-       * tampilan yang paling sering dilaporkan sebagai "mepet di kanan".
+       * dalam tombol, dan terakhir hurufnya terpotong.
        *
-       * `sm:justify-end` menjaga keselarasan kanan di layar lebar, saat tidak
-       * ada yang perlu membungkus.
+       * `flex-wrap` + `justify-end`: kalau benar-benar tidak muat (mis. layar
+       * 360 px dengan banyak tombol berlabel), tombol membungkus ke baris
+       * berikutnya di dalam kolom kanan ini, tetap rata kanan — bukan
+       * menembus keluar viewport.
        */}
       {action && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">{action}</div>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{action}</div>
       )}
     </div>
   );
@@ -398,55 +395,69 @@ export function NumberField({
   const naik = () => onChange(kunci(value + step));
   const turun = () => onChange(kunci(value - step));
 
-  return (
-    <div
-      className={`flex min-w-0 items-stretch ${
-        prefix
-          ? 'overflow-hidden rounded-xl border border-slate-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900/50'
-          : 'gap-1.5'
-      } ${className}`}
-    >
-      {prefix && (
-        <span
-          className="flex shrink-0 items-center px-3 text-xs font-semibold text-slate-500 dark:text-slate-400"
-          aria-hidden="true"
-        >
-          {prefix}
-        </span>
-      )}
-      <Input
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        // `autoComplete="off"` supaya keyboard mobile tidak suggested
-        // mengisi harga dengan nilai yang pernah diketik di form lain.
-        autoComplete="off"
-        value={
-          Number.isFinite(value) && value > 0
-            ? (format ? format(Math.round(value)) : String(Math.round(value)))
-            : ''
+  /**
+   * Input-nya sama untuk kedua mode. Di mode ber-prefix ia dibiarkan tanpa
+   * border/ring sendiri (`!` penting, supaya benar-benar mengalahkan
+   * `FIELD_BASE` yang selalu memasang `focus:ring-2 focus:border-blue-500`).
+   * Dengan begitu garis fokus hanya muncul di **kotak pembungkus** — sekolom
+   * dengan `Rp` — bukan garis kedua di dalam input.
+   */
+  const inputEl = (
+    <Input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      // `autoComplete="off"` supaya keyboard mobile tidak suggested
+      // mengisi harga dengan nilai yang pernah diketik di form lain.
+      autoComplete="off"
+      value={
+        Number.isFinite(value) && value > 0
+          ? (format ? format(Math.round(value)) : String(Math.round(value)))
+          : ''
+      }
+      onChange={event => dariTeks(event.target.value)}
+      onFocus={event => event.currentTarget.select()}
+      onBlur={event => dariTeks(event.currentTarget.value)}
+      onKeyDown={event => {
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          naik();
+        } else if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          turun();
         }
-        onChange={event => dariTeks(event.target.value)}
-        onFocus={event => event.currentTarget.select()}
-        onBlur={event => dariTeks(event.currentTarget.value)}
-        onKeyDown={event => {
-          if (event.key === 'ArrowUp') {
-            event.preventDefault();
-            naik();
-          } else if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            turun();
-          }
-        }}
-        disabled={disabled}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-        className={`font-mono tabular-nums ${
-          prefix
-            ? 'min-w-0 rounded-none border-0 bg-transparent px-2 text-left shadow-none focus:border-transparent focus:ring-0 dark:bg-transparent'
-            : 'text-center'
-        }`}
-      />
+      }}
+      disabled={disabled}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      className={`font-mono tabular-nums ${
+        prefix
+          ? 'min-w-0 flex-1 rounded-none !border-0 bg-transparent px-2 text-left shadow-none focus:!border-transparent focus:!ring-0 dark:bg-transparent'
+          : 'text-center'
+      }`}
+    />
+  );
+
+  return (
+    <div className={`flex min-w-0 items-stretch gap-1.5 ${className}`}>
+      {/*
+       * Mode ber-prefix: yang dibungkus border hanyalah `Rp` + input. Tombol
+       * naik/turun ada **di luar** kotak (saudara dari kotak itu), sama seperti
+       * di mode durasi — bukan menumpang di dalam border.
+       */}
+      {prefix ? (
+        <div className="flex min-w-0 flex-1 items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900/50">
+          <span
+            className="flex shrink-0 items-center px-3 text-xs font-semibold text-slate-500 dark:text-slate-400"
+            aria-hidden="true"
+          >
+            {prefix}
+          </span>
+          {inputEl}
+        </div>
+      ) : (
+        inputEl
+      )}
       {!disabled && (
         <div className={`flex flex-col gap-1 shrink-0 ${hideSteppersBelowSm ? 'hidden sm:flex' : ''}`}>
           <StepButton

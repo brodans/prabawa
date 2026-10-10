@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../components/ui/Toast';
-import { StatusMidtrans } from '../components/StatusMidtrans';
 const KartuQrisPreview = lazy(() => import('../components/KartuQris'));
 import {
   ActionButton,
@@ -26,7 +25,6 @@ import {
   Badge,
   Card,
   CardTitle,
-  Checkbox,
   DataTable,
   EmptyState,
   Field,
@@ -876,46 +874,6 @@ function PengaturanBillingForm({
             );
           })}
         </div>
-
-        <div className="mt-4 space-y-2.5 pt-4 border-t border-slate-100 dark:border-slate-700/60">
-          <Checkbox
-            checked={draft.midtransAktif}
-            onChange={midtransAktif => setDraft(prev => ({
-              ...prev,
-              midtransAktif,
-              metodeAktif: midtransAktif
-                ? prev.metodeAktif.includes('qris_midtrans')
-                  ? prev.metodeAktif
-                  : [...prev.metodeAktif, 'qris_midtrans']
-                : prev.metodeAktif.filter(metode => metode !== 'qris_midtrans'),
-            }))}
-            label="Aktifkan QRIS via Midtrans"
-          />
-
-          {/*
-           * Status Midtrans yang SEBENARNYA.
-           *
-           * Toggle di atas hanya menulis `midtransAktif` ke Firestore.
-           * Itu **satu dari tiga** syarat; Midtrans tetap tidak muncul
-           * kalau dua sisanya belum terpenuhi. Sebelumnya layar ini hanya
-           * menulis "kalau key belum diisi, metode ini disembunyikan" —
-           * kalimat pasif yang membuat admin menebak-nebak, lalu toggle terlihat seperti tidak berfungsi saat sebenarnya memang
-           * tidak.
-           *
-           * Sekarang ketiga syaratnya dicek dan ditampilkan apa adanya:
-           * apa yang sudah siap, apa yang belum, dan harus diisi di mana.
-           */}
-          <StatusMidtrans
-            aktif={draft.midtransAktif}
-            className="ml-6.5 mt-2"
-          />
-
-          <Checkbox
-            checked={draft.izinkanGratis}
-            onChange={izinkanGratis => setDraft(prev => ({ ...prev, izinkanGratis }))}
-            label="Izinkan admin menandai akun sebagai gratis (exempt)"
-          />
-        </div>
       </Card>
 
       {/* QRIS manual */}
@@ -1145,11 +1103,17 @@ function PengaturanBillingForm({
                *
                * Yang dipakai sekarang:
                *
-               * | Lebar        | Kolom | Susunan                                      |
-               * |--------------|-------|----------------------------------------------|
-               * | < 640 px     |   6   | Nama (2) + Harga (4); Durasi/Satuan/Hapus   |
-               * | 640–1279 px  |   2   | Nama penuh, lalu pasangan field               |
-               * | ≥ 1280 px    |  12   | Nama/Harga/Durasi/Satuan/Hapus (4/3/2/2/1)   |
+               * | Lebar        | Kolom | Susunan                                        |
+               * |--------------|-------|------------------------------------------------|
+               * | < 640 px     |   6   | Nama (2) + Harga (4); Durasi (2) + Satuan (4)  |
+               * | 640–1279 px  |   2   | Nama penuh, lalu pasangan field                |
+               * | ≥ 1280 px    |  12   | Nama/Harga/Durasi/Satuan (4/3/2/3) + Hapus     |
+               *
+               * Hapus **satu sel** dengan Satuan, bukan kolom sendiri: sebagai
+               * kolom terpisah, tombolnya didorong ke ujung kanan sel selebar
+               * seperduabelas kartu, sehingga jarak dari dropdown Satuan
+               * terlihat menganga. Di dalam satu `flex`, tombol itu menempel
+               * tepat di kanan Satuan di semua breakpoint.
                *
                * Porsi lebar di layar monitor diberikan ke **Harga**, bukan ke
                * Nama atau Satuan. Alasannya isi kolom: `Nama Paket` berupa teks
@@ -1217,29 +1181,41 @@ function PengaturanBillingForm({
                     />
                   </Field>
                 </div>
-                <div className="col-span-3 min-w-0 sm:col-span-1 xl:col-span-2">
-                  <Field label="Satuan">
-                    <Dropdown
-                      value={item.satuan}
-                      onChange={(value: string) => ubahPaket(item.id, { satuan: value as SatuanDurasi })}
-                      opsi={(['bulan', 'tahun', 'hari'] as const).map(satuan => ({
-                        value: satuan,
-                        label: LABEL_SATUAN[satuan],
-                      }))}
-                      aria-label="Satuan durasi"
+                {/*
+                 * Satuan dan Hapus berbagi satu sel.
+                 *
+                 * Sebelumnya Hapus punya sel sendiri selebar 1 kolom dan
+                 * didorong ke ujung kanannya. Karena tombolnya hanya 40 px,
+                 * sisa selnya jadi celah kosong yang memisahkan tombol dari
+                 * dropdown Satuan — makin lebar kartunya, makin lebar
+                 * celahnya. Di dalam `flex`, tombolnya selalu menempel di
+                 * kanan Satuan: `items-end` menyelaraskan dasarnya dengan
+                 * field, `shrink-0` menjaga ukurannya, `flex-1` memberi
+                 * Satuan sisa ruang.
+                 */}
+                <div className="col-span-4 min-w-0 sm:col-span-2 xl:col-span-3">
+                  <div className="flex items-end gap-2">
+                    <div className="min-w-0 flex-1">
+                      <Field label="Satuan">
+                        <Dropdown
+                          value={item.satuan}
+                          onChange={(value: string) => ubahPaket(item.id, { satuan: value as SatuanDurasi })}
+                          opsi={(['bulan', 'tahun', 'hari'] as const).map(satuan => ({
+                            value: satuan,
+                            label: LABEL_SATUAN[satuan],
+                          }))}
+                          aria-label="Satuan durasi"
+                        />
+                      </Field>
+                    </div>
+                    <AksiIcon
+                      icon={Trash2}
+                      label={`Hapus paket ${item.label}`}
+                      tone="rose"
+                      className="h-10 w-10 shrink-0"
+                      onClick={() => hapusPaket(item.id)}
                     />
-                  </Field>
-                </div>
-                {/* Area hapus mengisi sel sempit di mobile; di layar lebar ikon
-                  kembali berukuran tetap dan sejajar dengan field. */}
-                <div className="col-span-1 flex justify-end sm:col-span-1">
-                  <AksiIcon
-                    icon={Trash2}
-                    label={`Hapus paket ${item.label}`}
-                    tone="rose"
-                    className="h-10 w-full min-w-0 sm:w-10"
-                    onClick={() => hapusPaket(item.id)}
-                  />
+                  </div>
                 </div>
               </div>
 

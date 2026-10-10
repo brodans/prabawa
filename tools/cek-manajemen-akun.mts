@@ -572,7 +572,9 @@ cek('Tombol Kemarin pakai helper WIB', /getTodayWIBWithDaysOffset\(-1\)/.test(la
 cek('tidak ada new Date()+toISOString di tombol tanggal', !/d\.toISOString\(\)\.slice\(0, 10\)/.test(langKode));
 cek('Harga paket pakai NumberField', /<NumberField[\s\S]{0,120}min=\{1\}[\s\S]{0,120}step=\{5000\}/.test(langKode));
 cek('Durasi paket pakai NumberField', /<NumberField[\s\S]{0,120}max=\{120\}/.test(langKode));
-cek('Checkbox dipakai di pengaturan langganan', /<Checkbox/.test(langKode));
+cek('Checkbox "Aktifkan QRIS via Midtrans" dihapus dari pengaturan langganan',
+  !/<Checkbox/.test(langKode) && !/Aktifkan QRIS via Midtrans/.test(langKode),
+  'metode Midtrans sudah diaktifkan lewat kartu "QRIS via Midtrans" di atas');
 cek(
   'Checkbox dipakai di Manajemen Akun',
   /<Checkbox[\s\S]{0,200}?tone="rose"/.test(kodeSaja(baca('../src/pages/ManajemenAkun.tsx')))

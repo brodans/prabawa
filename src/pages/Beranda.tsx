@@ -383,6 +383,7 @@ export default function Beranda() {
               icon={<CloudDownload className="w-4 h-4" />}
               aria-label="Sinkronkan data"
               title="Sinkronkan data"
+              className="!p-2 sm:!px-3 sm:!py-1.5"
             >
               <span className="hidden sm:inline">Sync Data</span>
             </ActionButton>
@@ -393,6 +394,7 @@ export default function Beranda() {
               icon={<RefreshCw className="w-4 h-4" />}
               aria-label="Muat ulang beranda"
               title="Muat ulang"
+              className="!p-2 sm:!px-3 sm:!py-1.5"
             >
               <span className="hidden sm:inline">Muat Ulang</span>
             </ActionButton>

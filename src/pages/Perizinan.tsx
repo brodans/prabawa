@@ -419,15 +419,20 @@ export default function Perizinan() {
               />
             </Field>
 
-            <div className="flex flex-wrap gap-2 pt-1">
-              <ActionButton
-                type="submit"
-                loading={submitting || uploading}
-                disabled={!tabPermissions.aksiAjukanIzin}
-                icon={<Send className="w-4 h-4" />}
-              >
-                {uploading ? 'Mengunggah Lampiran...' : 'Kirim Pengajuan'}
-              </ActionButton>
+            {/*
+             * Reset di kiri, Kirim di kanan.
+             *
+             * Tombol utama (mengirim) berdiri di ujung kanan — tempat yang
+             * dibaca terakhir dan karena itu disengaja: pengguna mengisi
+             * form dari atas, jadi aksi pamungkasnya ada di ujung alur.
+             * Reset Form yang sekunder cukup menempel di kiri.
+             *
+             * Di mobile `grow` membuat Kirim memenuhi sisa lebar (jadi
+             * besar dan mudah ditekan); di desktop `sm:grow-0` mengembalikan
+             * ukurannya, `ml-auto` mendorongnya ke kanan, dan `sm:px-6`
+             * memanjangkannya sedikit agar labelnya bernapas.
+             */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <ActionButton
                 type="button"
                 variant="ghost"
@@ -437,6 +442,15 @@ export default function Perizinan() {
                 }}
               >
                 Reset Form
+              </ActionButton>
+              <ActionButton
+                type="submit"
+                loading={submitting || uploading}
+                disabled={!tabPermissions.aksiAjukanIzin}
+                icon={<Send className="w-4 h-4" />}
+                className="ml-auto grow sm:grow-0 sm:px-6"
+              >
+                {uploading ? 'Mengunggah Lampiran...' : 'Kirim Pengajuan'}
               </ActionButton>
             </div>
 
@@ -607,25 +621,32 @@ function RiwayatIzinPanel({ aktif }: { aktif: boolean }) {
     <div className="space-y-6">
       {error && <Alert tone="rose">{error}</Alert>}
       <Card className="space-y-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-          <div className="grid max-w-md flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
-            <DatePicker
-              className="w-full"
-              label="Dari Tanggal"
-              value={state.dateStart}
-              onChange={value => setState(prev => ({ ...prev, dateStart: value }))}
-              max={getTodayWIBWithDaysOffset(365)}
-            />
-            <DatePicker
-              className="w-full"
-              label="Sampai Tanggal"
-              value={state.dateEnd}
-              onChange={value => setState(prev => ({ ...prev, dateEnd: value }))}
-              min={state.dateStart}
-              max={getTodayWIB()}
-            />
-          </div>
-          <ActionButton onClick={() => void loadData()} loading={loading} icon={<FileText className="h-4 w-4" />}>
+        {/*
+         * Tiga kolom sama lebar, mengisi penuh dari kiri ke kanan.
+         *
+         * Sebelumnya kelompok tanggal dikunci `max-w-md` dan tombol Tampilkan
+         * berdiri tepat setelahnya, jadi di layar lebar sisa ruang di kanan
+         * menganga. Dengan `grid-cols-3`, kedua tanggal berbagi lebar
+         * sama rata dan tombolnya menutup ujung kanan — tidak ada kolom
+         * kosong.
+         */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-end">
+          <DatePicker
+            className="w-full"
+            label="Dari Tanggal"
+            value={state.dateStart}
+            onChange={value => setState(prev => ({ ...prev, dateStart: value }))}
+            max={getTodayWIBWithDaysOffset(365)}
+          />
+          <DatePicker
+            className="w-full"
+            label="Sampai Tanggal"
+            value={state.dateEnd}
+            onChange={value => setState(prev => ({ ...prev, dateEnd: value }))}
+            min={state.dateStart}
+            max={getTodayWIB()}
+          />
+          <ActionButton className="w-full" onClick={() => void loadData()} loading={loading} icon={<FileText className="h-4 w-4" />}>
             Tampilkan
           </ActionButton>
         </div>
@@ -666,37 +687,40 @@ function RiwayatIzinPanel({ aktif }: { aktif: boolean }) {
       </div>
 
       <Card padded={false} className="p-5 sm:p-6">
-        <CardTitle>
+        <CardTitle
+          action={
+            <div className="flex items-center gap-2">
+              <ActionButton
+                variant="ghost"
+                size="sm"
+                onClick={() => void loadData()}
+                loading={loading}
+                icon={<RefreshCw className="h-4 w-4" />}
+                aria-label="Muat ulang riwayat izin"
+                title="Muat ulang"
+                className="!p-2 sm:!px-3 sm:!py-1.5"
+              >
+                <span className="hidden sm:inline">Muat Ulang</span>
+              </ActionButton>
+              <ActionButton
+                variant="secondary"
+                size="sm"
+                onClick={exportCsv}
+                disabled={filtered.length === 0}
+                icon={<Download className="h-4 w-4" />}
+                aria-label="Ekspor CSV"
+                title="Ekspor CSV"
+                className="!p-2 sm:!px-3 sm:!py-1.5"
+              >
+                <span className="hidden sm:inline">CSV</span>
+              </ActionButton>
+            </div>
+          }
+        >
           Daftar Pengajuan
         </CardTitle>
-        <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="mb-3">
           <Badge tone="slate">{filtered.length} baris</Badge>
-          <div className="grid grid-cols-2 gap-2 sm:flex">
-            <ActionButton
-              variant="ghost"
-              size="sm"
-              block
-              onClick={() => void loadData()}
-              loading={loading}
-              icon={<RefreshCw className="h-4 w-4" />}
-              aria-label="Muat ulang riwayat izin"
-              title="Muat ulang"
-              className="sm:w-auto"
-            >
-              <span className="hidden sm:inline">Muat Ulang</span>
-            </ActionButton>
-            <ActionButton
-              variant="secondary"
-              size="sm"
-              block
-              onClick={exportCsv}
-              disabled={filtered.length === 0}
-              icon={<Download className="h-4 w-4" />}
-              className="sm:w-auto"
-            >
-              CSV
-            </ActionButton>
-          </div>
         </div>
         {loading ? (
           <SkeletonTable columns={columns.length} rows={6} />
