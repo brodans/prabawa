@@ -1676,22 +1676,27 @@ cek('isAuthenticated dimulai false, bukan dari storage',
 cek('tidak ada setIsAuthenticated yang membaca storage',
   !/setIsAuthenticated\(\s*\(\)\s*=>\s*!!loadSession/.test(appSrc));
 cek('LoginScreen tidak tampil sampai verifikasi sesi selesai',
-  appSrc.indexOf('cekingSesi ?') >= 0 &&
-    appSrc.indexOf('cekingSesi ?') < appSrc.indexOf('!isAuthenticated && !currentUser ?') &&
+  /const tampilLogin = !cekingSesi && !isAuthenticated && !currentUser/.test(appSrc) &&
     /if \(cekingSesi\) return;\s*setIsAuthenticated\(currentUser !== null\)/.test(appSrc),
   'akses workspace baru dibuka setelah server memverifikasi sesi');
 cek('verifikasi sesi tidak menampilkan login atau loading workspace',
-  /cekingSesi \? \(/.test(appSrc) &&
+  /const tampilKerangka = cekingSesi \|\|/.test(appSrc) &&
     /<StartupShell pageId=\{activePage\} \/>/.test(appSrc) &&
     !/Memulihkan sesi|Menyiapkan workspace|Memeriksa sesi/.test(appSrc + loginSrc));
+cek('satu kerangka saja dari verifikasi sesi sampai gerbang selesai',
+  /const tampilKerangka = cekingSesi \|\| \(tampilGerbang && gerbangMemuat\)/.test(appSrc) &&
+    (appSrc.match(/\{tampilKerangka && <StartupShell/g) ?? []).length === 1,
+  'kerangka tidak boleh dilepas lalu dipasang ulang (dulu terbaca berlapis-lapis)');
 cek('login manual langsung membuka aplikasi tanpa overlay workspace',
   /dispatch\(\{ type: 'AUTH_SUCCESS' \}\);\s*onLogin\(\)/.test(loginSrc) &&
     !/Menyiapkan workspace/.test(loginSrc));
 cek('pemulihan token menyiapkan auto-login pusat sebelum workspace dibuka',
   /setServerAutoLoginPending\(!sudahKeluarServer\(hasil\.akun\.username\)\)/.test(ctxSrc));
 cek('gerbang menyembunyikan UI hanya selama pemeriksaan data awal',
-  /if \(loading && \(!ringkasan \|\| ringkasan\.username !== username \|\| !pengaturan\)\) \{\s*return fallbackLoading \? <>\{fallbackLoading\}<\/> : null/.test(gateSrc) &&
-    /fallbackLoading=\{<StartupShell pageId=\{activePage\} \/>\}/.test(appSrc));
+  /const tampilkanKerangka =\s*loading && \(!ringkasan \|\| ringkasan\.username !== username \|\| !pengaturan\)/.test(gateSrc) &&
+    /if \(tampilkanKerangka\) \{\s*return fallbackLoading \? <>\{fallbackLoading\}<\/> : null/.test(gateSrc) &&
+    /fallbackLoading=\{null\}/.test(appSrc) &&
+    /onLoadingChange=\{setGerbangMemuat\}/.test(appSrc));
 cek('refresh gerbang tidak menyembunyikan workspace yang sudah siap',
   /loading && \(!ringkasan \|\| ringkasan\.username !== username \|\| !pengaturan\)/.test(gateSrc));
 cek('shell mengunci dokumen sebelum first paint untuk mencegah scrollbar ganda',

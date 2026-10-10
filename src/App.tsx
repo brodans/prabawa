@@ -186,8 +186,8 @@ function PageLoading({ pageId }: { pageId: string }) {
   const adaHeaderHalaman =
     pageId === 'tabBeranda' || pageId === 'tabPresensi' || pageId === 'tabDocs';
   const header = (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 items-center gap-3">
+    <div className="flex items-start justify-between gap-3 sm:items-center">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <Skeleton className="h-11 w-11 shrink-0 rounded-2xl" />
         <div className="min-w-0">
           <Skeleton className="h-7 w-44 max-w-full sm:h-8" />
@@ -195,9 +195,9 @@ function PageLoading({ pageId }: { pageId: string }) {
         </div>
       </div>
       {((pageId === 'tabBeranda' && pegawai) || (pageId === 'tabPresensi' && pegawai)) && (
-        <div className="flex gap-2">
-          <Skeleton className="h-9 w-28 shrink-0 rounded-xl" />
-          {pageId === 'tabBeranda' && <Skeleton className="h-9 w-28 shrink-0 rounded-xl" />}
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <Skeleton className="h-8 w-9 shrink-0 rounded-lg sm:w-28" />
+          {pageId === 'tabBeranda' && <Skeleton className="h-8 w-9 shrink-0 rounded-lg sm:w-28" />}
         </div>
       )}
     </div>
@@ -334,34 +334,43 @@ function PageLoading({ pageId }: { pageId: string }) {
     content = (
       <>
         {stats(4)}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          <div className="lg:col-span-3 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6 space-y-5">
-            <Skeleton className="h-4 w-32" />
-            <div className="space-y-2">
-              <Skeleton className="h-3 w-32" />
-              <div className="flex gap-2">
-                <Skeleton className="h-[42px] flex-1 rounded-xl" />
-                <Skeleton className="h-[42px] w-32 rounded-xl" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6">
+            <Skeleton className="mb-4 h-4 w-32" />
+            <div className="mb-4 flex items-center gap-4">
+              <Skeleton className="h-16 w-16 shrink-0 rounded-2xl" />
+              <div className="min-w-0 space-y-2">
+                <Skeleton className="h-4 w-40 max-w-full" />
+                <Skeleton className="h-3 w-32" />
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                  <Skeleton className="h-5 w-24 rounded-full" />
+                </div>
               </div>
-              <Skeleton className="h-3 w-2/3" />
             </div>
-            <Skeleton className="h-20 w-full rounded-xl" />
-            <div className="space-y-2">
-              <Skeleton className="h-3 w-28" />
-              <Skeleton className="h-[42px] w-full rounded-xl" />
+            <div className="space-y-2.5">
+              {[0, 1, 2, 3, 4, 5].map(item => (
+                <div key={item} className="flex items-center justify-between gap-3">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              ))}
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[0, 1, 2].map(item => <Skeleton key={item} className="h-10 rounded-xl" />)}
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Skeleton className="h-10 rounded-xl" />
-              <Skeleton className="h-10 rounded-xl" />
-            </div>
-            <Skeleton className="h-12 w-full rounded-xl" />
           </div>
-          <div className="lg:col-span-2 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6">
-            <Skeleton className="mb-4 h-4 w-40" />
-            <SkeletonList rows={4} />
+          <div className="rounded-2xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 sm:p-6">
+            <Skeleton className="mb-4 h-4 w-24" />
+            <div className="space-y-2.5">
+              {[0, 1, 2].map(item => (
+                <div key={item} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3.5 dark:border-slate-700">
+                  <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                  <Skeleton className="h-4 w-4 shrink-0 rounded" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </>
@@ -369,9 +378,11 @@ function PageLoading({ pageId }: { pageId: string }) {
   } else if (pageId === 'tabPresensi' && !pegawai) {
     content = (
       <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
-        <div className="flex flex-col items-center gap-3 py-5 text-center">
-          <Skeleton className="h-4 w-48" />
+        <div className="flex flex-col items-center gap-2 py-6 text-center">
+          <Skeleton className="h-4 w-52 max-w-full" />
           <Skeleton className="h-3 w-72 max-w-full" />
+        </div>
+        <div className="flex justify-center">
           <Skeleton className="h-10 w-32 rounded-xl" />
         </div>
       </div>
@@ -381,52 +392,44 @@ function PageLoading({ pageId }: { pageId: string }) {
       <>
         {stats(4, [2, 3])}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          <div className="space-y-4 rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6 lg:col-span-3">
-            <Skeleton className="h-4 w-40" />
-            <div className="space-y-2">
-              <Skeleton className="h-3 w-32" />
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-[42px] flex-1 rounded-xl" />
-                <Skeleton className="h-10 w-32 rounded-xl" />
-              </div>
-              <div className="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                <div className="flex justify-between gap-3">
-                  <Skeleton className="h-3 w-36" />
-                  <Skeleton className="h-3 w-16" />
+          <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6 lg:col-span-3">
+            <Skeleton className="mb-4 h-4 w-32" />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-32" />
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-[42px] min-w-0 flex-1 rounded-xl" />
+                  <Skeleton className="h-10 w-28 shrink-0 rounded-xl" />
                 </div>
-                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="h-[52px] w-full rounded-xl" />
               </div>
-            </div>
-            {[0, 1].map(field => (
-              <div key={field} className="space-y-2">
-                <Skeleton className="h-3 w-28" />
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-20" />
                 <Skeleton className="h-[42px] w-full rounded-xl" />
               </div>
-            ))}
-            <div className="space-y-2">
-              <Skeleton className="h-3 w-32" />
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {[0, 1, 2].map(option => (
-                  <div key={option} className="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                    <Skeleton className="h-3 w-2/3" />
-                    <Skeleton className="h-3 w-full" />
-                  </div>
-                ))}
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-24" />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {[0, 1, 2].map(option => (
+                    <div key={option} className="space-y-1.5 rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700">
+                      <Skeleton className="h-3 w-2/3" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-            {[0, 1].map(field => (
-              <div key={field} className="space-y-2">
-                <Skeleton className="h-3 w-36" />
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-20" />
                 <div className="flex items-center gap-2 rounded-lg py-1">
                   <Skeleton className="h-4 w-4 rounded" />
                   <Skeleton className="h-3 w-48 max-w-[80%]" />
                 </div>
               </div>
-            ))}
-            <Skeleton className="h-12 w-full rounded-xl" />
+              <Skeleton className="h-12 w-full rounded-xl" />
+            </div>
           </div>
-          <div className="space-y-4 rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6 lg:col-span-2">
-            <Skeleton className="h-4 w-36" />
+          <div className="space-y-6 rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6 lg:col-span-2">
+            <Skeleton className="mb-4 h-4 w-36" />
             <SkeletonList rows={4} />
           </div>
         </div>
@@ -436,9 +439,9 @@ function PageLoading({ pageId }: { pageId: string }) {
     content = (
       <>
         <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
-          <div className="mb-4 flex justify-between"><Skeleton className="h-4 w-36" /><Skeleton className="h-6 w-32 rounded-full" /></div>
+          <div className="mb-4 flex items-center justify-between gap-3"><Skeleton className="h-4 w-36" /><Skeleton className="h-6 w-32 rounded-full" /></div>
           <div className="mb-3 flex flex-wrap items-center gap-4">
-            <Skeleton className="ml-auto h-3 w-40" />
+            <Skeleton className="h-3 w-40" />
           </div>
           <Skeleton className="aspect-square w-full rounded-xl sm:aspect-auto sm:h-[480px]" />
         </div>
@@ -468,7 +471,6 @@ function PageLoading({ pageId }: { pageId: string }) {
         <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <Skeleton className="h-4 w-44" />
-            <Skeleton className="h-6 w-28 rounded-full" />
           </div>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {[0, 1].map(item => (
@@ -511,7 +513,14 @@ function PageLoading({ pageId }: { pageId: string }) {
               {[0, 1, 2, 3].map(item => (
                 <div key={item} className="space-y-2">
                   <Skeleton className="h-3 w-1/3" />
-                  <Skeleton className="h-[42px] w-full rounded-xl" />
+                  {item === 3 ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Skeleton className="h-[42px] w-full rounded-xl" />
+                      <Skeleton className="h-[42px] w-full rounded-xl" />
+                    </div>
+                  ) : (
+                    <Skeleton className="h-[42px] w-full rounded-xl" />
+                  )}
                 </div>
               ))}
             </div>
@@ -528,10 +537,12 @@ function PageLoading({ pageId }: { pageId: string }) {
   } else if (pageId === 'tabPerizinan') {
     content = (
       <>
-        <div className="rounded-2xl border border-slate-200/70 bg-white p-1 dark:border-slate-700/60 dark:bg-slate-800/60">
-          <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-900/70">
-            <Skeleton className="h-12 rounded-lg bg-white dark:bg-slate-800" />
-            <Skeleton className="h-12 rounded-lg" />
+        <div className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white dark:border-slate-700/60 dark:bg-slate-800/60">
+          <div className="px-3 py-3 sm:px-5">
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-900/70">
+              <Skeleton className="h-12 rounded-lg bg-white dark:bg-slate-800" />
+              <Skeleton className="h-12 rounded-lg" />
+            </div>
           </div>
         </div>
         <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
@@ -547,9 +558,9 @@ function PageLoading({ pageId }: { pageId: string }) {
               <Skeleton className="h-3 w-16" />
               <Skeleton className="h-28 w-full rounded-xl" />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Skeleton className="h-10 w-36 rounded-xl" />
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <Skeleton className="h-10 w-28 rounded-xl" />
+              <Skeleton className="ml-auto h-10 w-36 rounded-xl grow sm:grow-0" />
             </div>
           </div>
         </div>
@@ -561,12 +572,12 @@ function PageLoading({ pageId }: { pageId: string }) {
         <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">{filterFields(3)}</div>
           <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 dark:border-slate-700/60 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
               <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-8 w-16 rounded-lg" />
-              <Skeleton className="h-8 w-16 rounded-lg" />
+              <Skeleton className="h-7 w-16 rounded-lg" />
+              <Skeleton className="h-7 w-16 rounded-lg" />
             </div>
-            <Skeleton className="h-10 w-40 rounded-xl" />
+            <Skeleton className="h-10 w-full rounded-xl sm:w-40" />
           </div>
         </div>
         {stats(4, [0])}
@@ -618,14 +629,14 @@ function PageLoading({ pageId }: { pageId: string }) {
                 </div>
               ))}
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-14 min-w-0 flex-1 rounded-xl" />
-                <Skeleton className="h-11 w-10 rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-16" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end sm:gap-2">
+              <div className="order-2 space-y-2 sm:order-1">
+                <Skeleton className="h-3 w-12" />
                 <Skeleton className="h-[42px] w-full rounded-xl" />
+              </div>
+              <div className="order-1 flex items-center gap-2 sm:order-2">
+                <Skeleton className="h-11 w-[191px] shrink-0 rounded-none" />
+                <Skeleton className="h-11 w-11 shrink-0 grow rounded-lg sm:grow-0 sm:w-11" />
               </div>
             </div>
             <Skeleton className="h-10 w-40 rounded-xl" />
@@ -638,7 +649,7 @@ function PageLoading({ pageId }: { pageId: string }) {
         {login}
         <div className="space-y-4">
           <div className="flex gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-9 min-w-0 flex-1 rounded-xl" />)}
+            {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-9 min-w-0 flex-1 rounded-xl sm:w-28 sm:flex-none" />)}
           </div>
           <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
             {webTabPanel}
@@ -650,8 +661,8 @@ function PageLoading({ pageId }: { pageId: string }) {
     content = (
       <>
         {stats(4)}
-        <div className="flex flex-wrap gap-1.5 rounded-2xl border border-slate-200 bg-slate-100/70 p-1.5 dark:border-slate-700 dark:bg-slate-800/50">
-          {Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="h-8 w-28 rounded-xl" />)}
+        <div className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-100/70 p-1 dark:border-slate-700 dark:bg-slate-800/50 md:flex md:flex-nowrap md:justify-between md:overflow-x-auto">
+          {Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="h-9 min-w-0 rounded-lg md:w-28 md:flex-none" />)}
         </div>
         {[0, 1, 2].map(card => (
           <div key={card} className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-700/60 dark:bg-slate-800/60 sm:p-6">
@@ -713,20 +724,32 @@ function PageLoading({ pageId }: { pageId: string }) {
 
 function StartupShell({ pageId }: { pageId: string }) {
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-slate-50 text-slate-800 dark:bg-[#0B1120] dark:text-slate-200" aria-hidden="true">
+    <div className="fixed inset-0 z-50 flex h-dvh w-full overflow-hidden bg-slate-50 text-slate-800 dark:bg-[#0B1120] dark:text-slate-200" aria-hidden="true">
+      {/*
+       * `fixed inset-0`: kerangka ini **menutup** apa pun yang sedang
+       * disiapkan di belakangnya (gerbang langganan yang sedang memuat),
+       * jadi tidak ada dua lapisan yang terlihat bersamaan.
+       *
+       * Kerangka shell ini **meniru tata letak asli** (`MainApp`) sepersis
+       * mungkin — lebar sidebar, tinggi header, jarak, dan irama daftar menu —
+       * supaya saat kerangka digantikan aplikasi sungguhan, tata letaknya tidak
+       * melompat sedikit pun.
+       */}
       <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-slate-800/50 bg-[#0F172A] lg:flex dark:bg-[#070B14]">
-        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-800/60 px-5">
-          <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-700/50 p-1">
-            <img src={APP_LOGO} alt="" className="h-full w-full object-contain" />
+        <div className="flex h-[56px] shrink-0 items-center gap-3 border-b border-slate-800/60 px-5">
+          <div className="h-10 w-10 shrink-0 rounded-2xl bg-slate-700 p-0.5">
+            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[0.7rem] bg-[#0F172A] p-1 dark:bg-[#070B14]">
+              <img src={APP_LOGO} alt="" className="h-full w-full object-contain" />
+            </div>
           </div>
           <Skeleton className="h-4 w-28 bg-slate-700/60" />
         </div>
-        <nav className="flex-1 space-y-5 px-3.5 py-5">
+        <nav className="flex-1 space-y-5 overflow-y-auto px-3.5 py-5">
           {GROUP_ORDER.map(group => (
-            <div key={group} className="space-y-2">
-              <Skeleton className="mb-3 h-3 w-24 bg-slate-700/60" />
+            <div key={group} className="space-y-1.5">
+              <Skeleton className="h-3 w-24 bg-slate-700/60" />
               {PAGES.filter(page => page.group === group).map(page => (
-                <div key={page.id} className="flex h-10 items-center gap-3 rounded-xl px-3">
+                <div key={page.id} className="flex h-11 items-center gap-3.5 rounded-xl px-3.5">
                   <Skeleton className="h-5 w-5 shrink-0 rounded bg-slate-700/60" />
                   <Skeleton className="h-3 w-28 bg-slate-700/60" />
                 </div>
@@ -736,17 +759,17 @@ function StartupShell({ pageId }: { pageId: string }) {
         </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200/80 bg-slate-100/80 px-4 dark:border-slate-800/80 dark:bg-[#0B1120]/80 sm:px-6">
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-9 w-9 rounded-xl lg:hidden" />
+        <header className="poni-header flex h-[56px] shrink-0 items-center justify-between border-b border-slate-200/80 bg-slate-100/80 dark:border-slate-800/80 dark:bg-[#0B1120]/80">
+          <div className="flex min-w-0 items-center gap-3">
+            <Skeleton className="h-9 w-9 shrink-0 rounded-xl lg:hidden" />
             <div className="space-y-1.5">
               <Skeleton className="h-3.5 w-28" />
               <Skeleton className="h-2.5 w-40" />
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Skeleton className="hidden h-8 w-24 rounded-full md:block" />
-            <Skeleton className="h-9 w-9 rounded-full" />
+            <Skeleton className="hidden h-8 w-24 rounded-full sm:block" />
+            <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
           </div>
         </header>
         <main className="poni-konten min-h-0 flex-1 overflow-y-auto">
@@ -1544,6 +1567,17 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
     * `MainApp` tidak pernah dirender dengan hak yang belum diverifikasi.
    */
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  /*
+   * Apakah gerbang langganan masih menampilkan kerangka?
+   *
+   * Diangkat ke sini supaya **satu** `StartupShell` bisa bertahan dari
+   * pemeriksaan sesi (`cekingSesi`) sampai gerbang selesai. Sebelumnya
+   * kerangka milik `cekingSesi` dilepas dulu, lalu gerbang memasang kerangka
+   * kedua di posisi lain — React membongkar-pasang komponennya, denyut
+   * `animate-pulse`-nya mulai dari nol lagi, dan di layar terbaca seperti
+   * kerangka berlapis-lapis.
+   */
+  const [gerbangMemuat, setGerbangMemuat] = useState(true);
   React.useEffect(() => {
     if (!adaSesiSaatMuat && !currentUser) return;
     void loadPageModule(activePage).catch(() => undefined);
@@ -1680,12 +1714,25 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
     };
   }, [isAuthenticated, handleLogout]);
 
+  /*
+   * Tiga keadaan, dan hanya satu kerangka di antaranya.
+   *
+   * `tampilLogin` dan `tampilGerbang` saling meniadakan; `tampilKerangka`
+   * menyala selama sesi diperiksa **atau** selama gerbang memuat. Karena
+   * `StartupShell` berada di posisi yang sama sepanjang `tampilKerangka`,
+   * React memakai ulang komponen yang sama dari awal sampai akhir — tidak ada
+   * skeleton yang sempat dilepas lalu dipasang ulang.
+   */
+  const tampilLogin = !cekingSesi && !isAuthenticated && !currentUser;
+  const tampilGerbang = !cekingSesi && !tampilLogin;
+  const tampilKerangka = cekingSesi || (tampilGerbang && gerbangMemuat);
+
   return (
     <>
-        {/* Workspace baru dirender setelah server mengonfirmasi sesi tersimpan. */}
-      {cekingSesi ? (
-        <StartupShell pageId={activePage} />
-      ) : !isAuthenticated && !currentUser ? (
+      {/* Satu kerangka untuk verifikasi sesi dan pemuatan gerbang. */}
+      {tampilKerangka && <StartupShell pageId={activePage} />}
+
+      {tampilLogin && (
         <motion.div
           initial={false}
           animate={{ opacity: 1, scale: 1 }}
@@ -1699,7 +1746,9 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
             toggleDarkMode={toggleDarkMode}
           />
         </motion.div>
-      ) : (
+      )}
+
+      {tampilGerbang && (
         <motion.div
           initial={false}
           animate={{ opacity: 1 }}
@@ -1712,10 +1761,15 @@ function AppShell({ isDarkMode, toggleDarkMode }: { isDarkMode: boolean; toggleD
             menyisakan tombol yang bisa membuka halaman lain — jadi
             "wajib bayar" tidak benar-benar wajib. Pengecualian hanya dua:
             akun admin, dan akun yang ditandai gratis oleh admin.
+
+            `fallbackLoading` sengaja `null`: kerangka selama gerbang memuat
+            dipegang `AppShell` di atas (`tampilKerangka`), bukan di sini —
+            supaya tidak ada dua skeleton di dua tempat.
           */}
           <GerbangLangganan
             onKeluar={handleLogout}
-            fallbackLoading={<StartupShell pageId={activePage} />}
+            fallbackLoading={null}
+            onLoadingChange={setGerbangMemuat}
           >
             <MainApp onLogout={handleLogout} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
           </GerbangLangganan>

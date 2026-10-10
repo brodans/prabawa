@@ -166,10 +166,21 @@ export default function GerbangLangganan({
   children,
   onKeluar,
   fallbackLoading,
+  onLoadingChange,
 }: {
   children: ReactNode;
   onKeluar: () => void;
   fallbackLoading?: ReactNode;
+  /**
+   * Lapor ke pemanggil apakah gerbang **sedang menampilkan kerangka** sambil
+   * memeriksa status langganan.
+   *
+   * Dipakai `AppShell` untuk mengangkat satu skeleton yang sama dari masa
+   * pemeriksaan sesi sampai gerbang selesai — supaya kerangka tidak sempat
+   * dilepas lalu dipasang ulang (yang membuat pulsanya melompat dan terbaca
+   * seperti berlapis-lapis).
+   */
+  onLoadingChange?: (memuat: boolean) => void;
 }) {
   const { currentUser, pegawai } = useAppContext();
   const toast = useToast();
@@ -422,7 +433,26 @@ export default function GerbangLangganan({
 
   const paket = useMemo(() => (pengaturan ? paketEfektif(pengaturan) : []), [pengaturan]);
 
-  if (loading && (!ringkasan || ringkasan.username !== username || !pengaturan)) {
+  /**
+   * Apakah gerbang masih menampilkan kerangka (bukan isi)?
+   *
+   * Syaratnya sama persis dengan penjaga `if (...)` di bawah — satu-satunya
+   * keadaan yang boleh menyembunyikan UI. `muat()` sengaja tidak menyentuh
+   * `loading`, jadi pemeriksaan ulang status (setiap 3 detik selama masa
+   * tunggu, atau setelah pembayaran) tidak membuat kerangka muncul kembali.
+   */
+  const tampilkanKerangka =
+    loading && (!ringkasan || ringkasan.username !== username || !pengaturan);
+
+  /*
+   * Lapor ke `AppShell` supaya kerangka yang sama tetap terpasang (tidak
+   * dilepas lalu dipasang ulang) selama sesi diperiksa sampai gerbang selesai.
+   */
+  useEffect(() => {
+    onLoadingChange?.(tampilkanKerangka);
+  }, [tampilkanKerangka, onLoadingChange]);
+
+  if (tampilkanKerangka) {
     return fallbackLoading ? <>{fallbackLoading}</> : null;
   }
 

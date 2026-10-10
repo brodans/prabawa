@@ -41,28 +41,190 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+    <!--
+      ─── Kerangka boot (critical CSS) ─────────────────────────────────
+      Ini adalah salinan **persis** dari `StartupShell` + `PageLoading`
+      (yang tampil pertama saat reload) di `src/App.tsx`. Ditulis sebagai
+      CSS kritis agar langsung terlihat sebelum bundel Tailwind dimuat.
+
+      Salinan ini dijaga huruf-per-huruf:
+        • warna skeleton  → `bg-slate-200/70` (light) / `dark:bg-slate-700/60`
+        • root            → `bg-slate-50` (light) / `dark:bg-[#0B1120]`
+        • sidebar         → `bg-[#0F172A]` / `dark:bg-[#070B14]`
+        • sidebar skeleton → `bg-slate-700/60` (sama di kedua tema)
+        • header          → `bg-slate-100/80` / `dark:bg-[#0B1120]/80`
+        • urutan menu     → grup utama (6), admin (1), referensi (1)
+
+      Jika `StartupShell`/`PageLoading` diubah, salinan ini wajib diubah
+      bersama agar tidak ada lompatan tata letak saat React mengambil alih.
+      `tools/cek-modal-ringan.mts` memastikan `#root` tetap diawali
+      `.boot-shell`.
+    -->
     <style>
       html, body, #root { min-height: 100%; margin: 0; }
-      .boot-shell { display: flex; width: 100%; height: 100dvh; overflow: hidden; background: #f1f5f9; }
-      .boot-sidebar { display: none; width: 16rem; flex: none; padding: 1.25rem; background: #0f172a; }
-      .boot-brand { display: flex; height: 2.5rem; align-items: center; gap: .75rem; }
-      .boot-brand img { width: 2.5rem; height: 2.5rem; object-fit: contain; }
-      .boot-nav { display: grid; gap: 1.5rem; margin-top: 2rem; }
-      .boot-group { display: grid; gap: .75rem; }
-      .boot-line { height: .75rem; border-radius: .5rem; background: #cbd5e1; }
-      .boot-sidebar .boot-line { background: #334155; }
-      .boot-content { display: flex; min-width: 0; flex: 1; flex-direction: column; }
-      .boot-header { display: flex; height: 3.5rem; flex: none; align-items: center; justify-content: space-between; padding: 0 1.5rem; border-bottom: 1px solid #e2e8f0; }
-      .boot-main { display: grid; flex: 1; align-content: start; gap: 1rem; padding: 2rem; }
-      .boot-card { height: 7rem; border: 1px solid #e2e8f0; border-radius: .75rem; background: #fff; }
-      .boot-row { display: flex; align-items: center; gap: .75rem; }
-      .boot-circle { width: 2.25rem; height: 2.25rem; border-radius: 50%; }
-      @media (min-width: 1024px) { .boot-sidebar { display: block; } }
-      .dark .boot-shell { background: #0b1120; }
-      .dark .boot-header { border-color: #1e293b; background: #0b1120; }
-      .dark .boot-line { background: #334155; }
-      .dark .boot-card { border-color: #334155; background: #1e293b; }
-      @media (max-width: 639px) { .boot-main { padding: 1rem; } }
+      :root {
+        --poni-kiri: env(safe-area-inset-left, 0px);
+        --poni-kanan: env(safe-area-inset-right, 0px);
+        --poni-atas: env(safe-area-inset-top, 0px);
+        --poni-bawah: env(safe-area-inset-bottom, 0px);
+      }
+      @keyframes boot-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .5 } }
+
+      /* ── Root: same as StartupShell ── */
+      .boot-shell { position: fixed; inset: 0; z-index: 50; display: none; height: 100dvh; width: 100%; overflow: hidden; background: oklch(0.984 0.003 247.858); color: oklch(0.279 0.041 260.031); }
+      html.app-shell-active .boot-shell { display: flex; }
+      .dark .boot-shell { background: #0B1120; color: oklch(0.929 0.013 255.508); }
+
+      /* ── Layar login: cocok dengan LoginScreen (bg-slate-200/80 + grid) ── */
+      .boot-login { position: fixed; inset: 0; z-index: 40; background-color: #e2e8f0cc; background-color: oklch(0.929 0.013 255.508 / 0.8); }
+      .boot-login::before {
+        content: ''; position: absolute; inset: 0; pointer-events: none;
+        background-image: linear-gradient(to right, #80808012 1px, transparent 1px), linear-gradient(to bottom, #80808012 1px, transparent 1px);
+        background-size: 24px 24px;
+        -webkit-mask-image: radial-gradient(ellipse at center, #000 20%, transparent 100%);
+        mask-image: radial-gradient(ellipse at center, #000 20%, transparent 100%);
+      }
+      .dark .boot-login { background-color: #0a0f1c; }
+      .dark .boot-login::before {
+        background-image: linear-gradient(to right, #ffffff0a 1px, transparent 1px), linear-gradient(to bottom, #ffffff0a 1px, transparent 1px);
+      }
+      html.app-shell-active .boot-login { display: none; }
+
+      /* ── Skeleton: same as <Skeleton> (animate-pulse rounded-lg) ── */
+      .bsk, .bsk-s, .bsk-n { animation: boot-pulse 2s cubic-bezier(.4,0,.6,1) infinite; border-radius: .5rem; }
+      .bsk { background: #e2e8f0b3; background: oklch(0.929 0.013 255.508 / 0.7); }     /* bg-slate-200/70 */
+      .dark .bsk { background: #31415899; background: oklch(0.372 0.044 257.287 / 0.6); }   /* dark:bg-slate-700/60 */
+      .bsk-s { background: #31415899; background: oklch(0.372 0.044 257.287 / 0.6); }       /* bg-slate-700/60 (sidebar, kedua tema) */
+      .bsk-n { background: #fff; }                     /* bg-white … */
+      .dark .bsk-n { background: oklch(0.279 0.041 260.031); }            /* … dark:bg-slate-800 */
+
+      /* ── Permukaan kartu ── */
+      .bsrf { border: 1px solid #e2e8f0b3; border: 1px solid oklch(0.929 0.013 255.508 / 0.7); border-radius: 1rem; background: #fff; }
+      .dark .bsrf { border-color: #31415899; border-color: oklch(0.372 0.044 257.287 / 0.6); background: #1d293d99; background: oklch(0.279 0.041 260.031 / 0.6); }
+      .bsrf2 { border: 1px solid oklch(0.929 0.013 255.508); border-radius: 1rem; }
+      .dark .bsrf2 { border-color: oklch(0.372 0.044 257.287); }
+      .bsrf3 { border: 1px solid #e2e8f0b3; border: 1px solid oklch(0.929 0.013 255.508 / 0.7); border-radius: 1rem; background: #fff; box-shadow: 0 1px 3px 0 rgba(0,0,0,.1), 0 1px 2px -1px rgba(0,0,0,.1); }
+      .dark .bsrf3 { border-color: #31415899; border-color: oklch(0.372 0.044 257.287 / 0.6); background: #1d293d99; background: oklch(0.279 0.041 260.031 / 0.6); }
+      .b-p5 { padding: 1.25rem; }
+      .b-p4s5 { padding: 1rem; }
+      @media (min-width: 640px) { .b-p5 { padding: 1.5rem; } .b-p4s5 { padding: 1.25rem; } }
+      .b-pxy33 { padding: .75rem; }
+      @media (min-width: 640px) { .b-pxy33 { padding-left: 1.25rem; padding-right: 1.25rem; } }
+
+      /* ── Sidebar (same as StartupShell) ── */
+      .boot-sidebar { display: none; height: 100%; width: 16rem; flex: none; flex-direction: column; border-right: 1px solid #1d293d80; border-right: 1px solid oklch(0.279 0.041 260.031 / 0.5); background: #0F172A; }
+      .dark .boot-sidebar { background: #070B14; }
+      @media (min-width: 1024px) { .boot-sidebar { display: flex; } }
+      .boot-brand { display: flex; height: 3.5rem; flex: none; align-items: center; gap: .75rem; border-bottom: 1px solid #1d293d99; border-bottom: 1px solid oklch(0.279 0.041 260.031 / 0.6); padding: 0 1.25rem; }
+      .boot-logo { height: 2.5rem; width: 2.5rem; flex: none; border-radius: 1rem; background: oklch(0.372 0.044 257.287); padding: .125rem; }
+      .boot-logo span { display: flex; height: 100%; width: 100%; align-items: center; justify-content: center; overflow: hidden; border-radius: .7rem; background: #0F172A; padding: .25rem; }
+      .dark .boot-logo span { background: #070B14; }
+      .boot-logo img { height: 100%; width: 100%; object-fit: contain; }
+      .boot-nav { flex: 1 1 0%; overflow-y: auto; padding: 1.25rem .875rem; display: flex; flex-direction: column; gap: 1.25rem; }
+      .boot-group { display: flex; flex-direction: column; gap: .375rem; }
+      .boot-item { display: flex; height: 2.75rem; align-items: center; gap: .875rem; border-radius: .75rem; padding: 0 .875rem; }
+      .boot-dot { height: 1.25rem; width: 1.25rem; flex: none; border-radius: .25rem; }
+
+      /* ── Kolom konten + header ── */
+      .boot-content { display: flex; min-width: 0; flex: 1 1 0%; flex-direction: column; overflow: hidden; }
+      .boot-header { display: flex; height: 3.5rem; flex: none; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0cc; border-bottom: 1px solid oklch(0.929 0.013 255.508 / 0.8); background: #f1f5f9cc; background: oklch(0.968 0.007 247.896 / 0.8); padding-left: max(1rem, var(--poni-kiri)); padding-right: max(1rem, var(--poni-kanan)); }
+      .dark .boot-header { border-bottom-color: #1d293dcc; border-bottom-color: oklch(0.279 0.041 260.031 / 0.8); background: #0b1120cc; background: rgb(11 17 32 / 0.8); }
+      @media (min-width: 640px) { .boot-header { padding-left: max(1.5rem, var(--poni-kiri)); padding-right: max(1.5rem, var(--poni-kanan)); } }
+      .boot-row { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+      .boot-hjudul { display: flex; flex-direction: column; gap: .375rem; }
+      .b-menu { display: block; }
+      @media (min-width: 1024px) { .b-menu { display: none; } }
+      .b-clock { display: none; }
+      @media (min-width: 640px) { .b-clock { display: block; } }
+
+      /* ── Area isi (poni-konten) ── */
+      .boot-main { flex: 1 1 0%; min-height: 0; overflow-y: auto; padding-top: 1.25rem; padding-left: max(1rem, var(--poni-kiri)); padding-right: max(1rem, var(--poni-kanan)); padding-bottom: max(1rem, var(--poni-bawah)); }
+      @media (min-width: 640px) { .boot-main { padding-top: 1.5rem; padding-left: max(1.5rem, var(--poni-kiri)); padding-right: max(1.5rem, var(--poni-kanan)); padding-bottom: max(1.5rem, var(--poni-bawah)); } }
+      @media (min-width: 1024px) { .boot-main { padding-top: 1.75rem; padding-left: max(2rem, var(--poni-kiri)); padding-right: max(2rem, var(--poni-kanan)); padding-bottom: max(2rem, var(--poni-bawah)); } }
+
+      /* ── Halaman (PageLoading root: w-full space-y-6 / space-y-5) ── */
+      .boot-hal { width: 100%; display: flex; flex-direction: column; gap: 1.5rem; }
+      .boot-hal[data-boot="tabManajemenAkun"], .boot-hal[data-boot="tabPerizinan"] { gap: 1.25rem; }
+      [hidden] { display: none !important; }
+
+      /* ── Header halaman (PageLoading.header) ── */
+      .boot-ph { display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+      .boot-ph-l { display: flex; min-width: 0; flex: 1 1 0%; align-items: center; gap: .75rem; }
+      @media (min-width: 640px) { .boot-ph { flex-direction: row; align-items: center; } }
+      .b-h7 { height: 1.75rem; }
+      @media (min-width: 640px) { .b-h7 { height: 2rem; } }
+
+      /* ── Stats ── */
+      .boot-stats { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1rem; }
+      @media (min-width: 1024px) { .boot-stats { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+      .boot-stat { border: 1px solid #e2e8f0b3; border: 1px solid oklch(0.929 0.013 255.508 / 0.7); border-radius: 1rem; background: #fff; padding: 1rem; box-shadow: 0 1px 3px 0 rgba(0,0,0,.1), 0 1px 2px -1px rgba(0,0,0,.1); }
+      .dark .boot-stat { border-color: #31415899; border-color: oklch(0.372 0.044 257.287 / 0.6); background: #1d293d99; background: oklch(0.279 0.041 260.031 / 0.6); }
+      .boot-stat-hd { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; }
+
+      /* ── Tabel & daftar skeleton ── */
+      .bt { display: flex; flex-direction: column; gap: .75rem; }
+      .bt-h { display: grid; gap: .75rem; border-bottom: 1px solid oklch(0.929 0.013 255.508); padding: 0 .75rem .75rem; }
+      .dark .bt-h { border-color: oklch(0.372 0.044 257.287); }
+      .bt-r { display: grid; gap: .75rem; align-items: center; border: 1px solid oklch(0.968 0.007 247.896); border-radius: .75rem; padding: .75rem; }
+      .dark .bt-r { border-color: #31415899; border-color: oklch(0.372 0.044 257.287 / 0.6); }
+      .bl { display: flex; flex-direction: column; gap: .625rem; }
+      .bl-r { display: flex; align-items: center; justify-content: space-between; gap: .75rem; border: 1px solid oklch(0.929 0.013 255.508); border-radius: .75rem; padding: .75rem .875rem; }
+      .dark .bl-r { border-color: oklch(0.372 0.044 257.287); }
+
+      /* ── Tata letak per halaman ── */
+      /* Beranda (!pegawai): grid-cols-1 gap-6 lg:grid-cols-5 */
+      .b-beranda { display: grid; grid-template-columns: repeat(1, minmax(0,1fr)); gap: 1.5rem; }
+      @media (min-width: 1024px) { .b-beranda { grid-template-columns: repeat(5, minmax(0,1fr)); } .b-col3 { grid-column: span 3 / span 3; } .b-col2 { grid-column: span 2 / span 2; } }
+      /* LokasiAbsen: grid-cols-1 gap-4 lg:grid-cols-2 */
+      .b-g12 { display: grid; grid-template-columns: repeat(1, minmax(0,1fr)); gap: 1rem; }
+      @media (min-width: 1024px) { .b-g12 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+      .b-aspect { aspect-ratio: 1 / 1; width: 100%; border-radius: .75rem; }
+      @media (min-width: 640px) { .b-aspect { aspect-ratio: auto; height: 480px; } }
+      /* ManajemenAkun */
+      .b-tabbg { background: oklch(0.968 0.007 247.896); }
+      .dark .b-tabbg { background: #0f172bb3; background: oklch(0.208 0.042 265.755 / 0.7); }
+      .b-statstrip { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1px; overflow: hidden; border: 1px solid #e2e8f0b3; border: 1px solid oklch(0.929 0.013 255.508 / 0.7); border-radius: 1rem; background: #e2e8f0b3; background: oklch(0.929 0.013 255.508 / 0.7); }
+      .dark .b-statstrip { border-color: #31415899; border-color: oklch(0.372 0.044 257.287 / 0.6); background: #31415899; background: oklch(0.372 0.044 257.287 / 0.6); }
+      @media (min-width: 640px) { .b-statstrip { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+      .b-statcell { background: #fff; }
+      .dark .b-statcell { background: #1d293d99; background: oklch(0.279 0.041 260.031 / 0.6); }
+      .b-filtermk { display: grid; grid-template-columns: repeat(1, minmax(0,1fr)); gap: .625rem; }
+      @media (min-width: 640px) { .b-filtermk { grid-template-columns: minmax(0,1fr) 8rem 9rem auto; align-items: end; } }
+      /* Perizinan */
+      .b-g2 { display: grid; grid-template-columns: repeat(1, minmax(0,1fr)); gap: 1rem; }
+      @media (min-width: 640px) { .b-g2 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+      .b-g2c { display: grid; grid-template-columns: repeat(1, minmax(0,1fr)); gap: .75rem; }
+      @media (min-width: 640px) { .b-g2c { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+      /* Laporan */
+      .b-g3c { display: grid; grid-template-columns: repeat(1, minmax(0,1fr)); gap: 1rem; }
+      @media (min-width: 640px) { .b-g3c { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+      .b-kaki { margin-top: 1rem; display: flex; flex-direction: column; gap: .75rem; border-top: 1px solid oklch(0.968 0.007 247.896); padding-top: 1rem; }
+      .dark .b-kaki { border-top-color: #31415899; border-top-color: oklch(0.372 0.044 257.287 / 0.6); }
+      .b-kirilapor { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+      .b-tampil { height: 2.5rem; width: 100%; border-radius: .75rem; }
+      .b-kirim { height: 2.5rem; width: 9rem; border-radius: .75rem; margin-left: auto; flex-grow: 1; }
+      @media (min-width: 640px) { .b-kaki { flex-direction: row; align-items: center; justify-content: space-between; } .b-kirilapor { width: auto; } .b-tampil { width: 10rem; } .b-kirim { flex-grow: 0; } }
+      /* Web login */
+      .b-weblogin { width: 100%; border: 1px solid oklch(0.929 0.013 255.508); border-radius: 1rem; background: #fff; padding: 1rem; box-shadow: 0 1px 3px 0 rgba(0,0,0,.1), 0 1px 2px -1px rgba(0,0,0,.1); }
+      .dark .b-weblogin { border-color: oklch(0.372 0.044 257.287); background: oklch(0.208 0.042 265.755); }
+      @media (min-width: 640px) { .b-weblogin { padding: 1.5rem; } }
+      .b-cap { display: grid; grid-template-columns: repeat(1, minmax(0,1fr)); gap: .75rem; }
+      @media (min-width: 640px) { .b-cap { grid-template-columns: 1fr auto; align-items: end; gap: .5rem; } }
+      .b-cap1 { order: 2; display: flex; flex-direction: column; gap: .5rem; }
+      .b-cap2 { order: 1; display: flex; align-items: center; gap: .5rem; }
+      .b-cap2 .bsk:last-child { flex-grow: 1; }
+      @media (min-width: 640px) { .b-cap1 { order: 1; } .b-cap2 { order: 2; } .b-cap2 .bsk:last-child { flex-grow: 0; } }
+      /* Docs */
+      .b-chips { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .25rem; border: 1px solid oklch(0.929 0.013 255.508); border-radius: 1rem; background: #f1f5f9b3; background: oklch(0.968 0.007 247.896 / 0.7); padding: .25rem; }
+      .dark .b-chips { border-color: oklch(0.372 0.044 257.287); background: #1d293d80; background: oklch(0.279 0.041 260.031 / 0.5); }
+      @media (min-width: 768px) { .b-chips { display: flex; flex-wrap: nowrap; justify-content: space-between; overflow-x: auto; } .b-chips .bsk { width: 7rem; flex: none; } }
+      /* default */
+      .b-def { display: grid; grid-template-columns: repeat(1, minmax(0,1fr)); gap: 1.5rem; }
+      @media (min-width: 1024px) { .b-def { grid-template-columns: repeat(3, minmax(0,1fr)); } .b-def2 { grid-column: span 2 / span 2; } }
+      .b-g4c { display: grid; grid-template-columns: repeat(1, minmax(0,1fr)); gap: .75rem; }
+      @media (min-width: 640px) { .b-g4c { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+      @media (min-width: 1024px) { .b-g4c { grid-template-columns: repeat(4, minmax(0,1fr)); } }
     </style>
   </head>
   <body>
@@ -83,28 +245,473 @@
     <script>
       (function() {
         try {
-          var username = sessionStorage.getItem('epresensi_jatim_sesi_aktif');
-          if (username && sessionStorage.getItem('epresensi_jatim_session_' + username)) {
-            document.documentElement.classList.add('app-shell-active');
+          /*
+           * Meniru `loadSession()` di `src/lib/sessionManager.ts`:
+           * pakai penunjuk akun aktif bila sesinya masih sah; kalau tidak,
+           * pakai sesi tunggal yang sah. Ini memastikan `.boot-shell` hanya
+           * tampil persis ketika aplikasi memang akan menampilkan shell,
+           * bukan saat sesi sudah kedaluwarsa/tidak sah (yang justru jatuh
+           * ke layar login).
+           *
+           * Yang **tidak** bisa ditiru di sini: verifikasi tanda tangan
+           * token (hanya server yang memegang kuncinya). Itu tetap tugas
+           * `AppContext`.
+           */
+          var PREFIX = 'epresensi_jatim_session_';
+          var AKTIF = 'epresensi_jatim_sesi_aktif';
+          var VERSI = 2;
+          var KEDALUWARSA = 30 * 60 * 1000;
+          var sah = function(raw) {
+            if (!raw) return false;
+            try {
+              var s = JSON.parse(raw);
+              if (!s || s.version !== VERSI) return false;
+              if (typeof s.token !== 'string' || !s.token) return false;
+              if (s.token.split('.').length !== 2) return false;
+              if (!s.currentUser || s.currentUser.role !== s.boundRole) return false;
+              if (!s.currentUser.username) return false;
+              if (typeof s.authTime !== 'number' || Date.now() - s.authTime > KEDALUWARSA) return false;
+              return true;
+            } catch (e) {
+              return false;
+            }
+          };
+          var ada = false;
+          var aktif = sessionStorage.getItem(AKTIF);
+          if (aktif) {
+            ada = sah(sessionStorage.getItem(PREFIX + aktif.trim()));
           }
-        } catch(e) {}
+          if (!ada) {
+            var jumlah = 0;
+            for (var i = 0; i < sessionStorage.length; i++) {
+              var k = sessionStorage.key(i);
+              if (k && k.indexOf(PREFIX) === 0 && sah(sessionStorage.getItem(k))) jumlah++;
+            }
+            ada = jumlah === 1;
+          }
+          if (ada) document.documentElement.classList.add('app-shell-active');
+        } catch (e) {}
       })();
     </script>
     <div id="root">
       <div class="boot-shell" aria-hidden="true">
         <aside class="boot-sidebar">
-          <div class="boot-brand"><img src="/assets/icon-192.png" alt="" /><div class="boot-line" style="width: 7rem"></div></div>
-          <div class="boot-nav">
-            <div class="boot-group"><div class="boot-line" style="width: 5rem"></div><div class="boot-line"></div><div class="boot-line"></div><div class="boot-line"></div></div>
-            <div class="boot-group"><div class="boot-line" style="width: 5rem"></div><div class="boot-line"></div></div>
+          <div class="boot-brand">
+            <div class="boot-logo"><span><img src="/assets/icon-192.png" alt="" /></span></div>
+            <div class="bsk-s" style="height: 1rem; width: 7rem"></div>
           </div>
+          <nav class="boot-nav">
+            <!-- Grup "utama": 6 menu -->
+            <div class="boot-group">
+              <div class="bsk-s" style="height: .75rem; width: 6rem"></div>
+              <div class="boot-item"><div class="bsk-s boot-dot"></div><div class="bsk-s" style="height: .75rem; width: 7rem"></div></div>
+              <div class="boot-item"><div class="bsk-s boot-dot"></div><div class="bsk-s" style="height: .75rem; width: 7rem"></div></div>
+              <div class="boot-item"><div class="bsk-s boot-dot"></div><div class="bsk-s" style="height: .75rem; width: 7rem"></div></div>
+              <div class="boot-item"><div class="bsk-s boot-dot"></div><div class="bsk-s" style="height: .75rem; width: 7rem"></div></div>
+              <div class="boot-item"><div class="bsk-s boot-dot"></div><div class="bsk-s" style="height: .75rem; width: 7rem"></div></div>
+              <div class="boot-item"><div class="bsk-s boot-dot"></div><div class="bsk-s" style="height: .75rem; width: 7rem"></div></div>
+            </div>
+            <!-- Grup "admin": 1 menu -->
+            <div class="boot-group">
+              <div class="bsk-s" style="height: .75rem; width: 6rem"></div>
+              <div class="boot-item"><div class="bsk-s boot-dot"></div><div class="bsk-s" style="height: .75rem; width: 7rem"></div></div>
+            </div>
+            <!-- Grup "referensi": 1 menu -->
+            <div class="boot-group">
+              <div class="bsk-s" style="height: .75rem; width: 6rem"></div>
+              <div class="boot-item"><div class="bsk-s boot-dot"></div><div class="bsk-s" style="height: .75rem; width: 7rem"></div></div>
+            </div>
+          </nav>
         </aside>
         <div class="boot-content">
-          <header class="boot-header"><div class="boot-row"><div class="boot-line" style="width: 7rem"></div><div class="boot-line" style="width: 10rem"></div></div><div class="boot-circle boot-line"></div></header>
-          <main class="boot-main"><div class="boot-row"><div class="boot-circle boot-line"></div><div class="boot-group"><div class="boot-line" style="width: 11rem"></div><div class="boot-line" style="width: 16rem"></div></div></div><div class="boot-card"></div><div class="boot-card"></div></main>
+          <header class="boot-header">
+            <div class="boot-row">
+              <div class="bsk b-menu" style="height: 2.25rem; width: 2.25rem; flex: none; border-radius: .75rem"></div>
+              <div class="boot-hjudul">
+                <div class="bsk" style="height: .875rem; width: 7rem"></div>
+                <div class="bsk" style="height: .625rem; width: 10rem"></div>
+              </div>
+            </div>
+            <div class="boot-row">
+              <div class="bsk b-clock" style="height: 2rem; width: 6rem; border-radius: 9999px"></div>
+              <div class="bsk" style="height: 2.25rem; width: 2.25rem; flex: none; border-radius: 50%"></div>
+            </div>
+          </header>
+          <main class="boot-main">
+            <!-- ═══ tabBeranda — PageLoading: tabBeranda && !pegawai ═══ -->
+            <div class="boot-hal" data-boot="tabBeranda">
+              <div class="boot-ph">
+                <div class="boot-ph-l">
+                  <div class="bsk" style="height: 2.75rem; width: 2.75rem; flex: none; border-radius: 1rem"></div>
+                  <div style="min-width: 0">
+                    <div class="bsk b-h7" style="width: 11rem; max-width: 100%"></div>
+                    <div class="bsk" style="height: 1rem; width: 16rem; max-width: 100%; margin-top: .125rem"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="b-beranda">
+                <div class="bsrf b-p5 b-col3" style="display: flex; flex-direction: column; gap: 1rem">
+                  <div class="bsk" style="height: 1rem; width: 10rem"></div>
+                  <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                  <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                  <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                  <div class="bsk" style="height: 2.5rem; width: 9rem; border-radius: .75rem"></div>
+                  <div class="bsk" style="height: .75rem; width: 75%"></div>
+                </div>
+                <div class="b-col2" style="display: flex; flex-direction: column; gap: 1.5rem">
+                  <div class="bsrf b-p5">
+                    <div class="bsk" style="height: 1rem; width: 10rem; margin-bottom: .75rem"></div>
+                    <div class="bsk" style="height: 4rem; width: 100%; border-radius: .75rem"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ tabPresensi — PageLoading: tabPresensi && !pegawai ═══ -->
+            <div class="boot-hal" data-boot="tabPresensi" hidden>
+              <div class="boot-ph">
+                <div class="boot-ph-l">
+                  <div class="bsk" style="height: 2.75rem; width: 2.75rem; flex: none; border-radius: 1rem"></div>
+                  <div style="min-width: 0">
+                    <div class="bsk b-h7" style="width: 11rem; max-width: 100%"></div>
+                    <div class="bsk" style="height: 1rem; width: 16rem; max-width: 100%; margin-top: .125rem"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="bsrf b-p5">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: .5rem; padding: 1.5rem 0; text-align: center">
+                  <div class="bsk" style="height: 1rem; width: 13rem; max-width: 100%"></div>
+                  <div class="bsk" style="height: .75rem; width: 18rem; max-width: 100%"></div>
+                </div>
+                <div style="display: flex; justify-content: center">
+                  <div class="bsk" style="height: 2.5rem; width: 8rem; border-radius: .75rem"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ tabLokasiAbsen ═══ -->
+            <div class="boot-hal" data-boot="tabLokasiAbsen" hidden>
+              <div class="bsrf b-p5">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem"><div class="bsk" style="height: 1rem; width: 9rem"></div><div class="bsk" style="height: 1.5rem; width: 8rem; border-radius: 9999px"></div></div>
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-bottom: .75rem"><div class="bsk" style="height: .75rem; width: 10rem"></div></div>
+                <div class="bsk b-aspect"></div>
+              </div>
+              <div class="bsrf b-p5">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem"><div class="bsk" style="height: 1rem; width: 7rem"></div><div class="bsk" style="height: 1.5rem; width: 6rem; border-radius: 9999px"></div></div>
+                <div class="b-g12">
+                  <div class="bsrf2" style="padding: 1rem">
+                    <div style="display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem"><div class="bsk" style="height: 2.25rem; width: 2.25rem; border-radius: .75rem"></div><div style="flex: 1 1 0%; display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 66.6667%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div></div>
+                    <div style="display: flex; gap: .5rem"><div class="bsk" style="height: 1.75rem; width: 7rem; border-radius: .75rem"></div><div class="bsk" style="height: 1.75rem; width: 6rem; border-radius: .75rem"></div></div>
+                  </div>
+                  <div class="bsrf2" style="padding: 1rem">
+                    <div style="display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem"><div class="bsk" style="height: 2.25rem; width: 2.25rem; border-radius: .75rem"></div><div style="flex: 1 1 0%; display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 66.6667%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div></div>
+                    <div style="display: flex; gap: .5rem"><div class="bsk" style="height: 1.75rem; width: 7rem; border-radius: .75rem"></div><div class="bsk" style="height: 1.75rem; width: 6rem; border-radius: .75rem"></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="bsrf b-p5">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem"><div class="bsk" style="height: 1rem; width: 11rem"></div></div>
+                <div class="b-g12">
+                  <div class="bsrf2" style="padding: 1rem">
+                    <div class="bsk" style="height: 1rem; width: 66.6667%; margin-bottom: .75rem"></div>
+                    <div class="bl">
+                      <div class="bl-r"><div style="min-width: 0; flex: 1 1 0%; display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .875rem; width: 40%"></div><div class="bsk" style="height: .75rem; width: 33.3333%"></div></div><div class="bsk" style="height: 1.5rem; width: 4rem; flex: none; border-radius: 9999px"></div></div>
+                      <div class="bl-r"><div style="min-width: 0; flex: 1 1 0%; display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .875rem; width: 40%"></div><div class="bsk" style="height: .75rem; width: 33.3333%"></div></div><div class="bsk" style="height: 1.5rem; width: 4rem; flex: none; border-radius: 9999px"></div></div>
+                      <div class="bl-r"><div style="min-width: 0; flex: 1 1 0%; display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .875rem; width: 40%"></div><div class="bsk" style="height: .75rem; width: 33.3333%"></div></div><div class="bsk" style="height: 1.5rem; width: 4rem; flex: none; border-radius: 9999px"></div></div>
+                    </div>
+                  </div>
+                  <div class="bsrf2" style="padding: 1rem">
+                    <div class="bsk" style="height: 1rem; width: 66.6667%; margin-bottom: .75rem"></div>
+                    <div class="bl">
+                      <div class="bl-r"><div style="min-width: 0; flex: 1 1 0%; display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .875rem; width: 40%"></div><div class="bsk" style="height: .75rem; width: 33.3333%"></div></div><div class="bsk" style="height: 1.5rem; width: 4rem; flex: none; border-radius: 9999px"></div></div>
+                      <div class="bl-r"><div style="min-width: 0; flex: 1 1 0%; display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .875rem; width: 40%"></div><div class="bsk" style="height: .75rem; width: 33.3333%"></div></div><div class="bsk" style="height: 1.5rem; width: 4rem; flex: none; border-radius: 9999px"></div></div>
+                      <div class="bl-r"><div style="min-width: 0; flex: 1 1 0%; display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .875rem; width: 40%"></div><div class="bsk" style="height: .75rem; width: 33.3333%"></div></div><div class="bsk" style="height: 1.5rem; width: 4rem; flex: none; border-radius: 9999px"></div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ tabManajemenAkun ═══ -->
+            <div class="boot-hal" data-boot="tabManajemenAkun" hidden>
+              <div style="display: flex; flex-direction: column; gap: 1.25rem">
+                <div class="bsrf3" style="overflow: hidden">
+                  <div class="b-pxy33">
+                    <div class="b-tabbg" style="display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .25rem; border-radius: .75rem; padding: .25rem">
+                      <div style="display: flex; min-height: 3rem; align-items: center; justify-content: center; gap: .5rem; border-radius: .5rem; padding: .5rem"><div class="bsk" style="height: 1rem; width: 1rem; flex: none; border-radius: .25rem"></div><div class="bsk" style="height: .75rem; width: 75%; max-width: 7rem"></div></div>
+                      <div style="display: flex; min-height: 3rem; align-items: center; justify-content: center; gap: .5rem; border-radius: .5rem; padding: .5rem"><div class="bsk" style="height: 1rem; width: 1rem; flex: none; border-radius: .25rem"></div><div class="bsk" style="height: .75rem; width: 75%; max-width: 7rem"></div></div>
+                      <div style="display: flex; min-height: 3rem; align-items: center; justify-content: center; gap: .5rem; border-radius: .5rem; padding: .5rem"><div class="bsk" style="height: 1rem; width: 1rem; flex: none; border-radius: .25rem"></div><div class="bsk" style="height: .75rem; width: 75%; max-width: 7rem"></div></div>
+                    </div>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 1rem">
+                  <div class="b-statstrip">
+                    <div class="b-statcell" style="display: flex; flex-direction: column; gap: .5rem; padding: 1rem"><div class="bsk" style="height: .75rem; width: 40%"></div><div class="bsk" style="height: 1.5rem; width: 33.3333%"></div><div class="bsk" style="height: .75rem; width: 60%"></div></div>
+                    <div class="b-statcell" style="display: flex; flex-direction: column; gap: .5rem; padding: 1rem"><div class="bsk" style="height: .75rem; width: 40%"></div><div class="bsk" style="height: 1.5rem; width: 33.3333%"></div><div class="bsk" style="height: .75rem; width: 60%"></div></div>
+                    <div class="b-statcell" style="display: flex; flex-direction: column; gap: .5rem; padding: 1rem"><div class="bsk" style="height: .75rem; width: 40%"></div><div class="bsk" style="height: 1.5rem; width: 33.3333%"></div><div class="bsk" style="height: .75rem; width: 60%"></div></div>
+                    <div class="b-statcell" style="display: flex; flex-direction: column; gap: .5rem; padding: 1rem"><div class="bsk" style="height: .75rem; width: 40%"></div><div class="bsk" style="height: 1.5rem; width: 33.3333%"></div><div class="bsk" style="height: .75rem; width: 60%"></div></div>
+                  </div>
+                  <div class="bsrf b-p4s5">
+                    <div class="b-filtermk">
+                      <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                      <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                      <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                      <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div style="display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .5rem"><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div></div>
+                    </div>
+                    <div style="margin-top: .625rem; display: flex; min-height: 26px; align-items: center"><div class="bsk" style="height: .75rem; width: 10rem"></div></div>
+                    <div style="margin-top: 1rem">
+                      <div class="bt">
+                        <div class="bt-h" style="grid-template-columns: repeat(8, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div></div>
+                        <div class="bt-r" style="grid-template-columns: repeat(8, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                        <div class="bt-r" style="grid-template-columns: repeat(8, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                        <div class="bt-r" style="grid-template-columns: repeat(8, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                        <div class="bt-r" style="grid-template-columns: repeat(8, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                        <div class="bt-r" style="grid-template-columns: repeat(8, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                        <div class="bt-r" style="grid-template-columns: repeat(8, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                        <div class="bt-r" style="grid-template-columns: repeat(8, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ tabPerizinan ═══ -->
+            <div class="boot-hal" data-boot="tabPerizinan" hidden>
+              <div class="bsrf" style="overflow: hidden">
+                <div class="b-pxy33">
+                  <div class="b-tabbg" style="display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .25rem; border-radius: .75rem; padding: .25rem">
+                    <div class="bsk-n" style="height: 3rem; border-radius: .5rem"></div>
+                    <div class="bsk" style="height: 3rem; border-radius: .5rem"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="bsrf b-p5">
+                <div class="bsk" style="height: 1rem; width: 9rem; margin-bottom: 1rem"></div>
+                <div style="display: flex; flex-direction: column; gap: 1rem">
+                  <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                  <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                  <div class="b-g2">
+                    <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                    <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 4rem"></div><div class="bsk" style="height: 6rem; width: 100%; border-radius: .75rem"></div></div>
+                  <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 4rem"></div><div class="bsk" style="height: 7rem; width: 100%; border-radius: .75rem"></div></div>
+                  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding-top: .25rem">
+                    <div class="bsk" style="height: 2.5rem; width: 7rem; border-radius: .75rem"></div>
+                    <div class="bsk b-kirim"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ tabLaporan ═══ -->
+            <div class="boot-hal" data-boot="tabLaporan" hidden>
+              <div class="bsrf b-p5">
+                <div class="b-g3c">
+                  <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                  <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                  <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                </div>
+                <div class="b-kaki">
+                  <div class="b-kirilapor">
+                    <div class="bsk" style="height: .75rem; width: 6rem"></div>
+                    <div class="bsk" style="height: 1.75rem; width: 4rem; border-radius: .5rem"></div>
+                    <div class="bsk" style="height: 1.75rem; width: 4rem; border-radius: .5rem"></div>
+                  </div>
+                  <div class="bsk b-tampil"></div>
+                </div>
+              </div>
+              <div class="boot-stats">
+                <div class="boot-stat"><div class="boot-stat-hd"><div class="bsk" style="height: .75rem; width: 40%"></div><div class="bsk" style="height: 1rem; width: 1rem; border-radius: .25rem"></div></div><div class="bsk" style="height: 1.75rem; width: 33.3333%; margin-top: .5rem"></div><div class="bsk" style="height: .75rem; width: 60%; margin-top: .25rem"></div></div>
+                <div class="boot-stat"><div class="boot-stat-hd"><div class="bsk" style="height: .75rem; width: 40%"></div></div><div class="bsk" style="height: 1.75rem; width: 33.3333%; margin-top: .5rem"></div><div class="bsk" style="height: .75rem; width: 60%; margin-top: .25rem"></div></div>
+                <div class="boot-stat"><div class="boot-stat-hd"><div class="bsk" style="height: .75rem; width: 40%"></div></div><div class="bsk" style="height: 1.75rem; width: 33.3333%; margin-top: .5rem"></div><div class="bsk" style="height: .75rem; width: 60%; margin-top: .25rem"></div></div>
+                <div class="boot-stat"><div class="boot-stat-hd"><div class="bsk" style="height: .75rem; width: 40%"></div></div><div class="bsk" style="height: 1.75rem; width: 33.3333%; margin-top: .5rem"></div><div class="bsk" style="height: .75rem; width: 60%; margin-top: .25rem"></div></div>
+              </div>
+              <div class="bsrf b-p5">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem">
+                  <div class="bsk" style="height: 1rem; width: 9rem"></div>
+                  <div style="display: flex; gap: .5rem"><div class="bsk" style="height: 2rem; width: 6rem; border-radius: .5rem"></div><div class="bsk" style="height: 2rem; width: 6rem; border-radius: .5rem"></div></div>
+                </div>
+                <div class="bt">
+                  <div class="bt-h" style="grid-template-columns: repeat(6, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div></div>
+                  <div class="bt-r" style="grid-template-columns: repeat(6, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                  <div class="bt-r" style="grid-template-columns: repeat(6, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                  <div class="bt-r" style="grid-template-columns: repeat(6, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                  <div class="bt-r" style="grid-template-columns: repeat(6, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                  <div class="bt-r" style="grid-template-columns: repeat(6, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                  <div class="bt-r" style="grid-template-columns: repeat(6, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ tabWeb — login (sudahLogin = false saat startup) ═══ -->
+            <div class="boot-hal" data-boot="tabWeb" hidden>
+              <div class="b-weblogin">
+                <div style="display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem"><div class="bsk" style="height: 1rem; width: 1rem; border-radius: 50%"></div><div class="bsk" style="height: 1rem; width: 8rem"></div></div>
+                <div style="display: flex; flex-direction: column; gap: 1rem">
+                  <div class="b-g2">
+                    <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 3rem"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                    <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 3rem"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                  </div>
+                  <div class="b-cap">
+                    <div class="b-cap1"><div class="bsk" style="height: .75rem; width: 3rem"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                    <div class="b-cap2"><div class="bsk" style="height: 2.75rem; width: 191px; flex: none; border-radius: 0"></div><div class="bsk" style="height: 2.75rem; width: 2.75rem"></div></div>
+                  </div>
+                  <div class="bsk" style="height: 2.5rem; width: 10rem; border-radius: .75rem"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ tabDocs ═══ -->
+            <div class="boot-hal" data-boot="tabDocs" hidden>
+              <div class="boot-ph">
+                <div class="boot-ph-l">
+                  <div class="bsk" style="height: 2.75rem; width: 2.75rem; flex: none; border-radius: 1rem"></div>
+                  <div style="min-width: 0">
+                    <div class="bsk b-h7" style="width: 11rem; max-width: 100%"></div>
+                    <div class="bsk" style="height: 1rem; width: 16rem; max-width: 100%; margin-top: .125rem"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="boot-stats">
+                <div class="boot-stat"><div class="boot-stat-hd"><div class="bsk" style="height: .75rem; width: 40%"></div><div class="bsk" style="height: 1rem; width: 1rem; border-radius: .25rem"></div></div><div class="bsk" style="height: 1.75rem; width: 33.3333%; margin-top: .5rem"></div><div class="bsk" style="height: .75rem; width: 60%; margin-top: .25rem"></div></div>
+                <div class="boot-stat"><div class="boot-stat-hd"><div class="bsk" style="height: .75rem; width: 40%"></div><div class="bsk" style="height: 1rem; width: 1rem; border-radius: .25rem"></div></div><div class="bsk" style="height: 1.75rem; width: 33.3333%; margin-top: .5rem"></div><div class="bsk" style="height: .75rem; width: 60%; margin-top: .25rem"></div></div>
+                <div class="boot-stat"><div class="boot-stat-hd"><div class="bsk" style="height: .75rem; width: 40%"></div><div class="bsk" style="height: 1rem; width: 1rem; border-radius: .25rem"></div></div><div class="bsk" style="height: 1.75rem; width: 33.3333%; margin-top: .5rem"></div><div class="bsk" style="height: .75rem; width: 60%; margin-top: .25rem"></div></div>
+                <div class="boot-stat"><div class="boot-stat-hd"><div class="bsk" style="height: .75rem; width: 40%"></div><div class="bsk" style="height: 1rem; width: 1rem; border-radius: .25rem"></div></div><div class="bsk" style="height: 1.75rem; width: 33.3333%; margin-top: .5rem"></div><div class="bsk" style="height: .75rem; width: 60%; margin-top: .25rem"></div></div>
+              </div>
+              <div class="b-chips">
+                <div class="bsk" style="height: 2.25rem; min-width: 0; border-radius: .5rem"></div>
+                <div class="bsk" style="height: 2.25rem; min-width: 0; border-radius: .5rem"></div>
+                <div class="bsk" style="height: 2.25rem; min-width: 0; border-radius: .5rem"></div>
+                <div class="bsk" style="height: 2.25rem; min-width: 0; border-radius: .5rem"></div>
+                <div class="bsk" style="height: 2.25rem; min-width: 0; border-radius: .5rem"></div>
+                <div class="bsk" style="height: 2.25rem; min-width: 0; border-radius: .5rem"></div>
+                <div class="bsk" style="height: 2.25rem; min-width: 0; border-radius: .5rem"></div>
+                <div class="bsk" style="height: 2.25rem; min-width: 0; border-radius: .5rem"></div>
+              </div>
+              <div class="bsrf b-p5">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem"><div class="bsk" style="height: 1.25rem; width: 10rem"></div><div class="bsk" style="height: 1.5rem; width: 9rem; border-radius: 9999px"></div></div>
+                <div class="b-g2c">
+                  <div class="bsk" style="height: 3rem; border-radius: .75rem"></div><div class="bsk" style="height: 3rem; border-radius: .75rem"></div><div class="bsk" style="height: 3rem; border-radius: .75rem"></div><div class="bsk" style="height: 3rem; border-radius: .75rem"></div><div class="bsk" style="height: 3rem; border-radius: .75rem"></div><div class="bsk" style="height: 3rem; border-radius: .75rem"></div>
+                </div>
+                <div class="bsk" style="height: 10rem; width: 100%; border-radius: .75rem; margin-top: 1rem"></div>
+              </div>
+              <div class="bsrf b-p5">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem"><div class="bsk" style="height: 1.25rem; width: 10rem"></div></div>
+                <div style="display: flex; flex-direction: column; gap: .75rem">
+                  <div class="bsk" style="height: .75rem; width: 100%"></div>
+                  <div class="bsk" style="height: .75rem; width: 83.3333%"></div>
+                  <div class="bsk" style="height: .75rem; width: 66.6667%"></div>
+                  <div style="display: grid; grid-template-columns: repeat(1, minmax(0,1fr)); gap: .625rem"><div class="bsk" style="height: 2.5rem; border-radius: .75rem"></div><div class="bsk" style="height: 2.5rem; border-radius: .75rem"></div><div class="bsk" style="height: 2.5rem; border-radius: .75rem"></div></div>
+                </div>
+              </div>
+              <div class="bsrf b-p5">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem"><div class="bsk" style="height: 1.25rem; width: 10rem"></div></div>
+                <div class="bsk" style="height: .75rem; width: 80%; margin-bottom: .75rem"></div>
+                <div class="bsk" style="height: 11rem; width: 100%; border-radius: .75rem"></div>
+              </div>
+            </div>
+
+            <!-- ═══ default (halaman lain) ═══ -->
+            <div class="boot-hal" data-boot="lain" hidden>
+              <div class="b-def">
+                <div class="bsrf b-p5 b-def2" style="display: flex; flex-direction: column; gap: 1rem">
+                  <div class="bsk" style="height: 1rem; width: 10rem"></div>
+                  <div class="b-g4c">
+                    <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                    <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                    <div style="display: flex; flex-direction: column; gap: .5rem"><div class="bsk" style="height: .75rem; width: 33.3333%"></div><div class="bsk" style="height: 42px; width: 100%; border-radius: .75rem"></div></div>
+                  </div>
+                  <div class="bsk" style="height: 2.5rem; width: 100%; border-radius: .75rem"></div>
+                </div>
+                <div class="bsk" style="height: 14rem; border-radius: 1rem"></div>
+              </div>
+              <div class="boot-stats">
+                <div class="boot-stat"><div class="boot-stat-hd"><div class="bsk" style="height: .75rem; width: 40%"></div><div class="bsk" style="height: 1rem; width: 1rem; border-radius: .25rem"></div></div><div class="bsk" style="height: 1.75rem; width: 33.3333%; margin-top: .5rem"></div><div class="bsk" style="height: .75rem; width: 60%; margin-top: .25rem"></div></div>
+                <div class="boot-stat"><div class="boot-stat-hd"><div class="bsk" style="height: .75rem; width: 40%"></div><div class="bsk" style="height: 1rem; width: 1rem; border-radius: .25rem"></div></div><div class="bsk" style="height: 1.75rem; width: 33.3333%; margin-top: .5rem"></div><div class="bsk" style="height: .75rem; width: 60%; margin-top: .25rem"></div></div>
+                <div class="boot-stat"><div class="boot-stat-hd"><div class="bsk" style="height: .75rem; width: 40%"></div><div class="bsk" style="height: 1rem; width: 1rem; border-radius: .25rem"></div></div><div class="bsk" style="height: 1.75rem; width: 33.3333%; margin-top: .5rem"></div><div class="bsk" style="height: .75rem; width: 60%; margin-top: .25rem"></div></div>
+              </div>
+              <div class="bsrf b-p4s5">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem">
+                  <div class="bsk" style="height: 1rem; width: 9rem"></div>
+                  <div class="bsk" style="height: 1.5rem; width: 5rem; border-radius: 9999px"></div>
+                </div>
+                <div class="bt">
+                  <div class="bt-h" style="grid-template-columns: repeat(6, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div><div class="bsk" style="height: .75rem; width: 75%"></div></div>
+                  <div class="bt-r" style="grid-template-columns: repeat(6, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                  <div class="bt-r" style="grid-template-columns: repeat(6, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                  <div class="bt-r" style="grid-template-columns: repeat(6, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                  <div class="bt-r" style="grid-template-columns: repeat(6, minmax(0,1fr))"><div class="bsk" style="height: .75rem; width: 80%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 60%"></div><div class="bsk" style="height: .75rem; width: 50%"></div></div>
+                </div>
+              </div>
+            </div>
+          </main>
         </div>
       </div>
+      <div class="boot-login" aria-hidden="true"></div>
     </div>
+    <!--
+      Pilih kerangka halaman yang cocok dengan `location.pathname`, sama
+      seperti `getPageFromPath()` di `AppContext.tsx`. Dijalankan inline
+      (sebelum paint) agar tidak ada kerangka yang salah tampil sekejap.
+    -->
+    <script>
+      (function() {
+        try {
+          /*
+           * Meniru `getPageFromPath()` di `src/context/AppContext.tsx`
+           * persis: normalisasi slash akhir → alihkan URL lama (PATH_LAMA)
+           * → cocok persis → cocok awalan terpanjang → jatuh ke tabBeranda.
+           */
+          var PETA = {
+            '/beranda': 'tabBeranda',
+            '/presensi': 'tabPresensi',
+            '/perizinan': 'tabPerizinan',
+            '/laporan': 'tabLaporan',
+            '/docs': 'tabDocs',
+            '/lokasi-absen': 'tabLokasiAbsen',
+            '/manajemen-akun': 'tabManajemenAkun',
+            '/web': 'tabWeb'
+          };
+          var LAMA = {
+            '/langganan': '/manajemen-akun',
+            '/langganan/akun': '/manajemen-akun',
+            '/langganan/pembayaran': '/manajemen-akun',
+            '/langganan/metode': '/manajemen-akun',
+            '/manajemen-akun/langganan': '/manajemen-akun'
+          };
+          var URUT = Object.keys(PETA).sort(function(a, b) { return b.length - a.length; });
+
+          function dariPath(path) {
+            var bersih = (path.length > 1 && path.slice(-1) === '/') ? path.slice(0, -1) : path;
+            var lama = LAMA[bersih];
+            if (lama) return dariPath(lama);
+            if (PETA[bersih]) return PETA[bersih];
+            for (var i = 0; i < URUT.length; i++) {
+              if (bersih.indexOf(URUT[i] + '/') === 0) return PETA[URUT[i]];
+            }
+            return 'tabBeranda';
+          }
+
+          var id = dariPath(location.pathname);
+          var semua = document.querySelectorAll('.boot-hal');
+          var ketemu = false;
+          for (var j = 0; j < semua.length; j++) {
+            var cocok = semua[j].getAttribute('data-boot') === id;
+            if (cocok) ketemu = true;
+            semua[j].hidden = !cocok;
+          }
+          if (!ketemu) {
+            var fb = document.querySelector('.boot-hal[data-boot="lain"]');
+            if (fb) fb.hidden = false;
+          }
+        } catch (e) {
+          var fallback = document.querySelector('.boot-hal[data-boot="tabBeranda"]');
+          if (fallback) fallback.hidden = false;
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

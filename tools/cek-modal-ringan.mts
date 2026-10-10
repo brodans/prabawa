@@ -141,6 +141,23 @@ cek('pemeriksaan sesi menampilkan shell workspace tanpa blur latar belakang',
 cek('hard refresh menampilkan boot shell sebelum React mount',
   /<div id="root">\s*<div class="boot-shell"/.test(htmlSrc) &&
     /<script type="module" src="\/src\/main\.tsx"><\/script>/.test(htmlSrc));
+// Kerangka boot adalah salinan statis `StartupShell` + `PageLoading` (saat
+// startup). Kalau React mengubah salah satunya, penjaga ini memaksa salinan
+// di `index.html` ikut berubah — supaya tidak ada lompatan tata letak/warna.
+const bootIds = [...htmlSrc.matchAll(/data-boot="(tab[A-Za-z]+)"/g)].map(m => m[1]);
+cek('boot shell menyediakan satu kerangka untuk setiap halaman PAGES',
+  ['tabBeranda', 'tabPresensi', 'tabPerizinan', 'tabLaporan', 'tabLokasiAbsen', 'tabWeb', 'tabDocs', 'tabManajemenAkun']
+    .every(id => bootIds.includes(id)));
+cek('boot sidebar meniru 6 + 1 + 1 menu seperti PAGES/GROUP_ORDER',
+  (htmlSrc.match(/class="boot-item"/g) ?? []).length === 8 &&
+    htmlSrc.includes('background: oklch(0.372 0.044 257.287 / 0.6)'));
+cek('boot memakai warna skeleton yang sama dengan <Skeleton> (bg-slate-200/70)',
+  htmlSrc.includes('background: oklch(0.929 0.013 255.508 / 0.7)') &&
+    /background: oklch\(0\.984 0\.003 247\.858\)/.test(htmlSrc));
+cek('boot shell hanya tampil saat ada sesi tersimpan yang sah',
+  /app-shell-active/.test(htmlSrc) &&
+    /s\.version !== VERSI/.test(htmlSrc) &&
+    /s\.currentUser\.role !== s\.boundRole/.test(htmlSrc));
 cek('input dan gambar captcha memakai lebar kolom penuh',
   /id="web-captcha"[\s\S]{0,500}className="w-full/.test(webSrc) &&
     /h-14 min-w-0 flex-1 overflow-hidden/.test(webSrc) &&
