@@ -1,0 +1,226 @@
+rules_version = '2';
+
+/**
+ * Firestore Security Rules — PRABAWA.
+ *
+ * Deploy:  firebase deploy --only firestore:rules
+ *          (atau paste manual di Firebase Console → Firestore → Rules)
+ *
+ * ## Prinsip: server adalah satu-satunya kebenaran
+ *
+ * Aplikasi ini **tidak memakai Firebase Authentication**. Seluruh autentikasi
+ * panelnya berjalan di `POST /api/panel-auth`, yang memverifikasi password
+ * server memakai Firebase Admin SDK:
+ *
+ *   POST /api/panel-auth {aksi:"masuk"}
+ *     → admin() → get(jatim_pengguna/{username}) → bcrypt.compare()
+ *
+ * Semua permintaan Firestore **dari peramban** datang sebagai *anonim*. Rules
+ * tidak bisa membedakan admin dari pengguna biasa — jadi rules tidak boleh
+ * mempercayai permintaan anonim untuk hal yang menentukan hak akses.
+ *
+ * ## Yang dikunci di sini
+ *
+ *   jatim_pengguna/{username}                    akun, hash, role  → server
+ *   jatim_pengaturan/auth                       kredensial admin   → server
+ *   jatim_pengaturan/kredensial_server__*       password pusat     → server
+ *   jatim_pengaturan/billing                    harga paket        → server
+ *   jatim_langganan/{username}                  masa aktif         → server
+ *   jatim_tagihan/{orderId}                     tagihan            → server
+ *
+ * **Hanya satu koleksi yang boleh dibaca peramban:** `jatim_pengaturan/billing`
+ * (paket, rekening, nomor WA, QRIS) — dan itu memang harus tampil sebelum
+ * pengguna masuk. Enam lainnya **server-only**, termasuk `jatim_langganan`
+ * dan `jatim_tagihan` yang dulu masih `allow read: if true`.
+ *
+ * ### Kenapa `allow read: if true` berarti "terbuka untuk semua"
+ *
+ * Aplikasi ini tidak memakai Firebase Authentication, jadi `request.auth`
+ * selalu `null` untuk permintaan dari peramban. Aturan baca yang butuh
+ * identitas tidak punya identitas untuk diperiksa — dan `if true` membukanya
+ * untuk siapa pun.
+ *
+ * API key Firestore bukan rahasia: ia ada di `VITE_FIREBASE_API_KEY`, yang
+ * Vite suntikkan ke bundle dan bisa diambil dari DevTools. Setelah itu,
+ * `GET https://firestore.googleapis.com/v1/projects/…/databases/(default)/documents/jatim_tagihan`
+ * langsung mengembalikan isi koleksi tanpa membuka aplikasi sama sekali.
+ *
+ * Yang bocor dari kedua koleksi itu bukan hal abstrak: nama lengkap + NIP +
+ * masa aktif, dan `usernameLabel` + `nominal` + `buktiUrl` tiap tagihan.
+ *
+ * Sekarang keduanya ditutup, dan gerbang langganan mengambil statusnya dari
+ * `POST /api/panel-auth` (`langganan:saya` / `tagihan:saya`), yang memverifikasi
+ * token dan mengembalikan **hanya** dokumen milik pemanggil.
+ *
+ * ## Kenapa `jatim_pengguna` ditutup total
+ *
+ * Sebelumnya:
+ *
+ * ```
+ * match /jatim_pengguna/{username} {
+ *   allow read: if true;
+ *   allow create, update, delete: if true;
+ * }
+ * ```
+ *
+ * Dua akibat yang berbeda:
+ *
+ * 1. **Baca** — `getDoc(jatim_pengguna/{nama})` mengembalikan `passwordHash`
+ *    milik siapa pun. Dikombinasikan dengan verifikasi bcrypt yang dulu
+ *    berjalan di peramban, itu berarti seluruh basis password panel bisa
+ *    dicuri dan dipecah secara offline tanpa batas percobaan.
+ * 2. **Tulis** — `setDoc({ role: 'admin' })` pada dokumen sendiri. Peran dibaca
+ *    peramban saat login, jadi menulisnya di sana sama dengan menjadi admin.
+ *    **Ini akar laporan "saya login user, reload jadi admin"** — bukan bug di
+ *    komponen React mana pun.
+ *
+ * Menutupnya tidak mengunci aplikasi, karena sekarang semua operasi akun lewat
+ * `POST /api/panel-auth` (`src/serverless/_panel.ts`), yang memakai Admin SDK
+ * dan melewati rules sepenuhnya.
+ *
+ * ## ⚠️ Yang TIDAK bisa ditutup dengan rules
+ *
+ * Rules hanya berlaku untuk **klien**. `Firebase Admin SDK` yang dipakai server
+ * memanggil Firestore sebagai service account dan melewati seluruh rules. Jadi
+ * aturan di sini bukan pengganti pemeriksaan di `src/lib/panelServer.ts` —
+ * keduanya berlapis: rules menutup pintu dari luar, kode server memeriksa
+ * yang diminta request.
+ *
+ * `ALLOWED_ORIGINS` + `PANEL_SESSION_SECRET` tetap wajib: rules tidak
+ * menyaring siapa yang boleh memanggil endpoint, dan token sesi ditandatangani
+ * dengan `PANEL_SESSION_SECRET` yang tidak pernah keluar dari server.
+ *
+ * Cara memastikan rules aktif: buka Firebase Console → Firestore → Rules, dan
+ * pastikan isinya sama dengan berkas ini. Rules di repo yang belum di-deploy
+ * tidak berlaku sama sekali.
+ */
+
+// ─── Fungsi bantu ──────────────────────────────────────────────────────
+//
+// ⚠️ **Tidak ada fungsi bantu di berkas ini — dan itu disengaja.**
+//
+// Semula ada tiga: `adaUid()`, `punyaPeran(role)`, dan `adalahAdmin()`.
+// Ketiganya memanggil `request.auth`, tapi aplikasi ini **tidak memakai
+// Firebase Authentication** sama sekali: autentikasi panelnya lewat
+// `POST /api/panel-auth` yang memverifikasi password dengan Admin SDK.
+//
+// Akibatnya `request.auth` selalu `null` untuk permintaan dari peramban, dan
+// ketiga fungsi itu tidak pernah dipanggil satu pun. Fungsi yang tidak
+// dipakai bukan sekadar sia-sia: setiap penambahan aturan nanti akan
+// tempted memanggilnya, dan pemanggil itu selalu salah — karena tidak ada
+// `auth` yang bisa diverifikasi.
+//
+// Kalau suatu saat aplikasi memang memakai Firebase Auth, tiga fungsi itu
+// baru boleh kembali, dan saat itu `adaUid()` harus jadi penjaga di **setiap**
+// aturan — bukan hanya di beberapa.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ═══ Akun panel ═══════════════════════════════════════════════
+    //
+    // ⚠️ **TIDAK ADA akses klien sama sekali.** Baca maupun tulis.
+    //
+    // Nol yang dikecualikan karena aplikasi ini tidak memakai Firebase Auth:
+    // setiap permintaan Firestore dari peramban anonim, jadi rules tidak punya
+    // cara memverifikasi siapa yang meminta. Satu-satunya akses yang sah adalah
+    // dari server (`POST /api/panel-auth`), yang memakai Admin SDK dan melewati
+    // rules ini.
+    //
+    // Semua operasi akun sudah lewat server:
+    //   verifyUserPassword  → POST /api/panel-auth {aksi:"masuk"}
+    //   fetchAllUsers       → POST /api/panel-auth {aksi:"akun:daftar"}
+    //   createUserAccount   → POST /api/panel-auth {aksi:"akun:buat"}
+    //   updateUserAccount   → POST /api/panel-auth {aksi:"akun:ubah"}
+    //   deleteUserAccount   → POST /api/panel-auth {aksi:"akun:hapus"}
+    match /jatim_pengguna/{username} {
+      allow read, write: if false;
+    }
+
+    // ═══ Pengaturan ═══════════════════════════════════════════════
+    //
+    // `auth` (kredensial admin bawaan) dan `kredensial_server__*` (password
+    // server pusat) ditutup total.
+    //
+    // Keduanya dulunya bisa dibaca siapa pun, dan keduanya berisi hal yang
+    // tidak boleh terlihat: `pinHash` admin serta password server pusat setiap
+    // pengguna. `pinEncrypted` pernah `AES(password, VITE_APP_SECRET)` dengan
+    // kunci yang ada di bundle peramban — jadi "terenkripsi"-nya hanya
+    // ilusi. Sekarang keduanya tidak bisa dibaca dari klien sama sekali.
+    match /jatim_pengaturan/{docId} {
+      allow read, write: if false;
+    }
+
+    //
+    // Pengecualian satu-satunya: `billing` — paket, QRIS, rekening, nomor WA.
+    // Peramban **harus** membacanya supaya bisa menampilkan harga dan membuat
+    // kode QRIS, dan isinya bukan rahasia. Menuliskannya tetap server-only:
+    // kalau klien boleh menulis, harga paket bisa diubah sepihak lalu langsung
+    // dieksekusi.
+    //
+    // ⚠️ Rules hanya menutup **klien**. Admin SDK di server tetap bisa menulis
+    // apa pun di sini — itu memang konsekuensi yang dibiarkan begitu.
+    match /jatim_pengaturan/billing {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ═══ Langganan ═══════════════════════════════════════════════
+    //
+    // ⚠️ INI ATURAN PALING PENTING DI BERKAS INI.
+    //
+    // Semula: `allow read: if true`, dengan alasan "Gerbang Langganan butuh
+    // tahu masa aktif untuk memutuskan boleh masuk atau tidak".
+    //
+    // Alasan itu tidak berlaku, dan sekarang **berbahaya**. Aplikasi ini tidak
+    // memakai Firebase Authentication — setiap permintaan dari peramban datang
+    // sebagai anonim, jadi `if true` berarti **seluruh koleksi terbuka** untuk
+    // siapa pun yang punya API key. Dan API key itu bukan rahasia: ia ada di
+    // dalam bundle peramban, jadi bisa diambil dari DevTools lalu dipakai lewat
+    // REST API tanpa membuka aplikasi sama sekali.
+    //
+    // Yang bocor dari koleksi ini: nama lengkap, NIP, masa aktif, dan status
+    // `gratis` — yaitu siapa yang **tidak** membayar.
+    //
+    // Sekarang baca juga `false`, dan Gerbang Langganan mengambil statusnya
+    // dari `POST /api/panel-auth` aksi `langganan:saya`. Server memverifikasi
+    // token dan mengembalikan dokumen milik **pemanggil** — nama akun diambil
+    // dari token, bukan dari body, jadi tidak ada parameter yang bisa
+    // menunjuk akun orang lain.
+    //
+    // Tulis sudah `false` sejak awal dan tetap: yang menambah masa aktif hanya
+    // `POST /api/billing/aktivasi` di server, memakai Admin SDK yang melewati
+    // rules ini. Sebelum rules ada, peramban menulis `masaAkhir` sendiri lewat
+    // `catatPembayar()` — siapa pun yang membuka DevTools bisa memanggil fungsi
+    // yang sama dengan `durasiHari: 36500`.
+    match /jatim_langganan/{username} {
+      allow read, write: if false;
+    }
+
+    // ═══ Tagihan ════════════════════════════════════════════════
+    //
+    // Semula juga `allow read: if true`, dengan alasan yang sama — dan alasan
+    // itu salah dengan cara yang lebih parah, karena isinya catatan keuangan:
+    // `usernameLabel` (nama orang), `nominal`, `buktiUrl` (tautan bukti
+    // transfer), dan catatan admin.
+    //
+    // Panel Langganan memang menampilkan riwayat tagihan, jadi tidak bisa
+    // ditutup tanpa memberi penggantinya. Sekarang lewat aksi `tagihan:saya`:
+    // server memverifikasi token dan memfilter berdasarkan username **dari
+    // token**, jadi satu akun tidak bisa membaca tagihan akun lain hanya
+    // dengan mengubah `username` di request.
+    //
+    // Tulis tetap server-only: klien membuat tagihan secara lokal (orderId
+    // dibuat di peramban lalu dikirim ke Midtrans), jadi status dan masa
+    // aktifnya hanya boleh diisi server setelah verifikasi pembayaran.
+    match /jatim_tagihan/{orderId} {
+      allow read, write: if false;
+    }
+
+    // ═══ Koleksi lain ═════════════════════════════════════════════
+    // Default: tolak semua yang tidak dicakup di atas.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

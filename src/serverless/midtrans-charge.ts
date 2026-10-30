@@ -1,0 +1,101 @@
+/**
+ * Vercel Serverless Function — buat transaksi Midtrans (Core API).
+ *
+ * ⚠️ `Server Key` hanya boleh dibaca di server. Fungsi ini adalah satu-satunya
+ * tempat yang menentuhnya; peramban tidak pernah melihat nilainya.
+ *
+ * Pola ini disalin dari `Mesen.Ae-Capacitor/api/midtrans-charge.ts` — bedanya
+ * hanya nama environment key dan pesan errornya.
+ *
+ * Keamanan tambahan: `origin` dibatasi ke daftar putih lewat
+ * `ALLOWED_ORIGINS`, sama seperti proxy JSON-RPC. Tanpa itu, endpoint ini
+ * bisa dipanggil siapa saja yang tahu URL-nya dan memakai server key kita
+ * untuk membuat transaksi.
+ */
+
+// Mode produksi/sandbox diputuskan satu tempat — lihat `lib/midtransEnv.ts`.
+import { midtransSnapBaseUrl } from '../lib/midtransEnv';
+import { pesanGalatSnap, responsSnapBerhasil } from '../lib/midtransSnapContract';
+
+function serverKey(): string {
+  return process.env.MIDTRANS_SERVER_KEY || '';
+}
+
+import { terapkanCors } from './_cors';
+
+export default async function handler(req: any, res: any) {
+  // Allow-list origin — lihat `api/_cors.ts`.
+  if (!terapkanCors(res, req.headers?.origin)) {
+    return res.status(403).json({ error_messages: ['Origin tidak diizinkan.'] });
+  }
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', ['POST']);
+    return res.status(405).json({ error_messages: [`Method ${req.method} not allowed`] });
+  }
+
+  const key = serverKey();
+  if (!key) {
+    // ⚠️ Pesan ini sengaja menyebut variabelnya — debugging di
+    // dashboard Vercel jauh lebih cepat daripada menebak.
+    return res.status(500).json({
+      error_messages: ['Server misconfiguration: MIDTRANS_SERVER_KEY tidak ditemukan.'],
+    });
+  }
+
+  // Wajib ada `order_id` — tanpa itu Midtrans menolak.
+  const body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {});
+  let parsedBody: any;
+  try {
+    parsedBody = JSON.parse(body);
+  } catch {
+    return res.status(400).json({ error_messages: ['Body harus berupa JSON yang valid.'] });
+  }
+  if (!parsedBody?.transaction_details?.order_id) {
+    return res.status(400).json({
+      error_messages: ['transaction_details.order_id wajib diisi.'],
+    });
+  }
+
+  const auth = Buffer.from(`${key}:`).toString('base64');
+  const baseUrl = midtransSnapBaseUrl();
+
+  try {
+    const upstream = await fetch(`${baseUrl}/snap/v1/transactions`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Basic ${auth}`,
+      },
+      body,
+    });
+
+    const text = await upstream.text();
+    let data: any;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      return res.status(502).json({
+        error_messages: ['Respons tidak valid dari Midtrans (bukan JSON).'],
+      });
+    }
+
+    // Respons sukses Snap berisi token dan redirect_url, bukan status_code.
+    if (!upstream.ok || !responsSnapBerhasil(data)) {
+      return res.status(422).json({
+        error_messages: [pesanGalatSnap(data, upstream.status)],
+      });
+    }
+
+    return res.status(200).json(data);
+  } catch (err: unknown) {
+    const pesan = err instanceof Error ? err.message : 'Unknown error';
+    return res.status(500).json({
+      error_messages: [`Gagal terhubung ke server pembayaran: ${pesan}`],
+    });
+  }
+}
