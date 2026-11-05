@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": false,
+  "regions": ["sin1"],
   "functions": {
     "api/billing-aktivasi.ts":  { "maxDuration": 60 },
     "api/panel-auth.ts":        { "maxDuration": 60 },
