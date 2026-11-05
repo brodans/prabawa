@@ -1,0 +1,68 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  Berkas yang TIDAK ikut dikirim ke Vercel
+# ═══════════════════════════════════════════════════════════════════════
+#
+# Berbeda dari `.gitignore`:
+#
+# - `.gitignore`  → menentukan apa yang di-*commit* ke GitHub.
+# - `.vercelignore` → menentukan apa yang di-*upload* ke Vercel.
+#
+# Jadi `tools/` tetap ikut ter-*commit* (test guards-nya harus ada di repo
+# supaya bisa dijalankan siapa pun), tapi tidak perlu dikirim ke server.
+#
+# Yang di-*commit* dan di-*upload* itu dua hal berbeda, dan mencampkannya
+# adalah sumber kebingungan: menambah ignore di tempat yang salah membuat
+# test hilang dari repo, atau membuat Vercel gagal build karena berkas yang
+# dibutuhkannya ikut ter-skip.
+#
+# ───────────────────────────────────────────────────────────────────────
+#
+# ⚠️  Yang TIDAK boleh masuk daftar ini
+#
+#  `api/` — kenapa harus ada di repo, bukan hanya hasil build:
+#
+#  1. `api/*.ts` adalah bundel self-contained. Vercel membuild fungsi dari
+#     berkas yang ia terima, dan **tidak** menjalankan `npm run build:api`
+#     untuk fungsi-fungsi itu. Kalau `api/` kosong saat build, semua endpoint berubah 404
+#     dengan build log yang bersih.
+#  2. Kalau proses build gagal di tengah jalan, versi yang ter-*commit*
+#     masih bisa dipakai. Build gagal tidak seharusnya juga mematikan API.
+#  3. `api/tsconfig.json` juga wajib ikut: Vercel me-resolve `tsconfig.json`
+#     dari folder entrypoint saat mengompilasi `api/*.ts`, dan `noCheck` di
+#     situ yang membuat bundel ini lolos typecheck.
+#
+#  `src/serverless/` — sumber handler-nya. Wajib ikut supaya `build:api`
+#  bisa jalan dan menghasilkan `api/*.ts` yang sama persis.
+#
+#  `src/`, `index.html`, `vercel.json`, `package.json`, `package-lock.json`,
+#  `tsconfig.json`, `vite.config.ts` — semuanya dibutuhkan build.
+#
+# ───────────────────────────────────────────────────────────────────────
+
+# ─── Perkakas pengembangan ──────────────────────────────────────────
+# Hanya dipakai oleh `npm test` dan `npm run "…:cek"`. Tidak satu pun
+# file di src/ atau api/ mengimpornya, dan build Vercel tidak memanggilnya.
+#
+# ⚠️  Tapi `pangkas-onnx.mjs` di root TIDAK boleh ikut aturan ini.
+#
+# `package.json` mendaftarkannya sebagai `postinstall`, dan `postinstall`
+# tetap dipanggil Vercel saat `npm install`. Kalau skripnya ikut ter-exclude,
+# Vercel tidak menemukannya, `npm install` gagal, dan **seluruh deploy**
+# mati — bukan cuma OCR. Sudah diuji: exit 1 (`Cannot find module`).
+# Karena itu skrip itu ditaruh di root, yang tidak pernah di-exclude.
+tools/
+
+# Berkas hasil analisis yang hanya berguna sekali
+lint-results.json
+
+# ─── Rahasia & berkas lokal ─────────────────────────────────────────
+# `.env` sudah masuk `.gitignore`, tapi `.vercelignore` berlaku pada
+# berkas yang di-*upload* — bukan hanya yang ter-*commit*. Env asli tidak
+# boleh pernah sampai ke server; env production diisi lewat dashboard
+# Vercel, bukan lewat berkas.
+.env
+.env.*
+!.env.example
+
+# Catatan dan dokumen internal — tidak ada yang membacanya saat runtime
+/ENDPOINT.md

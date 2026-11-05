@@ -1,0 +1,40 @@
+{
+  "//": [
+    "Typecheck untuk `tools/` — skrip uji dan perkakas.",
+    "",
+    "Dipisah dari `tsconfig.json` karena tiga alasan:",
+    "",
+    "1. `tools/` butuh `@types/node` dan `vite/client`, sedangkan `src/`",
+    "   aplikasi peramban tidak boleh ikut menarik keduanya ke bundel tipenya.",
+    "2. `tools/` TIDAK ikut ter-upload ke Vercel (lihat `.vercelignore`), jadi",
+    "   `typecheck` yang dipanggil script `build` tidak boleh memakainya —",
+    "   kalau dipaksakan, build di Vercel gagal dengan \"No inputs were found\".",
+    "   Yang memeriksa `tools/` adalah `npm run typecheck:tools`, yang hanya",
+    "   jalan di mesin yang punya repo lengkap.",
+    "3. `strict` di sini berarti setiap stub di skrip uji harus benar-benar",
+    "   berbentuk `Storage`/`Response`/`Window`. Itu memang tujuannya: stub",
+    "   yang hanya meniru sebagian bentuk membuat skrip lulus karena bukan",
+    "   lagi menguji kode produksi."
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node", "vite/client"],
+    "jsx": "react-jsx",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["tools/**/*.mts"]
+}
