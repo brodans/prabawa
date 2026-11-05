@@ -177,8 +177,19 @@ var BASE_HEADERS = {
   "User-Agent": "okhttp/4.12.0",
   "Accept-Encoding": "gzip"
 };
-function getSanitizedHeaders() {
-  return { ...BASE_HEADERS };
+function getSanitizedHeaders(cookie) {
+  const h = { ...BASE_HEADERS };
+  if (cookie) h["Cookie"] = cookie;
+  return h;
+}
+function ambilCookie(response) {
+  const raw = typeof response.headers.getSetCookie === "function" ? response.headers.getSetCookie() : [response.headers.get("set-cookie") ?? ""].filter(Boolean);
+  const pasangan = [];
+  for (const baris of raw) {
+    const [namanilai] = baris.split(";");
+    if (namanilai) pasangan.push(namanilai.trim());
+  }
+  return pasangan.join("; ");
 }
 function withTimeout(ms) {
   const controller = new AbortController();
@@ -187,12 +198,17 @@ function withTimeout(ms) {
 }
 async function fetchWithRetry(url, init, retries = MAX_RETRIES, timeoutMs = REQUEST_TIMEOUT_MS) {
   let lastError = null;
+  let cookieJar = "";
   for (let attempt = 0; attempt <= retries; attempt++) {
     const { signal, done } = withTimeout(timeoutMs);
     try {
-      const response = await fetch(url, { ...init, signal });
+      const headers = getSanitizedHeaders(cookieJar || void 0);
+      const response = await fetch(url, { ...init, headers, signal });
+      const cookieBaru = ambilCookie(response);
+      if (cookieBaru) cookieJar = cookieBaru;
       const rawText = await response.text();
-      if (response.status < 500 && response.status !== 429) {
+      const layakUlang = response.status === 403 || response.status >= 500 || response.status === 429;
+      if (!layakUlang) {
         return { status: response.status, rawText };
       }
       lastError = new Error(`Upstream HTTP ${response.status}`);

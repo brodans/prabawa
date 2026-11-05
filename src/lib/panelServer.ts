@@ -1672,18 +1672,48 @@ export async function autoLoginPusat(
   });
 
   try {
-    const upstream = await fetch(process.env.PRESENSI_BASE_URL || GATEWAY_BAWAAN, {
+    // Helper: ambil pasangan nama=nilai dari Set-Cookie header
+    function ambilCookieResponse(r: Response): string {
+      const raw: string[] =
+        typeof (r.headers as any).getSetCookie === 'function'
+          ? (r.headers as any).getSetCookie()
+          : [r.headers.get('set-cookie') ?? ''].filter(Boolean);
+      return raw
+        .map(b => b.split(';')[0]?.trim())
+        .filter(Boolean)
+        .join('; ');
+    }
+
+    const GATEWAY = process.env.PRESENSI_BASE_URL || GATEWAY_BAWAAN;
+    const BASE_H = {
+      'Content-Type': 'application/json; charset=UTF-8',
+      Accept: 'application/json',
+      'User-Agent': 'okhttp/4.12.0',
+      'Accept-Encoding': 'gzip',
+    };
+
+    // Percobaan 1 — tanpa cookie (dapatkan cookie session dari CF)
+    let upstream = await fetch(GATEWAY, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=UTF-8',
-        Accept: 'application/json',
-        'User-Agent': 'okhttp/4.12.0',
-        'Accept-Encoding': 'gzip',
-      },
+      headers: BASE_H,
       body: JSON.stringify(envelope),
     });
 
-    const teks = await upstream.text();
+    let cookie = ambilCookieResponse(upstream);
+    let teks = await upstream.text();
+
+    // Jika CF memblokir (403) dan kita dapat cookie, coba ulang dengan cookie
+    if (upstream.status === 403 && cookie) {
+      upstream = await fetch(GATEWAY, {
+        method: 'POST',
+        headers: { ...BASE_H, Cookie: cookie },
+        body: JSON.stringify(envelope),
+      });
+      const cookieBaru = ambilCookieResponse(upstream);
+      if (cookieBaru) cookie = cookieBaru;
+      teks = await upstream.text();
+    }
+
     type BalasanGateway = { result?: Record<string, unknown>; error?: unknown };
     let parsed: BalasanGateway | null = null;
     try {

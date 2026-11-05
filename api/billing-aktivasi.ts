@@ -1098,17 +1098,35 @@ async function autoLoginPusat(token, username, opsi = {}) {
     last_latlong: ""
   });
   try {
-    const upstream = await fetch(process.env.PRESENSI_BASE_URL || GATEWAY_BAWAAN, {
+    let ambilCookieResponse2 = function(r) {
+      const raw = typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [r.headers.get("set-cookie") ?? ""].filter(Boolean);
+      return raw.map((b) => b.split(";")[0]?.trim()).filter(Boolean).join("; ");
+    };
+    var ambilCookieResponse = ambilCookieResponse2;
+    const GATEWAY = process.env.PRESENSI_BASE_URL || GATEWAY_BAWAAN;
+    const BASE_H = {
+      "Content-Type": "application/json; charset=UTF-8",
+      Accept: "application/json",
+      "User-Agent": "okhttp/4.12.0",
+      "Accept-Encoding": "gzip"
+    };
+    let upstream = await fetch(GATEWAY, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=UTF-8",
-        Accept: "application/json",
-        "User-Agent": "okhttp/4.12.0",
-        "Accept-Encoding": "gzip"
-      },
+      headers: BASE_H,
       body: JSON.stringify(envelope)
     });
-    const teks = await upstream.text();
+    let cookie = ambilCookieResponse2(upstream);
+    let teks = await upstream.text();
+    if (upstream.status === 403 && cookie) {
+      upstream = await fetch(GATEWAY, {
+        method: "POST",
+        headers: { ...BASE_H, Cookie: cookie },
+        body: JSON.stringify(envelope)
+      });
+      const cookieBaru = ambilCookieResponse2(upstream);
+      if (cookieBaru) cookie = cookieBaru;
+      teks = await upstream.text();
+    }
     let parsed = null;
     try {
       parsed = JSON.parse(teks);

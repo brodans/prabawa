@@ -45,10 +45,33 @@ const BASE_HEADERS: Record<string, string> = {
   'Accept-Encoding': 'gzip',
 };
 
-
 /** Buang header yang bisa dipakai upstream untuk fingerprint pemanggil. */
-function getSanitizedHeaders(): Record<string, string> {
-  return { ...BASE_HEADERS };
+function getSanitizedHeaders(cookie?: string): Record<string, string> {
+  const h: Record<string, string> = { ...BASE_HEADERS };
+  if (cookie) h['Cookie'] = cookie;
+  return h;
+}
+
+/**
+ * Ambil nilai cookie dari header Set-Cookie (satu atau lebih, dipisah koma).
+ * Node fetch menggabungkan Set-Cookie menjadi satu string — kita pecah per ';'
+ * untuk mengambil nama=nilai dari tiap cookie yang relevan.
+ */
+function ambilCookie(response: Response): string {
+  // Node 18+ fetch: response.headers.getSetCookie() tersedia di beberapa env,
+  // tapi tidak selalu. Fallback ke get('set-cookie') yang menggabung semua.
+  const raw: string[] =
+    typeof (response.headers as any).getSetCookie === 'function'
+      ? (response.headers as any).getSetCookie()
+      : [response.headers.get('set-cookie') ?? ''].filter(Boolean);
+
+  const pasangan: string[] = [];
+  for (const baris of raw) {
+    // Setiap Set-Cookie: nama=nilai; Path=...; HttpOnly → ambil bagian pertama
+    const [namanilai] = baris.split(';');
+    if (namanilai) pasangan.push(namanilai.trim());
+  }
+  return pasangan.join('; ');
 }
 
 function withTimeout(ms: number): { signal: AbortSignal; done: () => void } {
@@ -64,14 +87,26 @@ async function fetchWithRetry(
   timeoutMs: number = REQUEST_TIMEOUT_MS
 ): Promise<{ status: number; rawText: string }> {
   let lastError: unknown = null;
+  let cookieJar = '';
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     const { signal, done } = withTimeout(timeoutMs);
     try {
-      const response = await fetch(url, { ...init, signal });
+      const headers = getSanitizedHeaders(cookieJar || undefined);
+      const response = await fetch(url, { ...init, headers, signal });
+
+      // Simpan cookie baru dari setiap respons (termasuk 403) untuk percobaan berikut.
+      const cookieBaru = ambilCookie(response);
+      if (cookieBaru) cookieJar = cookieBaru;
+
       const rawText = await response.text();
-      // 5xx dan 429 layak dicoba ulang; 4xx tidak.
-      if (response.status < 500 && response.status !== 429) {
+
+      // Lanjutkan (return) kalau sukses 2xx/3xx, atau 4xx yang bukan 403.
+      // 403 dari Cloudflare dicoba ulang karena cookie dari respons pertama
+      // mungkin cukup untuk melewati bot check di percobaan berikutnya.
+      // 5xx dan 429 juga dicoba ulang (gangguan sementara server pusat).
+      const layakUlang = response.status === 403 || response.status >= 500 || response.status === 429;
+      if (!layakUlang) {
         return { status: response.status, rawText };
       }
       lastError = new Error(`Upstream HTTP ${response.status}`);
