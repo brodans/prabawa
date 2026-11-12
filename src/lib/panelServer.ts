@@ -58,7 +58,7 @@ import {
 import { Buffer as NodeBuffer } from 'node:buffer';
 import { admin, adminTersedia } from './firestoreAdmin';
 import { hashPinLayered, verifyPinLayered } from './pin';
-import { buildRpcEnvelope } from './presensiContract';
+import { buildRpcEnvelope, cuplikanAman, galatHulu } from './presensiContract';
 import { bersihkanUndefined } from './firestoreAman';
 import {
   batasiIzin,
@@ -1676,11 +1676,13 @@ export async function autoLoginPusat(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json; charset=UTF-8',
-        Accept: 'application/json',
+        Accept: 'application/json, text/plain, */*',
+        'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
         'User-Agent': 'okhttp/4.12.0',
-        'Accept-Encoding': 'gzip',
       },
       body: JSON.stringify(envelope),
+      // Hindari request menggantung lama di serverless function.
+      signal: AbortSignal.timeout(15_000),
     });
 
     const teks = await upstream.text();
@@ -1689,7 +1691,18 @@ export async function autoLoginPusat(
     try {
       parsed = JSON.parse(teks) as BalasanGateway;
     } catch {
-      return { ok: false, kode: 502, pesan: 'Server pusat mengembalikan respons yang bukan JSON.' };
+      const hulu = galatHulu(upstream.status, teks, cuplikanAman);
+      const prefix = hulu.huluKosong
+        ? hulu.error
+        : upstream.status >= 500
+          ? `Server pusat sedang bermasalah (HTTP ${upstream.status || 0}).`
+          : hulu.error;
+      const cuplikan = hulu.cuplikan ? ` Cuplikan: ${hulu.cuplikan}` : '';
+      return {
+        ok: false,
+        kode: upstream.status >= 500 || hulu.huluKosong ? 503 : 502,
+        pesan: `${prefix}${cuplikan}`.trim(),
+      };
     }
 
     const galat = parsed?.error as { message?: string; code?: number } | string | undefined;
@@ -1705,15 +1718,19 @@ export async function autoLoginPusat(
     const hasil = parsed?.result as Record<string, unknown> | undefined;
     const apiKey = String(hasil?.api_key ?? '');
     if (!hasil || !apiKey) {
-      return { ok: false, kode: 401, pesan: 'NIP atau password server pusat tidak cocok.' };
+      const alasan = !upstream.ok ? ` (HTTP ${upstream.status})` : '';
+      return { ok: false, kode: 401, pesan: `NIP atau password server pusat tidak cocok${alasan}.` };
     }
 
     return { ok: true, apiKey, profil: { ...hasil, nip, imei } };
   } catch (err: any) {
+    const timeout = err?.name === 'TimeoutError' || err?.name === 'AbortError';
     return {
       ok: false,
-      kode: 502,
-      pesan: `Gagal menghubungi server pusat: ${err?.message ?? 'tidak diketahui'}`,
+      kode: timeout ? 504 : 502,
+      pesan: timeout
+        ? 'Server pusat tidak merespons dalam waktu wajar. Coba lagi beberapa saat.'
+        : `Gagal menghubungi server pusat: ${err?.message ?? 'tidak diketahui'}`,
     };
   }
 }

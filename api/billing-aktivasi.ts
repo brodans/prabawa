@@ -173,6 +173,31 @@ function buildRpcEnvelope(object, param) {
     param
   };
 }
+function cuplikanAman(teks) {
+  const barisPertama = teks.split(/\r?\n/).find((baris) => baris.trim().length > 0) ?? "";
+  return barisPertama.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200);
+}
+function galatHulu(status, rawText, cuplikan) {
+  const teks = rawText.trim();
+  if (teks.length === 0) {
+    return {
+      // 503, bukan 502: 502 berarti "proxy gagal meneruskan", sedangkan di
+      // sini sesasinya berhasil dan **server pusat** yang sedang bermasalah.
+      // Klien memakai status ini untuk memutuskan apakah perlu mencoba lagi,
+      // jadi 503 (hulu) dipetakan ke 503 (proxy) — bukan ke 502.
+      error: "Server pusat sedang tidak melayani. Ini gangguan sesaat \u2014 coba lagi beberapa saat lagi.",
+      huluStatus: status,
+      huluKosong: true,
+      cuplikan: ""
+    };
+  }
+  return {
+    error: "Server pusat mengembalikan halaman galat, bukan data. Permintaan sudah diterima tetapi jawabannya tidak bisa dibaca.",
+    huluStatus: status,
+    huluKosong: false,
+    cuplikan: cuplikan(teks)
+  };
+}
 var PRESENSI_SERVICE_URL, PRESENSI_IMPORTFILE_PATH, PRESENSI_IMPORTFILE_URL, APK_VERSION_CODE, PRESENSI_VERSION, RPC_OBJECTS, RPC_REQUIRED_PARAMS, RPC_BISA_ULANG;
 var init_presensiContract = __esm({
   "src/lib/presensiContract.ts"() {
@@ -1102,18 +1127,27 @@ async function autoLoginPusat(token, username, opsi = {}) {
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=UTF-8",
-        Accept: "application/json",
-        "User-Agent": "okhttp/4.12.0",
-        "Accept-Encoding": "gzip"
+        Accept: "application/json, text/plain, */*",
+        "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+        "User-Agent": "okhttp/4.12.0"
       },
-      body: JSON.stringify(envelope)
+      body: JSON.stringify(envelope),
+      // Hindari request menggantung lama di serverless function.
+      signal: AbortSignal.timeout(15e3)
     });
     const teks = await upstream.text();
     let parsed = null;
     try {
       parsed = JSON.parse(teks);
     } catch {
-      return { ok: false, kode: 502, pesan: "Server pusat mengembalikan respons yang bukan JSON." };
+      const hulu = galatHulu(upstream.status, teks, cuplikanAman);
+      const prefix = hulu.huluKosong ? hulu.error : upstream.status >= 500 ? `Server pusat sedang bermasalah (HTTP ${upstream.status || 0}).` : hulu.error;
+      const cuplikan = hulu.cuplikan ? ` Cuplikan: ${hulu.cuplikan}` : "";
+      return {
+        ok: false,
+        kode: upstream.status >= 500 || hulu.huluKosong ? 503 : 502,
+        pesan: `${prefix}${cuplikan}`.trim()
+      };
     }
     const galat = parsed?.error;
     if (galat) {
@@ -1124,14 +1158,16 @@ async function autoLoginPusat(token, username, opsi = {}) {
     const hasil = parsed?.result;
     const apiKey = String(hasil?.api_key ?? "");
     if (!hasil || !apiKey) {
-      return { ok: false, kode: 401, pesan: "NIP atau password server pusat tidak cocok." };
+      const alasan = !upstream.ok ? ` (HTTP ${upstream.status})` : "";
+      return { ok: false, kode: 401, pesan: `NIP atau password server pusat tidak cocok${alasan}.` };
     }
     return { ok: true, apiKey, profil: { ...hasil, nip, imei } };
   } catch (err) {
+    const timeout = err?.name === "TimeoutError" || err?.name === "AbortError";
     return {
       ok: false,
-      kode: 502,
-      pesan: `Gagal menghubungi server pusat: ${err?.message ?? "tidak diketahui"}`
+      kode: timeout ? 504 : 502,
+      pesan: timeout ? "Server pusat tidak merespons dalam waktu wajar. Coba lagi beberapa saat." : `Gagal menghubungi server pusat: ${err?.message ?? "tidak diketahui"}`
     };
   }
 }

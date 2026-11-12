@@ -23,7 +23,7 @@ node_modules
 *.njsproj
 *.sln
 *.sw?
-
+.md
 .env
 .env.*
 !.env.example
