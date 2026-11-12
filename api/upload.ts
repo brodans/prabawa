@@ -98,17 +98,20 @@ function galatHulu(status, rawText, cuplikan) {
       // sini sesasinya berhasil dan **server pusat** yang sedang bermasalah.
       // Klien memakai status ini untuk memutuskan apakah perlu mencoba lagi,
       // jadi 503 (hulu) dipetakan ke 503 (proxy) — bukan ke 502.
-      error: "Server pusat sedang tidak melayani. Ini gangguan sesaat \u2014 coba lagi beberapa saat lagi.",
+      error: "Server pusat sedang tidak melayani. Ini gangguan sesaat \u2014 coba lagi beberapa saat lagi." + (status ? ` (HTTP ${status}, badan kosong)` : ""),
       huluStatus: status,
       huluKosong: true,
       cuplikan: ""
     };
   }
+  const ringkas = cuplikan(teks);
+  const infoStatus = status ? `HTTP ${status}` : "tanpa status";
+  const infoCuplikan = ringkas ? ` Cuplikan: ${ringkas}` : "";
   return {
-    error: "Server pusat mengembalikan halaman galat, bukan data. Permintaan sudah diterima tetapi jawabannya tidak bisa dibaca.",
+    error: `Server pusat mengembalikan respons non-JSON (${infoStatus}). Permintaan diterima tetapi jawabannya bukan data JSON yang bisa dibaca.` + infoCuplikan,
     huluStatus: status,
     huluKosong: false,
-    cuplikan: cuplikan(teks)
+    cuplikan: ringkas
   };
 }
 
@@ -158,9 +161,9 @@ function terapkanCors(res, origin) {
 var REQUEST_TIMEOUT_MS = 3e4;
 var BATAS_BODY_BYTES = 20 * 1024 * 1024;
 var BASE_HEADERS = {
-  Accept: "application/json",
-  "User-Agent": "okhttp/4.12.0",
-  "Accept-Encoding": "gzip"
+  Accept: "application/json, text/plain, */*",
+  "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+  "User-Agent": "okhttp/4.12.0"
 };
 async function forward(body, contentType) {
   const controller = new AbortController();

@@ -1692,16 +1692,10 @@ export async function autoLoginPusat(
       parsed = JSON.parse(teks) as BalasanGateway;
     } catch {
       const hulu = galatHulu(upstream.status, teks, cuplikanAman);
-      const prefix = hulu.huluKosong
-        ? hulu.error
-        : upstream.status >= 500
-          ? `Server pusat sedang bermasalah (HTTP ${upstream.status || 0}).`
-          : hulu.error;
-      const cuplikan = hulu.cuplikan ? ` Cuplikan: ${hulu.cuplikan}` : '';
       return {
         ok: false,
         kode: upstream.status >= 500 || hulu.huluKosong ? 503 : 502,
-        pesan: `${prefix}${cuplikan}`.trim(),
+        pesan: hulu.error,
       };
     }
 

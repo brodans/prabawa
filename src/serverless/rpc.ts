@@ -37,12 +37,13 @@ const PRESENSI_VERSION = Number(process.env.PRESENSI_VERSION || VERIFIED_PRESENS
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 2;
 
-/** Header yang meniru klien Android asli (okhttp / Volley). */
+/** Header yang meniru klien Android asli (okhttp). */
 const BASE_HEADERS: Record<string, string> = {
   'Content-Type': 'application/json; charset=UTF-8',
-  Accept: 'application/json',
+  Accept: 'application/json, text/plain, */*',
+  'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
   'User-Agent': 'okhttp/4.12.0',
-  'Accept-Encoding': 'gzip',
+  Connection: 'keep-alive',
 };
 
 

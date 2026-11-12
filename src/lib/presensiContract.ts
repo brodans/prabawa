@@ -1093,18 +1093,23 @@ export function galatHulu(
       // jadi 503 (hulu) dipetakan ke 503 (proxy) — bukan ke 502.
       error:
         'Server pusat sedang tidak melayani. Ini gangguan sesaat — ' +
-        'coba lagi beberapa saat lagi.',
+        'coba lagi beberapa saat lagi.' +
+        (status ? ` (HTTP ${status}, badan kosong)` : ''),
       huluStatus: status,
       huluKosong: true,
       cuplikan: '',
     };
   }
+  const ringkas = cuplikan(teks);
+  const infoStatus = status ? `HTTP ${status}` : 'tanpa status';
+  const infoCuplikan = ringkas ? ` Cuplikan: ${ringkas}` : '';
   return {
     error:
-      'Server pusat mengembalikan halaman galat, bukan data. ' +
-      'Permintaan sudah diterima tetapi jawabannya tidak bisa dibaca.',
+      `Server pusat mengembalikan respons non-JSON (${infoStatus}). ` +
+      'Permintaan diterima tetapi jawabannya bukan data JSON yang bisa dibaca.' +
+      infoCuplikan,
     huluStatus: status,
     huluKosong: false,
-    cuplikan: cuplikan(teks),
+    cuplikan: ringkas,
   };
 }

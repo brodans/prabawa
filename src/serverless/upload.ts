@@ -28,11 +28,11 @@ const REQUEST_TIMEOUT_MS = 30_000;
 /** Batas unggahan — sama dengan route Express. */
 const BATAS_BODY_BYTES = 20 * 1024 * 1024;
 
-/** Header yang meniru klien Android asli (Volley). */
+/** Header yang meniru klien Android asli. */
 const BASE_HEADERS: Record<string, string> = {
-  Accept: 'application/json',
+  Accept: 'application/json, text/plain, */*',
+  'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
   'User-Agent': 'okhttp/4.12.0',
-  'Accept-Encoding': 'gzip',
 };
 
 async function forward(body: Buffer, contentType: string): Promise<Response> {

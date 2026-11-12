@@ -185,17 +185,20 @@ function galatHulu(status, rawText, cuplikan) {
       // sini sesasinya berhasil dan **server pusat** yang sedang bermasalah.
       // Klien memakai status ini untuk memutuskan apakah perlu mencoba lagi,
       // jadi 503 (hulu) dipetakan ke 503 (proxy) — bukan ke 502.
-      error: "Server pusat sedang tidak melayani. Ini gangguan sesaat \u2014 coba lagi beberapa saat lagi.",
+      error: "Server pusat sedang tidak melayani. Ini gangguan sesaat \u2014 coba lagi beberapa saat lagi." + (status ? ` (HTTP ${status}, badan kosong)` : ""),
       huluStatus: status,
       huluKosong: true,
       cuplikan: ""
     };
   }
+  const ringkas = cuplikan(teks);
+  const infoStatus = status ? `HTTP ${status}` : "tanpa status";
+  const infoCuplikan = ringkas ? ` Cuplikan: ${ringkas}` : "";
   return {
-    error: "Server pusat mengembalikan halaman galat, bukan data. Permintaan sudah diterima tetapi jawabannya tidak bisa dibaca.",
+    error: `Server pusat mengembalikan respons non-JSON (${infoStatus}). Permintaan diterima tetapi jawabannya bukan data JSON yang bisa dibaca.` + infoCuplikan,
     huluStatus: status,
     huluKosong: false,
-    cuplikan: cuplikan(teks)
+    cuplikan: ringkas
   };
 }
 var PRESENSI_SERVICE_URL, PRESENSI_IMPORTFILE_PATH, PRESENSI_IMPORTFILE_URL, APK_VERSION_CODE, PRESENSI_VERSION, RPC_OBJECTS, RPC_REQUIRED_PARAMS, RPC_BISA_ULANG;
@@ -1141,12 +1144,10 @@ async function autoLoginPusat(token, username, opsi = {}) {
       parsed = JSON.parse(teks);
     } catch {
       const hulu = galatHulu(upstream.status, teks, cuplikanAman);
-      const prefix = hulu.huluKosong ? hulu.error : upstream.status >= 500 ? `Server pusat sedang bermasalah (HTTP ${upstream.status || 0}).` : hulu.error;
-      const cuplikan = hulu.cuplikan ? ` Cuplikan: ${hulu.cuplikan}` : "";
       return {
         ok: false,
         kode: upstream.status >= 500 || hulu.huluKosong ? 503 : 502,
-        pesan: `${prefix}${cuplikan}`.trim()
+        pesan: hulu.error
       };
     }
     const galat = parsed?.error;
